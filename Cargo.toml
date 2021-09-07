@@ -1,0 +1,10 @@
+[package]
+name = "logic_paint"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+bevy = { git = "https://github.com/bevyengine/bevy.git", branch="latest" }
+fast-voxel-traversal = "0.5"
+fast_hilbert = "1.0"
+packed_struct = "0.6"
