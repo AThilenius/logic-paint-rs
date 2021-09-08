@@ -4,7 +4,7 @@ use bevy::{
         mesh::shape,
         pipeline::RenderPipeline,
         render_graph::base::MainPass,
-        texture::{Extent3d, TextureDimension, TextureFormat},
+        texture::{Extent3d, FilterMode, SamplerDescriptor, TextureDimension, TextureFormat},
     },
 };
 
@@ -32,20 +32,35 @@ impl CanvasRenderBundle {
         textures: &mut Assets<Texture>,
         transform: Transform,
     ) -> Self {
-        let texture = textures.add(Texture::new_fill(
-            Extent3d {
-                width: DEFAULT_CANVAS_SIZE as u32,
-                height: DEFAULT_CANVAS_SIZE as u32,
-                depth: 1,
+        // The texture is unsigned, un-normalized 8-bit, so min and mag filters have to be Nearest.
+        let mut texture = Texture {
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Rgba8Uint,
+            sampler: SamplerDescriptor {
+                min_filter: FilterMode::Nearest,
+                mag_filter: FilterMode::Nearest,
+                ..Default::default()
             },
-            TextureDimension::D2,
-            &[255, 0, 0, 255],
-            TextureFormat::Rgba8UnormSrgb,
-        ));
+            ..Default::default()
+        };
+        texture.resize(Extent3d {
+            width: DEFAULT_CANVAS_SIZE as u32,
+            height: DEFAULT_CANVAS_SIZE as u32,
+            depth: 1,
+        });
+
+        let pixel = [1, 0, 0, 1];
+        for current_pixel in texture.data.chunks_exact_mut(pixel.len()) {
+            current_pixel.copy_from_slice(&pixel);
+        }
+
+        let texture = textures.add(texture);
 
         let material = materials.add(CellMaterial {
             grid_color: Color::rgba(0.0, 0.0, 0.0, 0.2),
             grid_res: Vec2::new(DEFAULT_CANVAS_SIZE as f32, DEFAULT_CANVAS_SIZE as f32),
+            n_color: Color::rgba(0.0, 0.5, 0.0, 1.0),
+            p_color: Color::rgba(0.0, 0.0, 0.5, 1.0),
             texture: texture.clone(),
         });
 

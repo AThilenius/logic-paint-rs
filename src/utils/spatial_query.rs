@@ -49,7 +49,7 @@ pub fn raycast_canvas(
     let floored = cell_space_point.floor();
     let (x, y) = (floored.x as u32, floored.y as u32);
 
-    if x > 0 && x < canvas.size && y > 0 && y < canvas.size {
+    if x < canvas.size && y < canvas.size {
         Some(IVec2::new(x as i32, y as i32))
     } else {
         None

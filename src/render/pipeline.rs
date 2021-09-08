@@ -19,6 +19,8 @@ const CELL_MATERIAL: &str = "cell_material";
 pub struct CellMaterial {
     pub grid_color: Color,
     pub grid_res: Vec2,
+    pub n_color: Color,
+    pub p_color: Color,
     pub texture: Handle<Texture>,
 }
 

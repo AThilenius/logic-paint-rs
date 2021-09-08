@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use input::{load_canvas_input, CanvasInput};
+use input::{load_canvas_input, ActiveTools, CanvasInput, ToolType};
 
 use crate::{
     canvas::{Canvas, SiLayerType},
@@ -20,6 +20,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system(mouse_click.system())
         .add_system(load_canvas_input.system())
+        .insert_resource(ActiveTools::default())
         .run();
 }
 
@@ -37,7 +38,7 @@ fn setup(
             &mut materials,
             &mut meshes,
             &mut textures,
-            Transform::from_scale(Vec3::new(400.0, 400.0, 400.0)),
+            Transform::from_scale(Vec3::new(800.0, 800.0, 800.0)),
         ))
         .insert(Canvas::default())
         .insert(CanvasInput::default());
@@ -45,14 +46,39 @@ fn setup(
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
-fn mouse_click(mut canvas_query: Query<(&mut Canvas, &CanvasInput)>) {
+fn mouse_click(
+    mut canvas_query: Query<(&mut Canvas, &CanvasInput)>,
+    active_tool: Res<ActiveTools>,
+) {
     for (mut canvas, canvas_input) in canvas_query.iter_mut() {
-        if !canvas_input.left_pressed {
+        if !canvas_input.left_pressed && !canvas_input.right_pressed {
             return;
         }
 
-        for pos in canvas_input.mouse_moved.iter() {
-            canvas.get_cell_mut(*pos).lower_si_layer.layer_type = SiLayerType::NType;
+        if let Some(pos) = canvas_input.mouse_position {
+            update_cell(&mut canvas, &active_tool, pos, canvas_input.left_pressed);
         }
     }
+}
+
+fn update_cell(canvas: &mut Canvas, active_tool: &ActiveTools, pos: IVec2, left_click: bool) {
+    match (active_tool.tool_type, left_click) {
+        (ToolType::None, _) => {}
+        (ToolType::PType, true) => {
+            canvas.get_cell_mut(pos).lower_si_layer.layer_type = SiLayerType::PType
+        }
+        (ToolType::PType, false) => {
+            canvas.get_cell_mut(pos).lower_si_layer.layer_type = SiLayerType::None
+        }
+        (ToolType::NType, true) => {
+            canvas.get_cell_mut(pos).lower_si_layer.layer_type = SiLayerType::NType
+        }
+        (ToolType::NType, false) => {
+            canvas.get_cell_mut(pos).lower_si_layer.layer_type = SiLayerType::None
+        }
+        (ToolType::Metal, true) => canvas.get_cell_mut(pos).has_metal = true,
+        (ToolType::Metal, false) => canvas.get_cell_mut(pos).has_metal = false,
+        (ToolType::Via, true) => canvas.get_cell_mut(pos).has_via = true,
+        (ToolType::Via, false) => canvas.get_cell_mut(pos).has_via = false,
+    };
 }

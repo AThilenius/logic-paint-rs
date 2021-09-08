@@ -45,6 +45,7 @@ impl From<crate::canvas::LayerState> for LayerState {
 #[derive(PackedStruct, Debug, Copy, Clone, PartialEq)]
 #[packed_struct(bit_numbering = "msb0")]
 pub struct PackedPixel {
+    // First 8 bits
     #[packed_field(bits = "0:1", ty = "enum")]
     lower_si_layer: SiLayerType,
     #[packed_field(bits = "2:3", ty = "enum")]
@@ -53,6 +54,8 @@ pub struct PackedPixel {
     lower_si_layer_state: LayerState,
     #[packed_field(bits = "6:7", ty = "enum")]
     upper_si_layer_state: LayerState,
+
+    // Second 8 bits
     has_metal_layer: bool,
     has_via: bool,
     #[packed_field(bits = "10:11", ty = "enum")]

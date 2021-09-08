@@ -1,28 +1,68 @@
-use bevy::{prelude::*, render::camera::Camera};
-use fast_voxel_traversal::raycast_2d::{BoundingVolume2, Ray2};
+use bevy::{
+    input::{keyboard::KeyboardInput, ElementState},
+    prelude::*,
+    render::camera::Camera,
+};
 
 use crate::{
     canvas::Canvas,
     utils::spatial_query::{raycast_canvas, screen_to_world_point_at_distance},
 };
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone)]
 pub struct CanvasInput {
     pub left_just_pressed: bool,
     pub left_pressed: bool,
     pub right_just_pressed: bool,
     pub right_pressed: bool,
     pub mouse_position: Option<IVec2>,
-    pub mouse_moved: Vec<IVec2>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolType {
+    None,
+    NType,
+    PType,
+    Metal,
+    Via,
+}
+
+impl Default for ToolType {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct ActiveTools {
+    pub tool_type: ToolType,
 }
 
 pub fn load_canvas_input(
     mut cursor_moved_events: EventReader<CursorMoved>,
+    mut keyboard_event: EventReader<KeyboardInput>,
     mut canvas_query: Query<(&mut CanvasInput, &Canvas, &GlobalTransform)>,
+    mut active_tool: ResMut<ActiveTools>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mouse_button: Res<Input<MouseButton>>,
     windows: Res<Windows>,
 ) {
+    // Key events we just handle out-of-band. They are considered global data. I'll probably change
+    // that later -shrug-.
+    for key_event in keyboard_event.iter() {
+        if key_event.state != ElementState::Pressed {
+            continue;
+        }
+
+        match key_event.key_code {
+            Some(KeyCode::Q) => active_tool.tool_type = ToolType::NType,
+            Some(KeyCode::W) => active_tool.tool_type = ToolType::PType,
+            Some(KeyCode::E) => active_tool.tool_type = ToolType::Metal,
+            Some(KeyCode::R) => active_tool.tool_type = ToolType::Via,
+            _ => {}
+        }
+    }
+
     let world_positions = match camera_query.single() {
         Ok((camera, camera_transform)) => {
             let window = windows
@@ -58,60 +98,11 @@ pub fn load_canvas_input(
             .map(|p| (*p, raycast_canvas(p, &canvas, global_transform)))
             .collect();
 
-        // Store the previous point (if any) for raycasting
-        let previous = canvas_input.mouse_position;
-
         // Check if we need to update mouse_position
         match world_and_cell_positions.last() {
             Some((_, None)) => canvas_input.mouse_position = None,
             Some((_, Some(pos))) => canvas_input.mouse_position = Some(*pos),
             _ => {}
         };
-
-        // Now we want to update all the "moved" data. But we won't get mouse events at a high
-        // enough frequency to guarantee each and every cell gets a "hit" as the mouse moves. So
-        // instead we raycast between each mouse event to find all the cells that could have been
-        // hit. However, we need to skip events that missed the canvas and not just cull them from
-        // the list.
-        canvas_input.mouse_moved.clear();
-        let volume = BoundingVolume2 {
-            size: (canvas.size as i32, canvas.size as i32),
-        };
-
-        // Still no if-let chaining in Rust -cry- https://github.com/rust-lang/rust/issues/53667
-        if let (Some(previous), Some((_, Some(first)))) =
-            (previous, world_and_cell_positions.first())
-        {
-            if previous != *first {
-                let dir = (*first - previous).as_f32();
-                let ray = Ray2 {
-                    origin: previous.as_f32().into(),
-                    direction: dir.into(),
-                    length: dir.length(),
-                };
-                canvas_input
-                    .mouse_moved
-                    .extend(volume.traverse_ray(ray).map(|hit| IVec2::from(hit.voxel)));
-            }
-        }
-
-        for i in 0..world_and_cell_positions.len().saturating_sub(1) {
-            if let (Some((_, Some(first))), Some((_, Some(second)))) = (
-                world_and_cell_positions.get(i),
-                world_and_cell_positions.get(i + 1),
-            ) {
-                if first != second {
-                    let dir = (*second - *first).as_f32();
-                    let ray = Ray2 {
-                        origin: first.as_f32().into(),
-                        direction: dir.into(),
-                        length: dir.length(),
-                    };
-                    canvas_input
-                        .mouse_moved
-                        .extend(volume.traverse_ray(ray).map(|hit| IVec2::from(hit.voxel)));
-                }
-            }
-        }
     }
 }
