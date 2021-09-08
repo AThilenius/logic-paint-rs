@@ -1,0 +1,21 @@
+[package]
+name = "common"
+version = "0.1.0"
+edition = "2018"
+
+[features]
+web = [
+  "bevy/bevy_winit",
+  "bevy/render",
+]
+
+native = [
+  "bevy/bevy_winit",
+  "bevy/render",
+  "bevy/bevy_wgpu",
+]
+
+[dependencies]
+bevy = { version="0.5", default-features=false }
+fast_hilbert = "1.0"
+packed_struct = "0.6"

@@ -1,0 +1,15 @@
+[package]
+name = "native"
+version = "0.1.0"
+edition = "2018"
+
+[profile.release]
+lto = true
+
+[features]
+default = [
+  "common/native",
+]
+
+[dependencies]
+common = { path="../common" }

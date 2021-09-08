@@ -1,3 +1,5 @@
+pub use bevy;
+
 use bevy::prelude::*;
 use input::{load_canvas_input, ActiveTools, CanvasInput, ToolType};
 
@@ -11,17 +13,21 @@ mod input;
 mod render;
 mod utils;
 
-/// This example illustrates how to create a custom material asset and a shader that uses that
-/// material
-fn main() {
-    App::build()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(CanvasRenderPlugin {})
-        .add_startup_system(setup.system())
-        .add_system(mouse_click.system())
-        .add_system(load_canvas_input.system())
-        .insert_resource(ActiveTools::default())
-        .run();
+pub struct CanvasShaderSource {
+    pub vert: String,
+    pub frag: String,
+}
+
+pub struct CommonPlugin {}
+
+impl Plugin for CommonPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_plugin(CanvasRenderPlugin {});
+        app.insert_resource(ActiveTools::default());
+        app.add_startup_system(setup.system());
+        app.add_system(mouse_click.system());
+        app.add_system(load_canvas_input.system());
+    }
 }
 
 fn setup(
