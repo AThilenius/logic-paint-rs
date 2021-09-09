@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
-web = [
-  "bevy/bevy_winit",
-  "bevy/render",
-]
-
-native = [
+default = [
   "bevy/bevy_winit",
   "bevy/render",
   "bevy/bevy_wgpu",
+]
+
+web = [
+  "bevy/bevy_winit",
+  "bevy/render",
 ]
 
 [dependencies]

@@ -20,6 +20,10 @@ layout(std140) uniform CellMaterial_p_color { // set = 2, binding = 3
 };
 uniform usampler2D CellMaterial_texture_sampler; // set = 2, binding = 4
 
+bool get_bit(uint byte, uint shift) {
+    return ((byte >> shift) & 1u) == 1u;
+}
+
 void main() {
     uvec2 texel = uvec2(floor(v_Uv * grid_res));
 
@@ -31,25 +35,23 @@ void main() {
     );
 
     // Unpack first 8 bites
-    bool lower_n = (tex.r >> 7) == 1u;
-    bool lower_p = ((tex.r >> 6) & 1u) == 1u;
-    bool upper_n = (tex.r >> 5) == 1u;
-    bool upper_p = ((tex.r >> 4) & 1u) == 1u;
-    bool lower_error = (tex.r >> 3) == 1u;
-    bool lower_active = (tex.r >> 2) == 1u;
-    bool upper_error = (tex.r >> 1) == 1u;
-    bool upper_active = (tex.r >> 0) == 1u;
+    bool lower_n = get_bit(tex.r, 7);
+    bool lower_p = get_bit(tex.r, 6);
+    bool upper_n = get_bit(tex.r, 5);
+    bool upper_p = get_bit(tex.r, 4);
+    bool lower_error = get_bit(tex.r, 3);
+    bool lower_active = get_bit(tex.r, 2);
+    bool upper_error = get_bit(tex.r, 1);
+    bool upper_active = get_bit(tex.r, 0);
 
     // Unpack second 8 bits
-    bool has_metal = ((tex.g >> 7) & 1u) == 1u;
-    bool has_via = ((tex.g >> 6) & 1u) == 1u;
-    bool metal_error = ((tex.g >> 5) & 1u) == 1u;
-    bool metal_active = ((tex.g >> 4) & 1u) == 1u;
+    bool has_metal = get_bit(tex.g, 7);
+    bool has_via = get_bit(tex.g, 6);
+    bool metal_error = get_bit(tex.g, 5);
+    bool metal_active = get_bit(tex.g, 4);
 
     // Misc flags
     bool painted = (tex.r >> 4) != 0u || has_metal;
-    // bool grid_1 = mod(mod(texel.x, 2u) + mod(texel.y, 2u), 2u) == 0u;
-    // bool grid_8 = mod(mod(texel.x >> 3, 2u) + mod(texel.y >> 3, 2u), 2u) == 0u;
     bool grid_1 = (((texel.x % 2u) + (texel.y % 2u)) % 2u) == 0u;
     bool grid_8 = ((((texel.x >> 3) % 2u) + ((texel.y >> 3) % 2u)) % 2u) == 0u;
     bool has_upper_layer = upper_n || upper_p;
@@ -73,9 +75,9 @@ void main() {
     vec3 c_lower = lower_n ? c_n : (lower_p ? c_p : vec3(0.0));
     vec3 c_upper = upper_n ? c_n : (upper_p ? c_p : vec3(0.0));
     vec3 c_metal = vec3(0.6);
-    vec3 c_si = has_upper_layer ? c_upper - (c_lower * 0.2) : c_lower;
+    vec3 c_si = has_upper_layer ? c_upper - (c_upper * 0.4) + (c_lower * 0.1) : c_lower;
     vec3 c_base = has_si ? c_si : vec3(0.4);
-    vec3 c_si_and_metal = has_metal ? c_base * 0.1 : c_base;
+    vec3 c_si_and_metal = has_metal ? c_base * 0.2 : c_base;
     vec3 c_via = has_via ? vec3(via_step) : vec3(0.0);
     vec3 c_cell = c_si_and_metal + c_via;
     vec3 c_out = c_cell * (painted ? 1.0 : grid);

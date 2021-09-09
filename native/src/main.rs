@@ -1,3 +1,5 @@
+use std::mem::size_of;
+
 use common::{
     bevy::{asset::AssetServerSettings, prelude::*},
     CanvasShaderSource, CommonPlugin,

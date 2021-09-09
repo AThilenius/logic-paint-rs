@@ -1,6 +1,6 @@
 use bevy::{math::Vec3Swizzles, prelude::*, render::camera::Camera};
 
-use crate::canvas::Canvas;
+use crate::canvas::CanvasData;
 
 pub fn screen_to_world_point_at_distance(
     pos_screen: Vec2,
@@ -31,7 +31,7 @@ pub fn screen_to_world_point_at_distance(
 
 pub fn raycast_canvas(
     world_point: &Vec3,
-    canvas: &Canvas,
+    canvas: &CanvasData,
     canvas_transform: &GlobalTransform,
 ) -> Option<IVec2> {
     // Convert the point into the local space of the canvas

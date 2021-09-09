@@ -2,7 +2,7 @@ use bevy::{prelude::*, render::texture::Extent3d};
 use packed_struct::prelude::*;
 
 use crate::{
-    canvas::{Canvas, CanvasCell},
+    canvas::{CanvasCell, CanvasData, MetalLayer},
     render::CellMaterial,
 };
 
@@ -13,31 +13,20 @@ pub enum SiLayerType {
     NType = 0b10,
 }
 
-impl From<crate::canvas::SiLayerType> for SiLayerType {
-    #[inline(always)]
-    fn from(t: crate::canvas::SiLayerType) -> Self {
-        match t {
-            crate::canvas::SiLayerType::None => SiLayerType::None,
-            crate::canvas::SiLayerType::PType => SiLayerType::PType,
-            crate::canvas::SiLayerType::NType => SiLayerType::NType,
-        }
-    }
-}
-
 #[derive(PrimitiveEnum, Debug, Copy, Clone, PartialEq)]
 pub enum LayerState {
-    Inactive = 0b00,
-    Active = 0b01,
-    Error = 0b10,
+    Off = 0b00,
+    On = 0b01,
+    Err = 0b10,
 }
 
 impl From<crate::canvas::LayerState> for LayerState {
     #[inline(always)]
     fn from(s: crate::canvas::LayerState) -> Self {
         match s {
-            crate::canvas::LayerState::Inactive => LayerState::Inactive,
-            crate::canvas::LayerState::Active => LayerState::Active,
-            crate::canvas::LayerState::Error => LayerState::Error,
+            crate::canvas::LayerState::Off => LayerState::Off,
+            crate::canvas::LayerState::On => LayerState::On,
+            crate::canvas::LayerState::Err => LayerState::Err,
         }
     }
 }
@@ -51,9 +40,9 @@ pub struct PackedPixel {
     #[packed_field(bits = "2:3", ty = "enum")]
     upper_si_layer: SiLayerType,
     #[packed_field(bits = "4:5", ty = "enum")]
-    lower_si_layer_state: LayerState,
+    si_lower_state: LayerState,
     #[packed_field(bits = "6:7", ty = "enum")]
-    upper_si_layer_state: LayerState,
+    si_upper_state: LayerState,
 
     // Second 8 bits
     has_metal_layer: bool,
@@ -66,12 +55,25 @@ impl From<&CanvasCell> for PackedPixel {
     #[inline(always)]
     fn from(c: &CanvasCell) -> Self {
         Self {
-            lower_si_layer: c.lower_si_layer.layer_type.into(),
-            upper_si_layer: c.upper_si_layer.layer_type.into(),
-            lower_si_layer_state: c.lower_si_layer.state.into(),
-            upper_si_layer_state: c.upper_si_layer.state.into(),
-            has_metal_layer: c.has_metal,
-            has_via: c.has_via,
+            lower_si_layer: match c.si {
+                crate::SiLayer::N => SiLayerType::NType,
+                crate::SiLayer::P => SiLayerType::PType,
+                crate::SiLayer::POnN => SiLayerType::NType,
+                crate::SiLayer::NOnP => SiLayerType::PType,
+                _ => SiLayerType::None,
+            },
+            upper_si_layer: match c.si {
+                crate::SiLayer::POnN => SiLayerType::PType,
+                crate::SiLayer::NOnP => SiLayerType::NType,
+                _ => SiLayerType::None,
+            },
+            si_lower_state: c.si_lower_state.into(),
+            si_upper_state: c.si_upper_state.into(),
+            has_metal_layer: match c.metal {
+                MetalLayer::Metal | MetalLayer::MetalAndVia => true,
+                _ => false,
+            },
+            has_via: c.metal == MetalLayer::MetalAndVia,
             metal_layer_state: c.metal_state.into(),
         }
     }
@@ -80,7 +82,7 @@ impl From<&CanvasCell> for PackedPixel {
 pub fn render_canvas_to_texture(
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<CellMaterial>>,
-    query: Query<(&Canvas, &Handle<CellMaterial>)>,
+    query: Query<(&CanvasData, &Handle<CellMaterial>)>,
 ) {
     for (canvas, cell_material_handle) in query.iter() {
         let material = materials.get_mut(cell_material_handle).unwrap();

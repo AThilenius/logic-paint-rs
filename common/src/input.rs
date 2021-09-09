@@ -5,7 +5,7 @@ use bevy::{
 };
 
 use crate::{
-    canvas::Canvas,
+    canvas::CanvasData,
     utils::spatial_query::{raycast_canvas, screen_to_world_point_at_distance},
 };
 
@@ -41,7 +41,7 @@ pub struct ActiveTools {
 pub fn load_canvas_input(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut keyboard_event: EventReader<KeyboardInput>,
-    mut canvas_query: Query<(&mut CanvasInput, &Canvas, &GlobalTransform)>,
+    mut canvas_query: Query<(&mut CanvasInput, &CanvasData, &GlobalTransform)>,
     mut active_tool: ResMut<ActiveTools>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mouse_button: Res<Input<MouseButton>>,

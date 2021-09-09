@@ -12,6 +12,6 @@ default = [
 ]
 
 [dependencies]
-common = { path="../common" }
+common = { path="../common", default-features=false }
 wasm-bindgen = "0.2"
 bevy_webgl2 = "0.5"
