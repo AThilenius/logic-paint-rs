@@ -122,7 +122,13 @@ pub fn handle_canvas_input(
                 None
             };
 
-            let (prev, new) = draw(&active_tool, input.left_pressed, from, (steps[i], to));
+            let (prev, new) = draw(
+                &data,
+                &active_tool,
+                input.left_pressed,
+                from,
+                (steps[i], to),
+            );
 
             // Write both cells to the canvas data.
             if let Some(prev) = prev {
@@ -134,6 +140,7 @@ pub fn handle_canvas_input(
 }
 
 fn draw(
+    data: &CanvasData,
     active_tool: &ActiveTools,
     left_click: bool,
     from: Option<(IVec2, Cell)>,
@@ -141,16 +148,109 @@ fn draw(
 ) -> (Option<Cell>, Cell) {
     match (active_tool.tool_type, left_click) {
         // (ToolType::None, _) => {}
-        // (ToolType::NType, true) => {}
+        (ToolType::NType, true) => draw_si(data, from, to, true),
         // (ToolType::NType, false) => {}
-        // (ToolType::PType, true) => {}
+        (ToolType::PType, true) => draw_si(data, from, to, false),
         // (ToolType::PType, false) => {}
         (ToolType::Metal, true) => draw_metal(from, to),
         // (ToolType::Metal, false) => {}
-        // (ToolType::Via, true) => {}
+        (ToolType::Via, true) => draw_via(from, to),
         // (ToolType::Via, false) => {}
         _ => todo!(),
     }
+}
+
+fn draw_via(mut from: Option<(IVec2, Cell)>, mut to: (IVec2, Cell)) -> (Option<Cell>, Cell) {
+    // Only draw the first place the user clicks for vias.
+    let (_, tc) = &mut to;
+    if from.is_none() && (tc.si_n || tc.si_p) && tc.metal {
+        to.1.via = true;
+    }
+
+    (from.map(|f| f.1), to.1)
+}
+
+fn draw_si(
+    data: &CanvasData,
+    mut from: Option<(IVec2, Cell)>,
+    mut to: (IVec2, Cell),
+    paint_n: bool,
+) -> (Option<Cell>, Cell) {
+    // Success cases:
+    // - Previous and current don't have silicon
+    // - Previous has same type of silicon as to cell
+    // - Previous has opposite type of silicon as to cell but also has a gate pointed same direction
+    // - Both have same type of silicon (non-op)
+    // - No previous, to cell doesn't have si
+    // - Previous has same type, to-cell has opposite type and no gate (drawing a gate). Check:
+    //   - Adjacent cells are also opposite-type si
+    //   - Next cell in same direction != opposite type si
+
+    let (tp, tc) = &mut to;
+
+    // We can always paint silicon if the current cell has none. We might not join it up though.
+    if !tc.si_n && !tc.si_p {
+        tc.si_n = paint_n;
+        tc.si_p = !paint_n;
+    }
+
+    // Everything else requires a from-cell.
+    if let Some((fp, fc)) = &mut from {
+        let dir = *tp - *fp;
+
+        // If the cells are both what we are paining, we can always join them.
+        if fc.si_n == tc.si_n && tc.si_n == paint_n && fc.si_p == tc.si_p && tc.si_p != paint_n {
+            fc.si_dirs.set_direction(*tp - *fp, true);
+            tc.si_dirs.set_direction(*fp - *tp, true);
+        }
+
+        // If the from-cell is the opposite type, but has a gate going in the same direction.
+        if fc.si_n != tc.si_n
+            && fc.si_p != tc.si_p
+            && tc.si_n == paint_n
+            && tc.si_p != paint_n
+            && fc.gate_dirs.matches_gate_direction(dir)
+        {
+            fc.gate_dirs.set_direction(*tp - *fp, true);
+            tc.si_dirs.set_direction(*fp - *tp, true);
+        }
+
+        // If the to-cell has the opposite type as paint, and...
+        // - Doesn't have a gate or has a gate in the same direction
+        // - From-cell has same type as paint
+        // - Left-Right orientation:
+        //   - Up-Down both have same si as to-cell
+        // - Up-Down is the inverse of Left-Right
+        let is_to_opposite_paint = tc.si_n != paint_n && tc.si_p == paint_n;
+        let is_from_same_as_paint = fc.si_n == paint_n && fc.si_p == !paint_n;
+        let is_dir_none_or_matching =
+            tc.gate_dirs.is_none() || tc.gate_dirs.matches_gate_direction(dir);
+        let is_left_right = dir.x.abs() != 0;
+        let is_tangential_cells_same_as_to_cell_or_none = if is_left_right {
+            data.get_cell_checked(*tp + IVec2::Y)
+                .map_or(true, |c| c.si_n != paint_n && c.si_p == paint_n)
+                && data
+                    .get_cell_checked(*tp - IVec2::Y)
+                    .map_or(true, |c| c.si_n != paint_n && c.si_p == paint_n)
+        } else {
+            data.get_cell_checked(*tp + IVec2::X)
+                .map_or(true, |c| c.si_n != paint_n && c.si_p == paint_n)
+                && data
+                    .get_cell_checked(*tp - IVec2::X)
+                    .map_or(true, |c| c.si_n != paint_n && c.si_p == paint_n)
+        };
+
+        if is_to_opposite_paint
+            && is_from_same_as_paint
+            && is_dir_none_or_matching
+            && is_tangential_cells_same_as_to_cell_or_none
+        {
+            fc.si_dirs.set_direction(*tp - *fp, true);
+            tc.gate_dirs.set_direction(*fp - *tp, true);
+        }
+    }
+
+    (from.map(|f| f.1), to.1)
 }
 
 fn draw_metal(from: Option<(IVec2, Cell)>, mut to: (IVec2, Cell)) -> (Option<Cell>, Cell) {

@@ -30,7 +30,6 @@ impl CanvasRenderBundle {
         materials: &mut Assets<CellMaterial>,
         meshes: &mut Assets<Mesh>,
         textures: &mut Assets<Texture>,
-        cell_atlas_texture: Handle<Texture>,
         transform: Transform,
     ) -> Self {
         // The texture is unsigned, un-normalized 8-bit, so min and mag filters have to be Nearest.
@@ -56,7 +55,7 @@ impl CanvasRenderBundle {
         }
 
         let texture = textures.add(texture);
-        let material = materials.add(CellMaterial::standard(texture.clone(), cell_atlas_texture));
+        let material = materials.add(CellMaterial::standard(texture.clone()));
 
         let quad = Mesh::from(shape::Quad {
             size: Vec2::new(1.0, 1.0),

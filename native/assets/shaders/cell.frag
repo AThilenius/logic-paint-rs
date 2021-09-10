@@ -16,92 +16,49 @@ layout(set = 2, binding = 3) uniform CellMaterial_p_color {
 };
 layout(set = 2, binding = 4) uniform utexture2D CellMaterial_cells_texture;
 layout(set = 2, binding = 5) uniform sampler CellMaterial_cells_texture_sampler;
-layout(set = 2, binding = 6) uniform texture2D CellMaterial_atlas_texture;
-layout(set = 2, binding = 7) uniform sampler CellMaterial_atlas_texture_sampler;
 
 bool get_bit(uint byte, uint shift) {
     return (byte & (1u << shift)) > 0u;
 }
 
-bool connection(
-    vec2 texel_uv,
-    bool up,
-    bool right,
-    bool down,
-    bool left
-) {
-    // Cutoffs
+bool connection(vec2 texel_uv, bool up, bool right, bool down, bool left) {
+    // Configure
     float l = 0.2;
     float h = 1.0 - l;
 
     float x = texel_uv.x;
     float y = 1.0 - texel_uv.y;
 
-    if (y > h) {
-        if (x > l && x < h && up) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    if (y < l) {
-        if (x > l && x < h && down) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    if (x > h) {
-        if (y > l && y < h && right) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    if (x < l) {
-        if (y > l && y < h && left) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    return true;
+    return false
+        || (y < h && y > l && x > l && x < h)
+        || (y > h && x > l && x < h && up)
+        || (y < l && x > l && x < h && down)
+        || (x > h && y > l && y < h && right)
+        || (x < l && y > l && y < h && left);
 }
 
-float sample_atlas_cell(
-    vec2 texel_uv,
-    vec2 cell
-) {
-    vec2 scaled_uv = texel_uv / 4.0;
-    vec2 offset_uv = scaled_uv + cell;
-    return texture(
-        sampler2D(CellMaterial_atlas_texture, CellMaterial_atlas_texture_sampler),
-        vec2(offset_uv.x, 1.0 - offset_uv.y)
-    ).r;
-}
+bool connection_gate(vec2 texel_uv, bool up, bool right, bool down, bool left) {
+    // Configure
+    float l = 0.2;
+    float h = 1.0 - l;
 
-float get_tile(
-    vec2 texel_uv,
-    bool set,
-    bool up,
-    bool right,
-    bool down,
-    bool left
-) {
-    texel_uv.y = 1.0 - texel_uv.y;
-    return clamp(
-          (set ? sample_atlas_cell(texel_uv, vec2(0.0, 0.75)) : 0.0)
-        + (up ? sample_atlas_cell(texel_uv, vec2(0.0, 0.5)) : 0.0)
-        + (right ? sample_atlas_cell(texel_uv, vec2(0.25, 0.5)) : 0.0)
-        + (down ? sample_atlas_cell(texel_uv, vec2(0.5, 0.5)) : 0.0)
-        + (left ? sample_atlas_cell(texel_uv, vec2(0.75, 0.5)) : 0.0),
-        0.0,
-        1.0
-    );
+    // Configure
+    float gl = 0.3;
+    float gh = 1.0 - gl;
+
+    float x = texel_uv.x;
+    float y = 1.0 - texel_uv.y;
+
+    return false
+        // Gate changes orientation based on up-down or left-right
+        || ((up || down) && (y < h && y > l && x > gl && x < gh))
+        || ((left || right) && (y < gh && y > gl && x > l && x < h))
+
+        // Draw the side attachments the same as `connection`.
+        || (y > h && x > l && x < h && up)
+        || (y < l && x > l && x < h && down)
+        || (x > h && y > l && y < h && right)
+        || (x < l && y > l && y < h && left);
 }
 
 void main() {
@@ -157,10 +114,6 @@ void main() {
     //     dot(dist, dist) * 4.0
     // );
 
-    bool grid_1 = (((texel.x % 2u) + (texel.y % 2u)) % 2u) == 0u;
-    bool grid_8 = ((((texel.x >> 3) % 2u) + ((texel.y >> 3) % 2u)) % 2u) == 0u;
-    float grid = grid_8 && grid_1 ? 0.6 : (grid_1 ? 0.8 : 1.0);
-
     // Calculate colors
     // vec3 c_n = n_color.rgb;
     // vec3 c_p = p_color.rgb;
@@ -185,15 +138,98 @@ void main() {
         metal_dir_left
     );
 
-    // float tile = get_tile(
-    //     tile_uv,
-    //     metal,
-    //     metal_dir_up,
-    //     metal_dir_right,
-    //     metal_dir_down,
-    //     metal_dir_left
-    // );
+    bool si_connection = connection(
+        tile_uv,
+        si_dir_up,
+        si_dir_right,
+        si_dir_down,
+        si_dir_left
+    );
 
-    float tile = (metal && metal_connection) ? 1.0 : 0.0;
-    o_Target = vec4(tile, tile, grid * 0.1, 1.0);
+    bool gate_connection = connection_gate(
+        tile_uv,
+        gate_dir_up,
+        gate_dir_right,
+        gate_dir_down,
+        gate_dir_left
+    );
+
+    vec2 stripe_uv = tile_uv * 2.0;
+    float stripe_blend = smoothstep(
+        0.5,
+        0.6,
+        mod(stripe_uv.x + stripe_uv.y, 2) * 0.5
+    );
+
+    // Configure
+    vec3 background_color = vec3(0.0);
+    // Configure
+    vec3 active_color = vec3(0.0);
+
+    bool grid_1 = (((texel.x % 2u) + (texel.y % 2u)) % 2u) == 0u;
+    bool grid_8 = ((((texel.x >> 3) % 2u) + ((texel.y >> 3) % 2u)) % 2u) == 0u;
+    // Configure
+    vec3 grid_color = vec3(1.0);
+    // Configure
+    float grid_blend_strength = 0.003;
+    float grid_blend =
+          (grid_8 ? grid_blend_strength * 0.4 : 0.0)
+        + (grid_1 ? grid_blend_strength : 0.0);
+
+    vec3 si_color = si_n ? n_color.rgb : p_color.rgb;
+    si_color = mix(
+        si_color,
+        active_color,
+        si_active ? stripe_blend * 0.5 : 0.0
+    );
+    float si_blend = (si_n || si_p) && si_connection ? 1.0 : 0.0;
+
+    vec3 gate_color = si_n ? p_color.rgb : n_color.rgb;
+    gate_color = mix(
+        gate_color,
+        active_color,
+        gate_active ? stripe_blend * 0.5 : 0.0
+    );
+    float gate_blend = gate_connection ? 1.0 : 0.0;
+
+    // Configure
+    vec3 metal_color = vec3(0.2);
+    metal_color = mix(
+        metal_color,
+        active_color,
+        metal_active ? stripe_blend * 0.5 : 0.0
+    );
+    // Configure
+    float metal_over_si_blend = 0.6;
+    float metal_blend = metal && metal_connection ? 1.0 : 0.0;
+
+    vec3 via_color = si_color;
+    vec2 dist = tile_uv - vec2(0.5);
+    float via_blend = 1.0 - smoothstep(
+        0.1,
+        0.3,
+        dot(dist, dist) * 4.0
+    );
+    via_blend = via ? via_blend : 0.0;
+
+    // Linear color blending.
+    vec3 base_color = mix(background_color, grid_color, grid_blend);
+
+    // Si totally overrides base color.
+    base_color = mix(base_color, si_color, si_blend);
+
+    // Gate totally overrides si
+    base_color = mix(base_color, gate_color, gate_blend);
+
+    // Metal is only blended if there is si.
+    vec3 with_metal_color = mix(
+        base_color,
+        metal_color,
+        si_blend > 0.5 ? metal_blend * metal_over_si_blend : metal_blend
+    );
+
+    // Vias are on or off.
+    vec3 with_via_color = mix(with_metal_color, via_color, via_blend);
+
+    o_Target = vec4(with_via_color, 1.0);
 }

@@ -52,6 +52,20 @@ impl CellDirs {
             _ => panic!("Unsupported vector for set_direction"),
         }
     }
+
+    // Returns true if this direction is 'in-line' with `dir`. This is used because gates (ie
+    // silicon on top of silicon) cannot have bends in them. They can go left-right, or top-bottom.
+    pub fn matches_gate_direction(&self, dir: IVec2) -> bool {
+        match (dir.x, dir.y) {
+            (0, -1) | (0, 1) => (self.up || self.down) && !(self.left || self.right),
+            (-1, 0) | (1, 0) => (self.left || self.right) && !(self.up || self.down),
+            _ => panic!("Unsupported vector for set_direction"),
+        }
+    }
+
+    pub fn is_none(&self) -> bool {
+        !(self.up || self.right || self.down || self.left)
+    }
 }
 
 /// A single cell within a larger logic-paint canvas.

@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 use canvas::CanvasBundle;
 
-use crate::{
-    canvas::CanvasPlugin,
-    render::{CanvasRenderBundle, CanvasRenderPlugin, CellMaterial},
-};
+use crate::{canvas::CanvasPlugin, render::CanvasRenderPlugin};
 
 // Mods
 pub mod canvas;
@@ -29,13 +26,7 @@ impl Plugin for CommonPlugin {
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<CellMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut textures: ResMut<Assets<Texture>>,
-    asset_server: ResMut<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     asset_server.watch_for_changes().unwrap();
 
     commands.spawn_bundle(CanvasBundle::default());

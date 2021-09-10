@@ -26,6 +26,15 @@ impl CanvasData {
     }
 
     #[inline(always)]
+    pub fn get_cell_checked(&self, v: IVec2) -> Option<&Cell> {
+        if v.x >= 0 && v.y >= 0 && v.x < self.size as i32 && v.y < self.size as i32 {
+            Some(&self.cells[xy2h(v.x as u32, v.y as u32) as usize])
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
     pub fn get_cell_mut(&mut self, v: IVec2) -> &mut Cell {
         assert!(v.cmpge(IVec2::ZERO).all());
         &mut self.cells[xy2h(v.x as u32, v.y as u32) as usize]

@@ -29,7 +29,7 @@ pub enum ToolType {
 
 impl Default for ToolType {
     fn default() -> Self {
-        Self::None
+        Self::NType
     }
 }
 
