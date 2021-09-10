@@ -18,4 +18,4 @@ web = [
 [dependencies]
 bevy = { version="0.5", default-features=false }
 fast_hilbert = "1.0"
-packed_struct = "0.6"
+smallvec = "1.6"

@@ -9,7 +9,7 @@ use bevy::{
 };
 
 use crate::{
-    canvas::DEFAULT_CANVAS_SIZE, render::pipeline::CELL_PIPELINE_HANDLE, render::CellMaterial,
+    canvas::DEFAULT_CANVAS_SIZE, render::plugin::CELL_PIPELINE_HANDLE, render::CellMaterial,
 };
 
 #[derive(Bundle)]
@@ -30,6 +30,7 @@ impl CanvasRenderBundle {
         materials: &mut Assets<CellMaterial>,
         meshes: &mut Assets<Mesh>,
         textures: &mut Assets<Texture>,
+        cell_atlas_texture: Handle<Texture>,
         transform: Transform,
     ) -> Self {
         // The texture is unsigned, un-normalized 8-bit, so min and mag filters have to be Nearest.
@@ -55,14 +56,7 @@ impl CanvasRenderBundle {
         }
 
         let texture = textures.add(texture);
-
-        let material = materials.add(CellMaterial {
-            grid_color: Color::rgba(0.0, 0.0, 0.0, 0.2),
-            grid_res: Vec2::new(DEFAULT_CANVAS_SIZE as f32, DEFAULT_CANVAS_SIZE as f32),
-            n_color: Color::rgba(0.0, 0.5, 0.0, 1.0),
-            p_color: Color::rgba(0.0, 0.0, 0.5, 1.0),
-            texture: texture.clone(),
-        });
+        let material = materials.add(CellMaterial::standard(texture.clone(), cell_atlas_texture));
 
         let quad = Mesh::from(shape::Quad {
             size: Vec2::new(1.0, 1.0),

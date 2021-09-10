@@ -1,8 +1,7 @@
 pub use bundle::CanvasRenderBundle;
-pub use pipeline::CellMaterial;
-pub use plugin::CanvasRenderPlugin;
+pub use plugin::{CanvasRenderPlugin, CellMaterial};
 
 mod bundle;
-mod pipeline;
 mod plugin;
 mod rasterizer;
+mod sprite_texture_data;

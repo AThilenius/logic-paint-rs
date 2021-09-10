@@ -6,7 +6,7 @@ use bevy::{
 
 use crate::{
     canvas::CanvasData,
-    utils::spatial_query::{raycast_canvas, screen_to_world_point_at_distance},
+    utils::{raycast_canvas, screen_to_world_point_at_distance},
 };
 
 #[derive(Debug, Default, Clone)]

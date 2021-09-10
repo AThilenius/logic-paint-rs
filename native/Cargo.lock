@@ -767,7 +767,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "fast_hilbert",
- "packed_struct",
+ "smallvec",
 ]
 
 [[package]]
@@ -1837,27 +1837,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60ac8dda2e5cc09bf6480e3b3feff9783db251710c922ae9369a429c51efdeb0"
 dependencies = [
  "ttf-parser",
-]
-
-[[package]]
-name = "packed_struct"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08033303454e0de627fc47aa039f622116a32d51addaec1b89acc4ccd2d14ee1"
-dependencies = [
- "packed_struct_codegen",
- "serde",
-]
-
-[[package]]
-name = "packed_struct_codegen"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c85c2990633a4176cb730b76d15eb9fbdf575556ed1fc60eb6ca354c024b5ead"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
