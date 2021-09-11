@@ -5,7 +5,7 @@ use bevy::{
 };
 
 use crate::{
-    canvas::CanvasData,
+    canvas::Canvas,
     utils::{raycast_canvas, screen_to_world_point_at_distance},
 };
 
@@ -16,11 +16,11 @@ pub struct CanvasInput {
     pub right_just_pressed: bool,
     pub right_pressed: bool,
     pub mouse_position: Option<IVec2>,
+    pub compile_just_clicked: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolType {
-    None,
     NType,
     PType,
     Metal,
@@ -41,7 +41,7 @@ pub struct ActiveTools {
 pub fn load_canvas_input(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut keyboard_event: EventReader<KeyboardInput>,
-    mut canvas_query: Query<(&mut CanvasInput, &CanvasData, &GlobalTransform)>,
+    mut canvas_query: Query<(&mut CanvasInput, &Canvas, &GlobalTransform)>,
     mut active_tool: ResMut<ActiveTools>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mouse_button: Res<Input<MouseButton>>,
@@ -49,6 +49,8 @@ pub fn load_canvas_input(
 ) {
     // Key events we just handle out-of-band. They are considered global data. I'll probably change
     // that later -shrug-.
+    let mut compile_just_clicked = false;
+
     for key_event in keyboard_event.iter() {
         if key_event.state != ElementState::Pressed {
             continue;
@@ -59,6 +61,8 @@ pub fn load_canvas_input(
             Some(KeyCode::W) => active_tool.tool_type = ToolType::PType,
             Some(KeyCode::E) => active_tool.tool_type = ToolType::Metal,
             Some(KeyCode::R) => active_tool.tool_type = ToolType::Via,
+            // DEV
+            Some(KeyCode::C) => compile_just_clicked = true,
             _ => {}
         }
     }
@@ -91,6 +95,7 @@ pub fn load_canvas_input(
         canvas_input.left_pressed = mouse_button.pressed(MouseButton::Left);
         canvas_input.right_just_pressed = mouse_button.just_pressed(MouseButton::Right);
         canvas_input.right_pressed = mouse_button.pressed(MouseButton::Right);
+        canvas_input.compile_just_clicked = compile_just_clicked;
 
         // Convert the mouse points into cell space.
         let world_and_cell_positions: Vec<(Vec3, Option<IVec2>)> = world_positions

@@ -1,12 +1,13 @@
 pub use bundle::CanvasBundle;
+pub use canvas::*;
 pub use cell::*;
-pub use data::*;
 pub use plugin::*;
 
 mod bundle;
+mod canvas;
 mod cell;
-mod data;
 mod drawing;
+mod graph;
 mod input;
 mod plugin;
 

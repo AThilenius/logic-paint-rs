@@ -6,6 +6,7 @@ use crate::{canvas::CanvasPlugin, render::CanvasRenderPlugin};
 // Mods
 pub mod canvas;
 mod render;
+mod sim;
 mod utils;
 
 // Re-exports

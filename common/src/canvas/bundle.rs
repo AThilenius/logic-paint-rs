@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
-use super::{CanvasData, drawing::CanvasDrawing, input::CanvasInput};
+use super::{drawing::CanvasDrawing, input::CanvasInput, Canvas};
 
 #[derive(Bundle, Default)]
 pub struct CanvasBundle {
-    canvas_data: CanvasData,
+    canvas: Canvas,
     canvas_input: CanvasInput,
     canvas_drawing: CanvasDrawing,
 }

@@ -11,7 +11,7 @@ use bevy::{
 
 use super::CanvasRenderBundle;
 use crate::{
-    canvas::{CanvasData, DEFAULT_CANVAS_SIZE},
+    canvas::{Canvas, DEFAULT_CANVAS_SIZE},
     render::rasterizer::render_canvas_to_texture,
 };
 
@@ -93,7 +93,7 @@ fn auto_attach_render_bundle(
     mut materials: ResMut<Assets<CellMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut textures: ResMut<Assets<Texture>>,
-    query: Query<Entity, (With<CanvasData>, Without<Handle<Mesh>>)>,
+    query: Query<Entity, (With<Canvas>, Without<Handle<Mesh>>)>,
 ) {
     for entity in query.iter() {
         commands

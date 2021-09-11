@@ -99,6 +99,7 @@ void main() {
     bool metal_dir_left = get_bit(cells.b, 3);
     bool metal_active = get_bit(cells.b, 2);
     bool via = get_bit(cells.b, 1);
+    bool is_io = get_bit(cells.b, 0);
 
     // Misc flags
     // bool painted = (cells.r >> 4) != 0u || has_metal;
@@ -203,7 +204,7 @@ void main() {
     float metal_over_si_blend = 0.6;
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 
-    vec3 via_color = si_color;
+    vec3 via_color = mix(si_color, vec3(1.0), 1.0);
     vec2 dist = tile_uv - vec2(0.5);
     float via_blend = 1.0 - smoothstep(
         0.1,

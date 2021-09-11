@@ -1,6 +1,6 @@
 use bevy::{math::Vec3Swizzles, prelude::*, render::camera::Camera};
 
-use crate::canvas::CanvasData;
+use crate::canvas::Canvas;
 
 pub fn screen_to_world_point_at_distance(
     pos_screen: Vec2,
@@ -31,7 +31,7 @@ pub fn screen_to_world_point_at_distance(
 
 pub fn raycast_canvas(
     world_point: &Vec3,
-    canvas: &CanvasData,
+    data: &Canvas,
     canvas_transform: &GlobalTransform,
 ) -> Option<IVec2> {
     // Convert the point into the local space of the canvas
@@ -45,11 +45,11 @@ pub fn raycast_canvas(
     // Y is inverted in cell coords
     let scaled = Vec2::new(scaled.x, 1.0 - scaled.y);
 
-    let cell_space_point = scaled * Vec2::new(canvas.size as f32, canvas.size as f32);
+    let cell_space_point = scaled * Vec2::new(data.cells.size as f32, data.cells.size as f32);
     let floored = cell_space_point.floor();
     let (x, y) = (floored.x as u32, floored.y as u32);
 
-    if x < canvas.size && y < canvas.size {
+    if x < data.cells.size as u32 && y < data.cells.size as u32 {
         Some(IVec2::new(x as i32, y as i32))
     } else {
         None

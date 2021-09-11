@@ -1,6 +1,15 @@
 use bevy::math::IVec2;
 use smallvec::{smallvec, SmallVec};
 
+/// A single Cell in an overall logic-paint canvas. This data structure is layed out for easy
+/// editing as it matches how a user "draws" on the canvas closely. It is not used for simulation
+/// however, a `Network` type is generated from a canvas instead.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Cell {
+    pub metal: Metal,
+    pub si: Silicon,
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct CellDirs {
     up: bool,
@@ -23,8 +32,8 @@ impl From<IVec2> for CellDirs {
 
 impl CellDirs {
     #[inline(always)]
-    pub fn get_vecs(&self) -> SmallVec<[IVec2; 4]> {
-        let mut vec = smallvec![IVec2::default(); 4];
+    pub fn get_offsets(&self) -> SmallVec<[IVec2; 4]> {
+        let mut vec = smallvec![];
 
         if self.up {
             vec.push(IVec2::Y)
@@ -52,94 +61,135 @@ impl CellDirs {
             _ => panic!("Unsupported vector for set_direction"),
         }
     }
+}
 
-    // Returns true if this direction is 'in-line' with `dir`. This is used because gates (ie
-    // silicon on top of silicon) cannot have bends in them. They can go left-right, or top-bottom.
-    pub fn matches_gate_direction(&self, dir: IVec2) -> bool {
-        match (dir.x, dir.y) {
-            (0, -1) | (0, 1) => (self.up || self.down) && !(self.left || self.right),
-            (-1, 0) | (1, 0) => (self.left || self.right) && !(self.up || self.down),
-            _ => panic!("Unsupported vector for set_direction"),
-        }
-    }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Metal {
+    None,
+    Trace { has_via: bool, dirs: CellDirs },
+    IO { dirs: CellDirs },
+}
 
-    pub fn is_none(&self) -> bool {
-        !(self.up || self.right || self.down || self.left)
+impl Default for Metal {
+    fn default() -> Self {
+        Self::None
     }
 }
 
-/// A single cell within a larger logic-paint canvas.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct Cell {
-    /// True if silicon was n-doped (applies only to the lowest silicon layer).
-    pub si_n: bool,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Silicon {
+    None,
+    NP {
+        is_n: bool,
+        dirs: CellDirs,
+    },
+    Mosfet {
+        is_npn: bool,
+        gate_dirs: CellDirs,
+        ec_dirs: CellDirs,
+    },
+}
 
-    /// True if silicon was p-doped (applies only to the lowest silicon layer).
-    pub si_p: bool,
+impl Default for Silicon {
+    fn default() -> Self {
+        Self::None
+    }
+}
 
-    /// True if the `si_type` layer is active.
-    pub si_active: bool,
-
-    /// The directions the (lowermost layer) of silicon are connected to adjacent cells.
-    pub si_dirs: CellDirs,
-
-    /// The directions (if any) the gate is connected. No connects implies no gate this cell. One
-    /// connectin implies this cell is a transisitor (the gate is the opposite of the `si_type`).
-    /// Two connections means the same thing, but only the opposite direction may accompany the
-    /// initial connection. Three and four connections are invalid.
-    pub gate_dirs: CellDirs,
-
-    /// True if the gate (upper silicon layer) is active.
-    pub gate_active: bool,
-
-    /// True if this cell has a metal layer.
-    pub metal: bool,
-
-    /// True if the metal layer is active.
-    pub metal_active: bool,
-
-    /// The directions the metal layer is connected to adgacent cells.
-    pub metal_dirs: CellDirs,
-
-    /// True if this cell has a via going to the `si_type`. A via cannot connect to the gate layer.
-    pub via: bool,
+impl Silicon {
+    pub fn matches_n(&self, n: bool) -> bool {
+        match self {
+            Silicon::NP { is_n, .. } if *is_n == n => true,
+            Silicon::Mosfet { is_npn, .. } if *is_npn == n => true,
+            _ => false,
+        }
+    }
 }
 
 impl Cell {
     #[inline(always)]
     pub fn pack_into_4_bytes(&self, buf: &mut [u8]) {
-        // Base layer silicon.
-        // Note: last bit isn't used.
-        buf[0] = 0
-            | if self.si_n { 1 << 7 } else { 0 }
-            | if self.si_p { 1 << 6 } else { 0 }
-            | if self.si_active { 1 << 5 } else { 0 }
-            | if self.si_dirs.up { 1 << 4 } else { 0 }
-            | if self.si_dirs.right { 1 << 3 } else { 0 }
-            | if self.si_dirs.down { 1 << 2 } else { 0 }
-            | if self.si_dirs.left { 1 << 1 } else { 0 };
+        for i in 0..4usize {
+            buf[i] = 0;
+        }
 
-        // Upper layer silicon.
-        // Note: last 3 bits aren't used.
-        buf[1] = 0
-            | if self.gate_dirs.up { 1 << 7 } else { 0 }
-            | if self.gate_dirs.right { 1 << 6 } else { 0 }
-            | if self.gate_dirs.down { 1 << 5 } else { 0 }
-            | if self.gate_dirs.left { 1 << 4 } else { 0 }
-            | if self.gate_active { 1 << 3 } else { 0 };
+        // Bit field masks (3 bytes)
+        let si_n = 1u8 << 7;
+        let si_p = 1u8 << 6;
+        // let si_active = 1u8 << 5;
+        let si_dir_up = 1u8 << 4;
+        let si_dir_right = 1u8 << 3;
+        let si_dir_down = 1u8 << 2;
+        let si_dir_left = 1u8 << 1;
 
-        // Metal and vias.
-        // Note: last bit isn't used.
-        buf[2] = 0
-            | if self.metal { 1 << 7 } else { 0 }
-            | if self.metal_dirs.up { 1 << 6 } else { 0 }
-            | if self.metal_dirs.right { 1 << 5 } else { 0 }
-            | if self.metal_dirs.down { 1 << 4 } else { 0 }
-            | if self.metal_dirs.left { 1 << 3 } else { 0 }
-            | if self.metal_active { 1 << 2 } else { 0 }
-            | if self.via { 1 << 1 } else { 0 };
+        let gate_dir_up = 1u8 << 7;
+        let gate_dir_right = 1u8 << 6;
+        let gate_dir_down = 1u8 << 5;
+        let gate_dir_left = 1u8 << 4;
+        // let gate_active = 1u8 << 3;
 
-        // Alpha byte is unused and set to 255;
-        buf[3] = 255_u8;
+        let metal = 1u8 << 7;
+        let metal_dir_up = 1u8 << 6;
+        let metal_dir_right = 1u8 << 5;
+        let metal_dir_down = 1u8 << 4;
+        let metal_dir_left = 1u8 << 3;
+        // let metal_active = 1u8 << 2;
+        let via = 1u8 << 1;
+        let is_io = 1u8 << 0;
+
+        match self.si {
+            Silicon::NP { is_n, dirs, .. }
+            | Silicon::Mosfet {
+                is_npn: is_n,
+                ec_dirs: dirs,
+                ..
+            } => {
+                buf[0] |= if is_n { si_n } else { si_p };
+                buf[0] |= if dirs.up { si_dir_up } else { 0 };
+                buf[0] |= if dirs.right { si_dir_right } else { 0 };
+                buf[0] |= if dirs.down { si_dir_down } else { 0 };
+                buf[0] |= if dirs.left { si_dir_left } else { 0 };
+            }
+            _ => {}
+        }
+
+        match self.si {
+            // Silicon::NP { is_n, .. } => {
+            //     buf[0] |= if is_n { si_n } else { si_p };
+            //     // TODO: Si active (1 << 5)
+            // }
+            Silicon::Mosfet { gate_dirs, .. } => {
+                buf[1] |= if gate_dirs.up { gate_dir_up } else { 0 };
+                buf[1] |= if gate_dirs.right { gate_dir_right } else { 0 };
+                buf[1] |= if gate_dirs.down { gate_dir_down } else { 0 };
+                buf[1] |= if gate_dirs.left { gate_dir_left } else { 0 };
+
+                // TODO: Gate/EC active
+            }
+            _ => {}
+        }
+
+        match self.metal {
+            Metal::IO { dirs } | Metal::Trace { dirs, .. } => {
+                buf[2] |= metal;
+                buf[2] |= if dirs.up { metal_dir_up } else { 0 };
+                buf[2] |= if dirs.right { metal_dir_right } else { 0 };
+                buf[2] |= if dirs.down { metal_dir_down } else { 0 };
+                buf[2] |= if dirs.left { metal_dir_left } else { 0 };
+
+                // TODO: Metal active
+            }
+            Metal::None => {}
+        }
+
+        match self.metal {
+            Metal::IO { .. } => {
+                buf[2] |= is_io;
+            }
+            Metal::Trace { has_via: true, .. } => {
+                buf[2] |= via;
+            }
+            _ => {}
+        }
     }
 }

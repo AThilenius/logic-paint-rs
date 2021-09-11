@@ -1,22 +1,23 @@
 use crate::{
-    canvas::CanvasData,
-    utils::{range_iter, unwrap::unwrap_or_return},
+    canvas::Canvas,
+    sim::Network,
+    utils::{range_iter, unwrap::unwrap_or_return, HilbertIndexing},
 };
 use bevy::prelude::*;
 
 use super::{
     input::{ActiveTools, CanvasInput, ToolType},
-    Cell,
+    Cell, Metal, Silicon,
 };
 
 #[derive(Default)]
 pub struct CanvasDrawing {
     pub draw_start: Option<IVec2>,
     pub changes: Vec<CanvasCellChange>,
-    pub initial_inpulse: Option<InitialInpulse>,
+    pub initial_impulse: Option<InitialImpulse>,
 }
 
-pub enum InitialInpulse {
+pub enum InitialImpulse {
     X,
     Y,
 }
@@ -28,28 +29,33 @@ pub struct CanvasCellChange {
 }
 
 impl CanvasDrawing {
-    pub fn revert_changes(&mut self, data: &mut CanvasData) {
+    pub fn revert_changes(&mut self, data: &mut Canvas) {
         for change in self.changes.iter() {
-            *data.get_cell_mut(change.location) = change.from_cell;
+            *data.cells.get_mut(change.location) = change.from_cell;
         }
         self.changes.clear();
     }
 }
 
 pub fn handle_canvas_input(
-    mut canvas_query: Query<(&mut CanvasData, &mut CanvasDrawing, &CanvasInput)>,
+    mut canvas_query: Query<(&mut Canvas, &mut CanvasDrawing, &CanvasInput)>,
     active_tool: Res<ActiveTools>,
 ) {
-    for (mut data, mut drawing, input) in canvas_query.iter_mut() {
+    for (mut canvas, mut drawing, input) in canvas_query.iter_mut() {
+        // DEV
+        if input.compile_just_clicked {
+            canvas.network = Network::compile_canvas(&canvas);
+        }
+
         if input.left_pressed && input.right_pressed {
             // Cancel the draw
-            drawing.revert_changes(&mut data);
+            drawing.revert_changes(&mut canvas);
             drawing.draw_start = None;
             return;
         }
 
         if !input.left_pressed && !input.right_pressed {
-            // Changes are already commited, so we just clear out the draw_start and changed.
+            // Changes are already committed, so we just clear out the draw_start and changed.
             drawing.draw_start = None;
             drawing.changes.clear();
             return;
@@ -60,7 +66,7 @@ pub fn handle_canvas_input(
         }
 
         // This shouldn't technically be possible as the input system should filter clicks that
-        // don't start on a canvas. But good satefy check.
+        // don't start on a canvas. But good safety check.
         let start = unwrap_or_return!(drawing.draw_start);
 
         // The mouse was moved off the canvas while drawing. We simply ignore it, leaving the old
@@ -70,22 +76,22 @@ pub fn handle_canvas_input(
         let dist = end - start;
 
         if start == end {
-            drawing.initial_inpulse = None;
-        } else if drawing.initial_inpulse.is_none() {
-            drawing.initial_inpulse = Some(if dist.x.abs() > dist.y.abs() {
-                InitialInpulse::X
+            drawing.initial_impulse = None;
+        } else if drawing.initial_impulse.is_none() {
+            drawing.initial_impulse = Some(if dist.x.abs() > dist.y.abs() {
+                InitialImpulse::X
             } else {
-                InitialInpulse::Y
+                InitialImpulse::Y
             });
         }
 
-        // Revert changes first. We will regenerage them.
-        drawing.revert_changes(&mut data);
+        // Revert changes first. We will regenerate them.
+        drawing.revert_changes(&mut canvas);
 
-        // Generate a list of locations affected. This depends on the initial inpulse of the user
+        // Generate a list of locations affected. This depends on the initial impulse of the user
         // (first direction they move the mouse after clicking).
         let mut steps = vec![];
-        if let Some(InitialInpulse::Y) = drawing.initial_inpulse {
+        if let Some(InitialImpulse::Y) = drawing.initial_impulse {
             // Draw Y first, then X.
             for y in range_iter(start.y, end.y) {
                 steps.push(IVec2::new(start.x, y));
@@ -108,7 +114,7 @@ pub fn handle_canvas_input(
 
         // Draw each step
         for i in 0..steps.len() {
-            let to = data.get_cell(steps[i]).clone();
+            let to = canvas.cells.get(steps[i]).clone();
 
             // Save the cell's original state for reverting.
             drawing.changes.push(CanvasCellChange {
@@ -117,13 +123,13 @@ pub fn handle_canvas_input(
             });
 
             let from = if i > 0 {
-                Some((steps[i - 1], data.get_cell(steps[i - 1]).clone()))
+                Some((steps[i - 1], canvas.cells.get(steps[i - 1]).clone()))
             } else {
                 None
             };
 
             let (prev, new) = draw(
-                &data,
+                &canvas,
                 &active_tool,
                 input.left_pressed,
                 from,
@@ -132,15 +138,15 @@ pub fn handle_canvas_input(
 
             // Write both cells to the canvas data.
             if let Some(prev) = prev {
-                *data.get_cell_mut(steps[i - 1]) = prev;
+                *canvas.cells.get_mut(steps[i - 1]) = prev;
             }
-            *data.get_cell_mut(steps[i]) = new;
+            *canvas.cells.get_mut(steps[i]) = new;
         }
     }
 }
 
 fn draw(
-    data: &CanvasData,
+    data: &Canvas,
     active_tool: &ActiveTools,
     left_click: bool,
     from: Option<(IVec2, Cell)>,
@@ -160,18 +166,20 @@ fn draw(
     }
 }
 
-fn draw_via(mut from: Option<(IVec2, Cell)>, mut to: (IVec2, Cell)) -> (Option<Cell>, Cell) {
+fn draw_via(from: Option<(IVec2, Cell)>, mut to: (IVec2, Cell)) -> (Option<Cell>, Cell) {
     // Only draw the first place the user clicks for vias.
-    let (_, tc) = &mut to;
-    if from.is_none() && (tc.si_n || tc.si_p) && tc.metal {
-        to.1.via = true;
+    if from.is_none() {
+        match (to.1.si, &mut to.1.metal) {
+            (Silicon::NP { .. }, Metal::Trace { has_via, .. }) => *has_via = true,
+            _ => {}
+        }
     }
 
     (from.map(|f| f.1), to.1)
 }
 
 fn draw_si(
-    data: &CanvasData,
+    data: &Canvas,
     mut from: Option<(IVec2, Cell)>,
     mut to: (IVec2, Cell),
     paint_n: bool,
@@ -188,65 +196,90 @@ fn draw_si(
 
     let (tp, tc) = &mut to;
 
-    // We can always paint silicon if the current cell has none. We might not join it up though.
-    if !tc.si_n && !tc.si_p {
-        tc.si_n = paint_n;
-        tc.si_p = !paint_n;
+    // We can paint silicon above any non-IO pin that doesn't already have silicon.
+    if matches!(tc.si, Silicon::None) && !matches!(tc.metal, Metal::IO { .. }) {
+        tc.si = Silicon::NP {
+            is_n: paint_n,
+            dirs: Default::default(),
+        };
     }
 
     // Everything else requires a from-cell.
     if let Some((fp, fc)) = &mut from {
         let dir = *tp - *fp;
 
-        // If the cells are both what we are paining, we can always join them.
-        if fc.si_n == tc.si_n && tc.si_n == paint_n && fc.si_p == tc.si_p && tc.si_p != paint_n {
-            fc.si_dirs.set_direction(*tp - *fp, true);
-            tc.si_dirs.set_direction(*fp - *tp, true);
-        }
+        // The to cell and tangent cells must all be the opposite type of paint_n to draw a
+        // transistor. We check those now to match on it later.
+        let tan_dir = IVec2::new(dir.y, dir.x);
+        let fc_matches_n = fc.si.matches_n(paint_n);
+        let to_cell_transistor_ready = [*tp + tan_dir, *tp, *tp - tan_dir].iter().all(|p| {
+            data.cells
+                .get_checked(*p)
+                .map_or(false, |c| c.si.matches_n(!paint_n))
+        });
+        let next_cell_over_is_not_same_type = data
+            .cells
+            .get_checked(*tp + dir)
+            .map_or(false, |c| c.si == Silicon::None || c.si.matches_n(paint_n));
 
-        // If the from-cell is the opposite type, but has a gate going in the same direction.
-        if fc.si_n != tc.si_n
-            && fc.si_p != tc.si_p
-            && tc.si_n == paint_n
-            && tc.si_p != paint_n
-            && fc.gate_dirs.matches_gate_direction(dir)
-        {
-            fc.gate_dirs.set_direction(*tp - *fp, true);
-            tc.si_dirs.set_direction(*fp - *tp, true);
-        }
+        match (&mut fc.si, &mut tc.si) {
+            // Single-layer cells of the same type can be joined (painted above).
+            (
+                Silicon::NP {
+                    is_n: fc_is_n,
+                    dirs: fc_dirs,
+                },
+                Silicon::NP {
+                    is_n: tc_is_n,
+                    dirs: tc_dirs,
+                },
+            ) if fc_is_n == tc_is_n && *tc_is_n == paint_n => {
+                fc_dirs.set_direction(dir, true);
+                tc_dirs.set_direction(-dir, true);
+            }
+            // An already existing gate can connect with an EMPTY cell in the same direction it's
+            // going.
+            (
+                Silicon::Mosfet {
+                    is_npn, gate_dirs, ..
+                },
+                Silicon::None,
+            ) => {
+                gate_dirs.set_direction(dir, true);
+                tc.si = Silicon::NP {
+                    is_n: !*is_npn,
+                    dirs: (-dir).into(),
+                };
+            }
+            // An already existing gate can connect with an existing single-layer cell in the same
+            // direction it's going if that cell is the same type as the gate silicon.
+            (
+                Silicon::Mosfet {
+                    is_npn, gate_dirs, ..
+                },
+                Silicon::NP { is_n, dirs },
+            ) if is_npn != is_n => {
+                gate_dirs.set_direction(dir, true);
+                dirs.set_direction(-dir, true);
+            }
+            // MOSFETs can only be drawn from silicon, onto single-layer silicon of the opposite
+            // type. They also require the tangential cells be of the same type as the MOSFET.
+            (
+                Silicon::NP { dirs: fc_dirs, .. }
+                | Silicon::Mosfet {
+                    gate_dirs: fc_dirs, ..
+                },
+                Silicon::NP { dirs: tc_dirs, .. },
+            ) if fc_matches_n && to_cell_transistor_ready && next_cell_over_is_not_same_type => {
+                fc_dirs.set_direction(dir, true);
 
-        // If the to-cell has the opposite type as paint, and...
-        // - Doesn't have a gate or has a gate in the same direction
-        // - From-cell has same type as paint
-        // - Left-Right orientation:
-        //   - Up-Down both have same si as to-cell
-        // - Up-Down is the inverse of Left-Right
-        let is_to_opposite_paint = tc.si_n != paint_n && tc.si_p == paint_n;
-        let is_from_same_as_paint = fc.si_n == paint_n && fc.si_p == !paint_n;
-        let is_dir_none_or_matching =
-            tc.gate_dirs.is_none() || tc.gate_dirs.matches_gate_direction(dir);
-        let is_left_right = dir.x.abs() != 0;
-        let is_tangential_cells_same_as_to_cell_or_none = if is_left_right {
-            data.get_cell_checked(*tp + IVec2::Y)
-                .map_or(true, |c| c.si_n != paint_n && c.si_p == paint_n)
-                && data
-                    .get_cell_checked(*tp - IVec2::Y)
-                    .map_or(true, |c| c.si_n != paint_n && c.si_p == paint_n)
-        } else {
-            data.get_cell_checked(*tp + IVec2::X)
-                .map_or(true, |c| c.si_n != paint_n && c.si_p == paint_n)
-                && data
-                    .get_cell_checked(*tp - IVec2::X)
-                    .map_or(true, |c| c.si_n != paint_n && c.si_p == paint_n)
-        };
-
-        if is_to_opposite_paint
-            && is_from_same_as_paint
-            && is_dir_none_or_matching
-            && is_tangential_cells_same_as_to_cell_or_none
-        {
-            fc.si_dirs.set_direction(*tp - *fp, true);
-            tc.gate_dirs.set_direction(*fp - *tp, true);
+                tc.si = Silicon::Mosfet {
+                    is_npn: !paint_n,
+                    gate_dirs: (-dir).into(),
+                    ec_dirs: *tc_dirs,
+                };
+            }
+            _ => {}
         }
     }
 
@@ -254,12 +287,25 @@ fn draw_si(
 }
 
 fn draw_metal(from: Option<(IVec2, Cell)>, mut to: (IVec2, Cell)) -> (Option<Cell>, Cell) {
-    to.1.metal = true;
+    if let Metal::None = to.1.metal {
+        to.1.metal = Metal::Trace {
+            has_via: false,
+            dirs: Default::default(),
+        };
+    }
 
-    if let Some(mut from) = from {
-        from.1.metal_dirs.set_direction(to.0 - from.0, true);
-        to.1.metal_dirs.set_direction(from.0 - to.0, true);
-        (Some(from.1), to.1)
+    if let Some((fd, mut fc)) = from {
+        match (&mut fc.metal, &mut to.1.metal) {
+            (
+                Metal::Trace { dirs: fc_dirs, .. } | Metal::IO { dirs: fc_dirs },
+                Metal::Trace { dirs: tc_dirs, .. } | Metal::IO { dirs: tc_dirs },
+            ) => {
+                fc_dirs.set_direction(to.0 - fd, true);
+                tc_dirs.set_direction(fd - to.0, true);
+            }
+            _ => {}
+        }
+        (Some(fc), to.1)
     } else {
         (None, to.1)
     }

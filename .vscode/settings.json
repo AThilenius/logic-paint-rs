@@ -3,5 +3,9 @@
     "common/Cargo.toml",
     "native/Cargo.toml",
     "wasm/Cargo.toml"
+  ],
+  "cSpell.words": [
+    "MOSFET",
+    "smallvec"
   ]
 }
