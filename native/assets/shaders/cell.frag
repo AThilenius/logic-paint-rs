@@ -101,36 +101,6 @@ void main() {
     bool via = get_bit(cells.b, 1);
     bool is_io = get_bit(cells.b, 0);
 
-    // Misc flags
-    // bool painted = (cells.r >> 4) != 0u || has_metal;
-    // bool has_upper_layer = upper_n || upper_p;
-    // bool has_lower_layer = lower_n || lower_p;
-    // bool has_si = has_upper_layer || has_lower_layer;
-
-    // Via drawing
-    // vec2 dist = texel_uv - vec2(0.5);
-    // float via_step = 1.0 - smoothstep(
-    //     0.1,
-    //     0.3,
-    //     dot(dist, dist) * 4.0
-    // );
-
-    // Calculate colors
-    // vec3 c_n = n_color.rgb;
-    // vec3 c_p = p_color.rgb;
-    // vec3 c_lower = lower_n ? c_n : (lower_p ? c_p : vec3(0.0));
-    // vec3 c_upper = upper_n ? c_n : (upper_p ? c_p : vec3(0.0));
-    // vec3 c_metal = vec3(0.6);
-    // vec3 c_si = has_upper_layer ? c_upper - (c_upper * 0.4) + (c_lower * 0.1) : c_lower;
-    // vec3 c_base = has_si ? c_si : vec3(0.4);
-    // vec3 c_si_and_metal = has_metal ? c_base * 0.2 : c_base;
-    // vec3 c_via = has_via ? vec3(via_step) : vec3(0.0);
-    // vec3 c_cell = c_si_and_metal + c_via;
-    // vec3 c_out = c_cell * (painted ? 1.0 : grid);
-
-    // All done.
-    // o_Target = vec4(c_out, 1.0);
-
     bool metal_connection = connection(
         tile_uv,
         metal_dir_up,

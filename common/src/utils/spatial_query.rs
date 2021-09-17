@@ -42,9 +42,6 @@ pub fn raycast_canvas(
     // multiply by the cell size.
     let scaled = local_point + Vec2::new(0.5, 0.5);
 
-    // Y is inverted in cell coords
-    let scaled = Vec2::new(scaled.x, 1.0 - scaled.y);
-
     let cell_space_point = scaled * Vec2::new(data.cells.size as f32, data.cells.size as f32);
     let floored = cell_space_point.floor();
     let (x, y) = (floored.x as u32, floored.y as u32);

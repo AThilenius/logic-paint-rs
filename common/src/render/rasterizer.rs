@@ -27,7 +27,10 @@ pub fn render_canvas_to_texture(
 
         // Convert cells into bit-packed RGBA values and save them in the texture.
         let mut i = 0;
-        for y in 0..data.cells.size {
+
+        // Textures are indexed with the upper-left being 0,0 but Canvas stores cells al the
+        // lower-left being 0,0.
+        for y in (0..data.cells.size).rev() {
             for x in 0..data.cells.size {
                 data.cells
                     .get(IVec2::new(x as i32, y as i32))
