@@ -15,27 +15,12 @@ pub struct Canvas {
     pub size: usize,
     pub io_pins: HashMap<IVec2, IOPin>,
     pub cells: HilbertArray<Cell>,
-    pub network: Network,
 }
 
-#[derive(Debug)]
-pub struct IOPin {
-    pub loc: IVec2,
-    pub name: String,
-    pub is_constant: bool,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub struct Conductor {
-    pub loc: IVec2,
-    pub level: ConductorLevel,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub enum ConductorLevel {
-    Si,
-    Gate,
-    Metal,
+impl Canvas {
+    pub fn compile_to_network(&self) -> Network {
+        Network::compile_canvas(self)
+    }
 }
 
 impl Default for Canvas {
@@ -44,7 +29,6 @@ impl Default for Canvas {
             size: DEFAULT_CANVAS_SIZE,
             io_pins: HashMap::new(),
             cells: HilbertArray::new_2d(DEFAULT_CANVAS_SIZE),
-            network: Network::default(),
         };
 
         // Dev
@@ -69,4 +53,24 @@ impl Default for Canvas {
 
         s
     }
+}
+
+#[derive(Debug)]
+pub struct IOPin {
+    pub loc: IVec2,
+    pub name: String,
+    pub is_constant: bool,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub struct Conductor {
+    pub loc: IVec2,
+    pub level: ConductorLevel,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum ConductorLevel {
+    Si,
+    Gate,
+    Metal,
 }

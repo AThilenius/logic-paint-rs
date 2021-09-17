@@ -18,6 +18,5 @@ web = [
 [dependencies]
 bevy = { version="0.5", default-features=false }
 fast_hilbert = "1.0"
-petgraph = "0.6"
 shrinkwraprs = "0.3"
 smallvec = "1.6"

@@ -74,7 +74,7 @@ impl Path {
                 (
                     AtomType::NonMetal,
                     Silicon::NP { dirs, .. },
-                    _,
+                    metal,
                 ) => {
                     // Non-metal atom for single-layer Silicon can connect to adjacent like-type
                     // silicon, including MOSFETs.
@@ -111,6 +111,13 @@ impl Path {
                             }
                             _ => {},
                         }
+                    }
+
+                    if let Metal::Trace { has_via: true, .. } = metal {
+                        edge_set.push(Atom {
+                            src_loc: loc,
+                            atom_type: AtomType::Metal
+                        });
                     }
                 }
                 (

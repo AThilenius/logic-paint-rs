@@ -1,6 +1,6 @@
 use crate::{
     canvas::Canvas,
-    sim::Network,
+    sim::Graph,
     utils::{range_iter, unwrap::unwrap_or_return, HilbertIndexing},
 };
 use bevy::prelude::*;
@@ -44,7 +44,9 @@ pub fn handle_canvas_input(
     for (mut canvas, mut drawing, input) in canvas_query.iter_mut() {
         // DEV
         if input.compile_just_clicked {
-            canvas.network = Network::compile_canvas(&canvas);
+            let network = canvas.compile_to_network();
+            let graph: Graph = network.into();
+            println!("{}", graph);
         }
 
         if input.left_pressed && input.right_pressed {

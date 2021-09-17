@@ -15,12 +15,6 @@ use super::path::Path;
 #[derive(Default, Debug)]
 pub struct Network {
     pub paths: Vec<Path>,
-
-    // Look-aside buffers for quick access to nodes within `paths`, as a tuples of (path index, atom
-    // index).
-    pub terminal_io_look_aside: Vec<(usize, usize)>,
-    pub terminal_mosfet_base_look_aside: Vec<(usize, usize)>,
-    pub terminal_mosfet_ec_look_aside: Vec<(usize, usize)>,
 }
 
 impl Network {
@@ -45,18 +39,13 @@ impl Network {
             }
 
             let path = Path::explore_atom(&mut explored, atom, &canvas);
-            let path_idx = network.paths.len();
 
             // Collect all terminal atoms from the path and add connecting MOSFET atoms to the
             // explore set.
-            for (atom_idx, atom) in path.atoms.iter().enumerate() {
+            for atom in path.atoms.iter() {
                 let cell = canvas.cells.get(atom.src_loc);
                 match (atom.atom_type, cell.si) {
                     (AtomType::TerminalMosfetBase { is_npn }, Silicon::Mosfet { ec_dirs, .. }) => {
-                        network
-                            .terminal_mosfet_base_look_aside
-                            .push((path_idx, atom_idx));
-
                         // Add both Emitter/Collector atoms.
                         for offset in ec_dirs.get_offsets() {
                             edge_set.push(Atom {
@@ -72,10 +61,6 @@ impl Network {
                         AtomType::TerminalMosfetEC { is_npn, dir, .. },
                         Silicon::Mosfet { ec_dirs, .. },
                     ) => {
-                        network
-                            .terminal_mosfet_ec_look_aside
-                            .push((path_idx, atom_idx));
-
                         for offset in ec_dirs.get_offsets() {
                             if offset != dir {
                                 edge_set.push(Atom {
@@ -87,9 +72,6 @@ impl Network {
                                 });
                             }
                         }
-                    }
-                    (AtomType::TerminalIoPin, _) => {
-                        network.terminal_io_look_aside.push((path_idx, atom_idx));
                     }
                     _ => {
                         // We don't care about all other atoms. MOSFETs are the only atoms that

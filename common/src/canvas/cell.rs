@@ -22,9 +22,9 @@ impl From<IVec2> for CellDirs {
     #[inline(always)]
     fn from(v: IVec2) -> Self {
         Self {
-            up: v == IVec2::Y,
+            up: v == -IVec2::Y,
             right: v == IVec2::X,
-            down: v == -IVec2::Y,
+            down: v == IVec2::Y,
             left: v == -IVec2::X,
         }
     }
@@ -36,13 +36,13 @@ impl CellDirs {
         let mut vec = smallvec![];
 
         if self.up {
-            vec.push(IVec2::Y)
+            vec.push(-IVec2::Y)
         }
         if self.right {
             vec.push(IVec2::X)
         }
         if self.down {
-            vec.push(-IVec2::Y)
+            vec.push(IVec2::Y)
         }
         if self.left {
             vec.push(-IVec2::X)

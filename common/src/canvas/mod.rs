@@ -7,7 +7,6 @@ mod bundle;
 mod canvas;
 mod cell;
 mod drawing;
-mod graph;
 mod input;
 mod plugin;
 
