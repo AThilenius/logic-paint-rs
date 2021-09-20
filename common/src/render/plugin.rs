@@ -9,7 +9,7 @@ use bevy::{
     },
 };
 
-use super::CanvasRenderBundle;
+use super::{CanvasRenderBundle, CANVAS_DEPTH};
 use crate::{
     canvas::{Canvas, DEFAULT_CANVAS_SIZE},
     render::rasterizer::render_canvas_to_texture,
@@ -102,7 +102,7 @@ fn auto_attach_render_bundle(
                 &mut materials,
                 &mut meshes,
                 &mut textures,
-                Transform::from_scale(Vec3::new(800.0, 800.0, 800.0)),
+                Transform::from_translation(Vec3::new(0.0, 0.0, CANVAS_DEPTH)),
             ));
     }
 }

@@ -25,6 +25,8 @@ pub struct CanvasRenderBundle {
     pub visible: Visible,
 }
 
+pub const CELL_WORLD_SIZE: f32 = 14.0;
+
 impl CanvasRenderBundle {
     pub fn new(
         materials: &mut Assets<CellMaterial>,
@@ -58,7 +60,7 @@ impl CanvasRenderBundle {
         let material = materials.add(CellMaterial::standard(texture.clone()));
 
         let quad = Mesh::from(shape::Quad {
-            size: Vec2::new(1.0, 1.0),
+            size: Vec2::ONE * DEFAULT_CANVAS_SIZE as f32 * CELL_WORLD_SIZE,
             ..Default::default()
         });
 

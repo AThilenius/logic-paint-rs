@@ -41,7 +41,6 @@ impl Default for Canvas {
             IOPin {
                 loc: io_loc,
                 is_constant: true,
-                name: "TEST IO".into(),
             },
         );
         *s.cells.get_mut(io_loc) = Cell {
@@ -58,7 +57,6 @@ impl Default for Canvas {
 #[derive(Debug)]
 pub struct IOPin {
     pub loc: IVec2,
-    pub name: String,
     pub is_constant: bool,
 }
 

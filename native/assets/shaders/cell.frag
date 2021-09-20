@@ -174,12 +174,26 @@ void main() {
     float metal_over_si_blend = 0.6;
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 
+    // Configure (possibly per-cell...)
+    vec3 io_color = vec3(1.0, 0.0, 0.0);
+    io_color = mix(
+        io_color,
+        active_color,
+        metal_active ? stripe_blend * 0.5 : 0.0
+    );
+    vec2 io_dist = tile_uv - vec2(0.5);
+    io_color = mix(
+        io_color,
+        vec3(0.0),
+        dot(io_dist, io_dist) * 3.0
+    );
+
     vec3 via_color = mix(si_color, vec3(1.0), 1.0);
-    vec2 dist = tile_uv - vec2(0.5);
+    vec2 via_dist = tile_uv - vec2(0.5);
     float via_blend = 1.0 - smoothstep(
         0.1,
         0.3,
-        dot(dist, dist) * 4.0
+        dot(via_dist, via_dist) * 4.0
     );
     via_blend = via ? via_blend : 0.0;
 
@@ -199,8 +213,15 @@ void main() {
         si_blend > 0.5 ? metal_blend * metal_over_si_blend : metal_blend
     );
 
+    // And I/O overrides all of it and fills the entire cell.
+    vec3 with_io_color = mix(
+        with_metal_color,
+        io_color,
+        is_io ? 1.0 : 0.0
+    );
+
     // Vias are on or off.
-    vec3 with_via_color = mix(with_metal_color, via_color, via_blend);
+    vec3 with_via_color = mix(with_io_color, via_color, via_blend);
 
     o_Target = vec4(with_via_color, 1.0);
 }

@@ -100,7 +100,7 @@ pub fn load_canvas_input(
         // Convert the mouse points into cell space.
         let world_and_cell_positions: Vec<(Vec3, Option<IVec2>)> = world_positions
             .iter()
-            .map(|p| (*p, raycast_canvas(p, &canvas, global_transform)))
+            .map(|p| (*p, raycast_canvas(&canvas, p, global_transform)))
             .collect();
 
         // Check if we need to update mouse_position
