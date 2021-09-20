@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 
 use crate::{
-    canvas::{Canvas, Silicon},
+    canvas::{Canvas, Metal, Silicon},
     sim::atom::{Atom, AtomType},
-    utils::HilbertIndexing,
 };
 
 use super::path::Path;
@@ -14,22 +13,29 @@ use super::path::Path;
 /// a specific part of a cell, either a MOSFET emitter/collector, a MOSFET gate, or an IO pin.
 #[derive(Default, Debug)]
 pub struct Network {
+    /// Set of conductive paths in a compiled canvas.
     pub paths: Vec<Path>,
+
+    /// Drive counts for each path (matching index as `paths`).
+    pub path_dc: Vec<u16>,
 }
 
 impl Network {
     pub fn compile_canvas(canvas: &Canvas) -> Network {
         let mut network = Network::default();
         let mut explored: HashSet<Atom> = HashSet::new();
-        let mut edge_set: Vec<Atom> = vec![];
 
         // Seed the edge set with IO pin terminal atoms.
-        for (loc, _) in canvas.io_pins.iter() {
-            edge_set.push(Atom {
-                src_loc: *loc,
+        // TODO: Consider an idex for this.
+        let mut edge_set: Vec<Atom> = canvas
+            .cells
+            .iter()
+            .filter(|(_, c)| matches!(c.metal, Metal::IO { .. }))
+            .map(|(l, _)| Atom {
+                src_loc: *l,
                 atom_type: AtomType::TerminalIoPin,
-            });
-        }
+            })
+            .collect();
 
         // Breadth-first search of all paths that connect to at least one IO pin.
         while edge_set.len() > 0 {
@@ -43,7 +49,7 @@ impl Network {
             // Collect all terminal atoms from the path and add connecting MOSFET atoms to the
             // explore set.
             for atom in path.atoms.iter() {
-                let cell = canvas.cells.get(atom.src_loc);
+                let cell = canvas.cells.get(&atom.src_loc).unwrap();
                 match (atom.atom_type, cell.si) {
                     (AtomType::TerminalMosfetBase { is_npn }, Silicon::Mosfet { ec_dirs, .. }) => {
                         // Add both Emitter/Collector atoms.

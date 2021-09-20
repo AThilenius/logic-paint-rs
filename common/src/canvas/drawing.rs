@@ -1,7 +1,7 @@
 use crate::{
     canvas::Canvas,
     sim::Graph,
-    utils::{range_iter, unwrap::unwrap_or_return, HilbertIndexing},
+    utils::{range_iter, unwrap::unwrap_or_return},
 };
 use bevy::prelude::*;
 
@@ -31,7 +31,9 @@ pub struct CanvasCellChange {
 impl CanvasDrawing {
     pub fn revert_changes(&mut self, data: &mut Canvas) {
         for change in self.changes.iter() {
-            *data.cells.get_mut(change.location) = change.from_cell;
+            if let Some(cell) = data.cells.get_mut(&change.location) {
+                *cell = change.from_cell;
+            }
         }
         self.changes.clear();
     }
@@ -116,7 +118,7 @@ pub fn handle_canvas_input(
 
         // Draw each step
         for i in 0..steps.len() {
-            let to = canvas.cells.get(steps[i]).clone();
+            let to = canvas.cells.get(&steps[i]).cloned().unwrap_or_default();
 
             // Save the cell's original state for reverting.
             drawing.changes.push(CanvasCellChange {
@@ -125,7 +127,13 @@ pub fn handle_canvas_input(
             });
 
             let from = if i > 0 {
-                Some((steps[i - 1], canvas.cells.get(steps[i - 1]).clone()))
+                Some((
+                    steps[i - 1],
+                    *canvas
+                        .cells
+                        .get(&steps[i - 1])
+                        .unwrap_or(&Default::default()),
+                ))
             } else {
                 None
             };
@@ -140,9 +148,9 @@ pub fn handle_canvas_input(
 
             // Write both cells to the canvas data.
             if let Some(prev) = prev {
-                *canvas.cells.get_mut(steps[i - 1]) = prev;
+                canvas.cells.insert(steps[i - 1], prev);
             }
-            *canvas.cells.get_mut(steps[i]) = new;
+            canvas.cells.insert(steps[i], new);
         }
     }
 }
@@ -216,12 +224,12 @@ fn draw_si(
         let fc_matches_n = fc.si.matches_n(paint_n);
         let to_cell_transistor_ready = [*tp + tan_dir, *tp, *tp - tan_dir].iter().all(|p| {
             data.cells
-                .get_checked(*p)
+                .get(p)
                 .map_or(false, |c| c.si.matches_n(!paint_n))
         });
         let next_cell_over_is_not_same_type = data
             .cells
-            .get_checked(*tp + dir)
+            .get(&(*tp + dir))
             .map_or(false, |c| c.si == Silicon::None || c.si.matches_n(paint_n));
 
         match (&mut fc.si, &mut tc.si) {

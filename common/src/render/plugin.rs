@@ -9,11 +9,8 @@ use bevy::{
     },
 };
 
-use super::{CanvasRenderBundle, CANVAS_DEPTH};
-use crate::{
-    canvas::{Canvas, DEFAULT_CANVAS_SIZE},
-    render::rasterizer::render_canvas_to_texture,
-};
+use super::{CanvasRenderBundle, CANVAS_DEPTH, CELL_CHUNK_SIZE};
+use crate::{canvas::Canvas, render::rasterizer::render_canvas_to_texture};
 
 pub(crate) const CELL_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x5a7cd988468a9060);
@@ -45,7 +42,7 @@ impl CellMaterial {
     pub fn standard(cells_texture: Handle<Texture>) -> Self {
         Self {
             grid_color: Color::rgba(0.0, 0.0, 0.0, 0.2),
-            grid_res: Vec2::new(DEFAULT_CANVAS_SIZE as f32, DEFAULT_CANVAS_SIZE as f32),
+            grid_res: Vec2::new(CELL_CHUNK_SIZE as f32, CELL_CHUNK_SIZE as f32),
             n_color: Color::rgba(0.0, 0.5, 0.0, 1.0),
             p_color: Color::rgba(0.0, 0.0, 0.5, 1.0),
             cells_texture,

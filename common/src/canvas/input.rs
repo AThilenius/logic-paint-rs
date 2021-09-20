@@ -4,10 +4,7 @@ use bevy::{
     render::camera::Camera,
 };
 
-use crate::{
-    canvas::Canvas,
-    utils::{raycast_canvas, screen_to_world_point_at_distance},
-};
+use crate::utils::{raycast_canvas, screen_to_world_point_at_distance};
 
 #[derive(Debug, Default, Clone)]
 pub struct CanvasInput {
@@ -41,7 +38,7 @@ pub struct ActiveTools {
 pub fn load_canvas_input(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut keyboard_event: EventReader<KeyboardInput>,
-    mut canvas_query: Query<(&mut CanvasInput, &Canvas, &GlobalTransform)>,
+    mut canvas_input_query: Query<(&mut CanvasInput, &GlobalTransform)>,
     mut active_tool: ResMut<ActiveTools>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mouse_button: Res<Input<MouseButton>>,
@@ -89,7 +86,7 @@ pub fn load_canvas_input(
         Err(_) => vec![],
     };
 
-    for (mut canvas_input, canvas, global_transform) in canvas_query.iter_mut() {
+    for (mut canvas_input, global_transform) in canvas_input_query.iter_mut() {
         // Update mouse buttons.
         canvas_input.left_just_pressed = mouse_button.just_pressed(MouseButton::Left);
         canvas_input.left_pressed = mouse_button.pressed(MouseButton::Left);
@@ -100,7 +97,7 @@ pub fn load_canvas_input(
         // Convert the mouse points into cell space.
         let world_and_cell_positions: Vec<(Vec3, Option<IVec2>)> = world_positions
             .iter()
-            .map(|p| (*p, raycast_canvas(&canvas, p, global_transform)))
+            .map(|p| (*p, raycast_canvas(p, global_transform)))
             .collect();
 
         // Check if we need to update mouse_position

@@ -5,7 +5,6 @@ use bevy::math::IVec2;
 use crate::{
     canvas::{Canvas, Metal, Silicon},
     sim::atom::AtomType,
-    utils::HilbertIndexing,
 };
 
 use super::atom::Atom;
@@ -29,7 +28,7 @@ impl Path {
             atoms.push(atom);
 
             let loc = atom.src_loc;
-            let cell = canvas.cells.get(loc);
+            let cell = canvas.cells.get(&loc).unwrap();
 
             match (atom.atom_type, cell.si, cell.metal) {
                 (AtomType::TerminalIoPin, _, Metal::IO { .. }) => {
@@ -81,7 +80,7 @@ impl Path {
                     for offset in dirs.get_offsets() {
                         // In the MOSFET case, we need to discriminate connecting to the NonMetal
                         // "above" the gate and connecting to an E/C.
-                        match canvas.cells.get(loc + offset).si {
+                        match canvas.cells.get(&(loc + offset)).unwrap().si {
                             Silicon::Mosfet { ec_dirs, is_npn, .. } => {
                                 // The neighbor is indeed a MOSFET, are we connecting to an E/C pin?
                                 if ec_dirs.get_offsets().iter().any(|o| offset + *o == IVec2::ZERO) {

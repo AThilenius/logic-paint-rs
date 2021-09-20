@@ -1,3 +1,23 @@
+/// Canvas: For humans.
+/// - Immutable HashMap of <IVec2, Cell> (possibly spatially partitioned at some point), plus
+///   annotation data.
+/// - Vec of snapshots for undo history
+/// - Serializable
+/// Network: Layout and State.
+/// - Vec of Paths
+/// - Vec<u16> of Path drive-count (separate for cache coherence, as it's all a sim-graph needs).
+/// - Initial impl will build as an atomic compile op, later can add while-running edits.
+/// Sim-graph: Cache-coherent graph for fast simulation
+/// - Stores no overall state (just an internal queue which is pessimistically populated on initial
+///   load).
+
+/// Rendering is done lazily, with free and efficient frustum culling
+/// - Each frame the set of visible chunks is computed.
+/// - All chunks within view are re-rendered by querying the Canvas for cell drawing and the Network
+///   for state.
+/// Note: it's not worth storing a ref to paths in each cell as a single cell can have up to 4
+/// paths, so 4 x u16 is I limit things to 2^16 paths. If performance is an issue, then consider a
+/// spacial partition in Canvas.
 use bevy::prelude::*;
 use canvas::CanvasBundle;
 use render::LABEL_DEPTH;

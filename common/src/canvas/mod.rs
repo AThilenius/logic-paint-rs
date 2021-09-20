@@ -9,5 +9,3 @@ mod cell;
 mod drawing;
 mod input;
 mod plugin;
-
-pub const DEFAULT_CANVAS_SIZE: usize = 64;

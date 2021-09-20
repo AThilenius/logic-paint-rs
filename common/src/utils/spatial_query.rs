@@ -1,6 +1,6 @@
 use bevy::{math::Vec3Swizzles, prelude::*, render::camera::Camera};
 
-use crate::{canvas::Canvas, render::CELL_WORLD_SIZE};
+use crate::render::{CELL_CHUNK_SIZE, CELL_WORLD_SIZE};
 
 pub fn screen_to_world_point_at_distance(
     pos_screen: Vec2,
@@ -29,26 +29,22 @@ pub fn screen_to_world_point_at_distance(
     cursor_pos_near + (ray_direction * distance)
 }
 
-pub fn raycast_canvas(
-    canvas: &Canvas,
-    world_point: &Vec3,
-    canvas_transform: &GlobalTransform,
-) -> Option<IVec2> {
+pub fn raycast_canvas(world_point: &Vec3, canvas_transform: &GlobalTransform) -> Option<IVec2> {
     // Convert the point into the local space of the canvas
     let local_space = canvas_transform.compute_matrix().inverse();
     let local_point = local_space.project_point3(*world_point).xy();
 
     // Scale the world_space point down by the size of the quad, and offset it by 0.5 to re-map the
     // x and y range from [-0.5, 0.5] to [0.0, 1.0].
-    let quad_size = canvas.size as f32 * CELL_WORLD_SIZE;
+    let quad_size = CELL_CHUNK_SIZE as f32 * CELL_WORLD_SIZE;
     let scaled = (local_point / quad_size) + Vec2::new(0.5, 0.5);
 
     // Now re-map [0.0, 1.0] range into [0, canvas.size] range ("cell space").
-    let cell_space_point = scaled * Vec2::new(canvas.cells.size as f32, canvas.cells.size as f32);
+    let cell_space_point = scaled * Vec2::new(CELL_CHUNK_SIZE as f32, CELL_CHUNK_SIZE as f32);
     let floored = cell_space_point.floor();
     let (x, y) = (floored.x as u32, floored.y as u32);
 
-    if x < canvas.cells.size as u32 && y < canvas.cells.size as u32 {
+    if x < CELL_CHUNK_SIZE as u32 && y < CELL_CHUNK_SIZE as u32 {
         Some(IVec2::new(x as i32, y as i32))
     } else {
         None

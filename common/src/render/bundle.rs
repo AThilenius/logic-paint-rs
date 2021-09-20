@@ -9,7 +9,8 @@ use bevy::{
 };
 
 use crate::{
-    canvas::DEFAULT_CANVAS_SIZE, render::plugin::CELL_PIPELINE_HANDLE, render::CellMaterial,
+    render::plugin::CELL_PIPELINE_HANDLE,
+    render::{CellMaterial, CELL_CHUNK_SIZE},
 };
 
 #[derive(Bundle)]
@@ -46,8 +47,8 @@ impl CanvasRenderBundle {
             ..Default::default()
         };
         texture.resize(Extent3d {
-            width: DEFAULT_CANVAS_SIZE as u32,
-            height: DEFAULT_CANVAS_SIZE as u32,
+            width: CELL_CHUNK_SIZE as u32,
+            height: CELL_CHUNK_SIZE as u32,
             depth: 1,
         });
 
@@ -60,7 +61,7 @@ impl CanvasRenderBundle {
         let material = materials.add(CellMaterial::standard(texture.clone()));
 
         let quad = Mesh::from(shape::Quad {
-            size: Vec2::ONE * DEFAULT_CANVAS_SIZE as f32 * CELL_WORLD_SIZE,
+            size: Vec2::ONE * CELL_CHUNK_SIZE as f32 * CELL_WORLD_SIZE,
             ..Default::default()
         });
 
