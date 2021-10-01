@@ -5,6 +5,7 @@
     "wasm/Cargo.toml"
   ],
   "cSpell.words": [
+    "Gpio",
     "MOSFET",
     "rasterizer",
     "raycast",

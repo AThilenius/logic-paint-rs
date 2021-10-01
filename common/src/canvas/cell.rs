@@ -170,7 +170,7 @@ impl Cell {
         }
 
         match self.metal {
-            Metal::IO { dirs } | Metal::Trace { dirs, .. } => {
+            Metal::IO { dirs, .. } | Metal::Trace { dirs, .. } => {
                 buf[2] |= metal;
                 buf[2] |= if dirs.up { metal_dir_up } else { 0 };
                 buf[2] |= if dirs.right { metal_dir_right } else { 0 };
