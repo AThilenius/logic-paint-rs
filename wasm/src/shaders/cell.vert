@@ -1,18 +1,13 @@
 #version 300 es
-precision highp float;
 
-in vec3 Vertex_Position;
-in vec2 Vertex_Uv;
-out vec2 v_Uv;
+in vec2 position_uv;
 
-layout(std140) uniform CameraViewProj { // set = 0, binding = 0
-    mat4 ViewProj;
-};
-layout(std140) uniform Transform { // set = 1, binding = 0
-    mat4 Model;
-};
+uniform mat4 view_proj;
+uniform mat4 model;
+
+out vec2 v_uv;
 
 void main() {
-    gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
-    v_Uv = Vertex_Uv;
+    gl_Position = view_proj * model * vec4(position_uv.x, position_uv.y, 0.0, 1.0);
+    v_uv = position_uv;
 }

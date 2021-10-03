@@ -5,9 +5,12 @@
     "wasm/Cargo.toml"
   ],
   "cSpell.words": [
+    "mipmap",
     "MOSFET",
+    "parameteri",
     "rasterizer",
     "raycast",
-    "smallvec"
+    "smallvec",
+    "webgl"
   ]
 }

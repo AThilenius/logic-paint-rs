@@ -5,28 +5,15 @@
     <style>
       body {
         margin: 0;
-        background: linear-gradient(
-          135deg,
-          white 0%,
-          white 49%,
-          black 49%,
-          black 51%,
-          white 51%,
-          white 100%
-        );
-        background-repeat: repeat;
-        background-size: 20px 20px;
       }
       canvas {
         background-color: white;
+        width: 100vw;
+        height: 100vh;
       }
     </style>
   </head>
   <body>
     <canvas id="wasm-canvas"></canvas>
   </body>
-  <script type="module">
-    import init from './pkg/wasm.js';
-    init();
-  </script>
 </html>

@@ -3,15 +3,24 @@ name = "wasm"
 version = "0.1.0"
 edition = "2018"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
-[features]
-default = [
-  "common/web",
-]
-
 [dependencies]
-common = { path="../common", default-features=false }
+glam = { version = "0.18.0", features = ["serde", "bytemuck"] }
+js-sys = "0.3.55"
 wasm-bindgen = "0.2"
-bevy_webgl2 = "0.5"
+
+[dependencies.web-sys]
+version = "0.3.55"
+features = [
+  "Document",
+  "Element",
+  "HtmlCanvasElement",
+  "WebGl2RenderingContext",
+  "WebGlBuffer",
+  "WebGlProgram",
+  "WebGlShader",
+  "WebGlTexture",
+  "WebGlUniformLocation",
+  "WebGlVertexArrayObject",
+  "Window",
+  "console"
+]
