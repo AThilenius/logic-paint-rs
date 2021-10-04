@@ -8,6 +8,7 @@ pub struct CellProgram {
     pub program: WebGlProgram,
     pub uniform_loc_view_proj: WebGlUniformLocation,
     pub uniform_loc_model: WebGlUniformLocation,
+    pub uniform_cell_texture_sampler: WebGlUniformLocation,
 }
 
 impl CellProgram {
@@ -17,16 +18,27 @@ impl CellProgram {
         let frag_shader =
             compile_shader(&ctx, WebGl2RenderingContext::FRAGMENT_SHADER, CELL_FRAG_SRC)?;
         let program = link_program(&ctx, &vert_shader, &frag_shader)?;
+        ctx.use_program(Some(&program));
+
         let uniform_loc_view_proj = ctx
             .get_uniform_location(&program, "view_proj")
             .ok_or_else(|| String::from("Failed to find 'view_proj' uniform"))?;
         let uniform_loc_model = ctx
             .get_uniform_location(&program, "model")
             .ok_or_else(|| String::from("Failed to find 'model' uniform"))?;
+        let uniform_cell_texture_sampler = ctx
+            .get_uniform_location(&program, "cells_texture_sampler")
+            .ok_or_else(|| String::from("Failed to find 'cells_texture_sampler' uniform"))?;
+
+        // If I need more than 1 texture in the frag shader I'll need this. Otherwise it's somewhat
+        // redundant.
+        ctx.uniform1i(Some(&uniform_cell_texture_sampler), 0);
+
         Ok(Self {
             program,
             uniform_loc_view_proj,
             uniform_loc_model,
+            uniform_cell_texture_sampler,
         })
     }
 
