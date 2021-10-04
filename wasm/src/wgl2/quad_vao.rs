@@ -1,4 +1,4 @@
-use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader, WebGlVertexArrayObject};
+use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlVertexArrayObject};
 
 pub struct QuadVao {
     vao: WebGlVertexArrayObject,
@@ -51,5 +51,9 @@ impl QuadVao {
         );
 
         Ok(Self { vao })
+    }
+
+    pub fn bind(&self, ctx: &WebGl2RenderingContext) {
+        ctx.bind_vertex_array(Some(&self.vao));
     }
 }

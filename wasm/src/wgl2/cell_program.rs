@@ -1,14 +1,16 @@
 use glam::Mat4;
-use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader, WebGlUniformLocation};
+use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader};
+
+use super::uniform::Uniform;
 
 const CELL_VERT_SRC: &str = include_str!("../shaders/cell.vert");
 const CELL_FRAG_SRC: &str = include_str!("../shaders/cell.frag");
 
 pub struct CellProgram {
     pub program: WebGlProgram,
-    pub uniform_loc_view_proj: WebGlUniformLocation,
-    pub uniform_loc_model: WebGlUniformLocation,
-    pub uniform_cell_texture_sampler: WebGlUniformLocation,
+    pub view_proj: Uniform<Mat4>,
+    pub model: Uniform<Mat4>,
+    pub cells_texture_sampler: Uniform<i32>,
 }
 
 impl CellProgram {
@@ -17,59 +19,23 @@ impl CellProgram {
             compile_shader(&ctx, WebGl2RenderingContext::VERTEX_SHADER, CELL_VERT_SRC)?;
         let frag_shader =
             compile_shader(&ctx, WebGl2RenderingContext::FRAGMENT_SHADER, CELL_FRAG_SRC)?;
-        let program = link_program(&ctx, &vert_shader, &frag_shader)?;
+        let program: WebGlProgram = link_program(&ctx, &vert_shader, &frag_shader)?;
         ctx.use_program(Some(&program));
 
-        let uniform_loc_view_proj = ctx
-            .get_uniform_location(&program, "view_proj")
-            .ok_or_else(|| String::from("Failed to find 'view_proj' uniform"))?;
-        let uniform_loc_model = ctx
-            .get_uniform_location(&program, "model")
-            .ok_or_else(|| String::from("Failed to find 'model' uniform"))?;
-        let uniform_cell_texture_sampler = ctx
-            .get_uniform_location(&program, "cells_texture_sampler")
-            .ok_or_else(|| String::from("Failed to find 'cells_texture_sampler' uniform"))?;
-
-        // If I need more than 1 texture in the frag shader I'll need this. Otherwise it's somewhat
-        // redundant.
-        ctx.uniform1i(Some(&uniform_cell_texture_sampler), 0);
+        let view_proj = Uniform::new(&ctx, &program, "view_proj")?;
+        let model = Uniform::new(&ctx, &program, "model")?;
+        let cells_texture_sampler = Uniform::new(&ctx, &program, "cells_texture_sampler")?;
 
         Ok(Self {
             program,
-            uniform_loc_view_proj,
-            uniform_loc_model,
-            uniform_cell_texture_sampler,
+            view_proj,
+            model,
+            cells_texture_sampler,
         })
     }
 
     pub fn use_program(&self, ctx: &WebGl2RenderingContext) {
         ctx.use_program(Some(&self.program));
-    }
-
-    pub fn set_view_proj(
-        &self,
-        ctx: &WebGl2RenderingContext,
-        width: u32,
-        height: u32,
-        view_mat: Mat4,
-    ) {
-        let proj_mat = if width > height {
-            let aspect = width as f32 / height as f32;
-            Mat4::orthographic_rh(-aspect, aspect, -1.0, 1.0, 0.0, 1.0)
-        } else {
-            let aspect = height as f32 / width as f32;
-            Mat4::orthographic_rh(-1.0, 1.0, -aspect, aspect, 0.0, 1.0)
-        };
-        let view_proj_mat = proj_mat * view_mat;
-        ctx.uniform_matrix4fv_with_f32_array(
-            Some(&self.uniform_loc_view_proj),
-            false,
-            view_proj_mat.as_ref(),
-        );
-    }
-
-    pub fn set_model(&self, ctx: &WebGl2RenderingContext, mat: Mat4) {
-        ctx.uniform_matrix4fv_with_f32_array(Some(&self.uniform_loc_model), false, mat.as_ref());
     }
 }
 
