@@ -1,50 +1,33 @@
-use std::{cell::RefCell, rc::Rc};
+use std::mem::forget;
 
 use canvas_viewport::CanvasViewport;
-use wasm_bindgen::{prelude::Closure, JsCast};
+use dom::{DomIntervalHooks, ElementEventHooks};
+use wasm_bindgen::JsCast;
+use web_sys::{HtmlCanvasElement, HtmlElement};
 
 mod canvas_viewport;
+mod dom;
+mod input;
 mod substrate_render_chunk;
 mod utils;
 mod wgl2;
 
 fn main() {
+    #[cfg(feature = "console_error_panic_hook")]
+    console_error_panic_hook::set_once();
+
     let document = web_sys::window().unwrap().document().unwrap();
     let canvas = document.get_element_by_id("wasm-canvas").unwrap();
-    let canvas: web_sys::HtmlCanvasElement =
-        canvas.dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<HtmlCanvasElement>().unwrap();
 
-    let canvas_viewport = CanvasViewport::from_canvas(canvas.clone());
+    let canvas_viewport = unwrap_or_log_and_return!(CanvasViewport::from_canvas(canvas.clone()));
+    let dom_interval_hooks =
+        unwrap_or_log_and_return!(DomIntervalHooks::new(canvas_viewport.clone()));
+    let element_event_hooks = unwrap_or_log_and_return!(ElementEventHooks::new(
+        canvas.dyn_into::<HtmlElement>().unwrap(),
+        canvas_viewport.clone()
+    ));
 
-    if let Err(e) = canvas_viewport {
-        log!("{:#?}", e);
-        return;
-    }
-    let mut canvas_viewport = canvas_viewport.unwrap();
-
-    let f = Rc::new(RefCell::new(None));
-    let g = f.clone();
-
-    *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        let (w, h) = (canvas.client_width() as u32, canvas.client_height() as u32);
-
-        // Handle canvas resize if needed.
-        if w != canvas.width() || h != canvas.height() {
-            canvas.set_width(w);
-            canvas.set_height(h);
-        }
-
-        canvas_viewport.camera.update(w, h);
-        canvas_viewport.draw();
-        request_animation_frame(f.borrow().as_ref().unwrap());
-    }) as Box<dyn FnMut()>));
-
-    request_animation_frame(g.borrow().as_ref().unwrap());
-}
-
-fn request_animation_frame(f: &Closure<dyn FnMut()>) {
-    web_sys::window()
-        .unwrap()
-        .request_animation_frame(f.as_ref().unchecked_ref())
-        .expect("should register `requestAnimationFrame` OK");
+    forget(dom_interval_hooks);
+    forget(element_event_hooks);
 }
