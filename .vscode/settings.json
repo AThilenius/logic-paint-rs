@@ -11,6 +11,7 @@
     "mousemove",
     "mouseup",
     "parameteri",
+    "rasterize",
     "rasterizer",
     "raycast",
     "smallvec",

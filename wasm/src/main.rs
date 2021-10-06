@@ -1,15 +1,17 @@
 use std::mem::forget;
 
-use canvas_viewport::CanvasViewport;
 use dom::{DomIntervalHooks, ElementEventHooks};
+use viewport::Viewport;
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlCanvasElement, HtmlElement};
 
-mod canvas_viewport;
 mod dom;
 mod input;
+mod sim;
+mod substrate;
 mod substrate_render_chunk;
 mod utils;
+mod viewport;
 mod wgl2;
 
 fn main() {
@@ -20,12 +22,12 @@ fn main() {
     let canvas = document.get_element_by_id("wasm-canvas").unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<HtmlCanvasElement>().unwrap();
 
-    let canvas_viewport = unwrap_or_log_and_return!(CanvasViewport::from_canvas(canvas.clone()));
+    let substrate_viewport = unwrap_or_log_and_return!(Viewport::from_canvas(canvas.clone()));
     let dom_interval_hooks =
-        unwrap_or_log_and_return!(DomIntervalHooks::new(canvas_viewport.clone()));
+        unwrap_or_log_and_return!(DomIntervalHooks::new(substrate_viewport.clone()));
     let element_event_hooks = unwrap_or_log_and_return!(ElementEventHooks::new(
         canvas.dyn_into::<HtmlElement>().unwrap(),
-        canvas_viewport.clone()
+        substrate_viewport.clone()
     ));
 
     forget(dom_interval_hooks);

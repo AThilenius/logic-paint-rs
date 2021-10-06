@@ -3,11 +3,11 @@ use std::rc::Rc;
 use wasm_bindgen::JsValue;
 use web_sys::{WebGl2RenderingContext, WebGlTexture};
 
-use crate::substrate_render_chunk::RENDER_CHUNK_SIZE;
+use crate::substrate::CHUNK_SIZE;
 
 /// A positioned texture quad that draws a fixed-size "chunk" of an infinite Substrate.
 pub struct CellTexture {
-    texture: Rc<WebGlTexture>,
+    texture: WebGlTexture,
 }
 
 impl CellTexture {
@@ -41,34 +41,33 @@ impl CellTexture {
             WebGl2RenderingContext::TEXTURE_2D,
             0,                                      // Level
             WebGl2RenderingContext::RGBA8UI as i32, // Internal format
-            RENDER_CHUNK_SIZE as i32,
-            RENDER_CHUNK_SIZE as i32,
+            CHUNK_SIZE as i32,
+            CHUNK_SIZE as i32,
             0,                                     // Border
             WebGl2RenderingContext::RGBA_INTEGER,  // Src format
             WebGl2RenderingContext::UNSIGNED_BYTE, // Src type
             None,
         )?;
 
-        Ok(CellTexture {
-            texture: Rc::new(texture),
-        })
+        Ok(CellTexture { texture })
     }
 
     pub fn set_pixels(&self, ctx: &WebGl2RenderingContext, pixels: &[u8]) -> Result<(), JsValue> {
-        ctx.bind_texture(
-            WebGl2RenderingContext::TEXTURE_2D,
-            Some(&self.texture.clone()),
-        );
+        self.bind(&ctx);
         ctx.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
             WebGl2RenderingContext::TEXTURE_2D,
             0,                                      // Level
             WebGl2RenderingContext::RGBA8UI as i32, // Internal format
-            RENDER_CHUNK_SIZE as i32,
-            RENDER_CHUNK_SIZE as i32,
+            CHUNK_SIZE as i32,
+            CHUNK_SIZE as i32,
             0,                                     // Border
             WebGl2RenderingContext::RGBA_INTEGER,  // Src format
             WebGl2RenderingContext::UNSIGNED_BYTE, // Src type
             Some(&pixels),
         )
+    }
+
+    pub fn bind(&self, ctx: &&WebGl2RenderingContext) {
+        ctx.bind_texture(WebGl2RenderingContext::TEXTURE_2D, Some(&self.texture));
     }
 }

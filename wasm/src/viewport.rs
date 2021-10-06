@@ -1,12 +1,13 @@
 use std::{cell::RefCell, rc::Rc};
 
-use glam::Mat4;
+use glam::{IVec2, Mat4};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
     dom::{DomIntervalTarget, ElementEventTarget},
     log,
+    substrate::{Cell, CellDirs, IntegratedCircuit, Metal, Silicon},
     substrate_render_chunk::SubstrateRenderChunk,
     wgl2::{Camera, CellProgram, QuadVao, SetUniformType},
 };
@@ -14,8 +15,9 @@ use crate::{
 /// Manages a HTML Canvas element, rendering a viewport of a Substrate. This struct is always stored
 /// in a Rc because it's accessed from JS callbacks. To free the struct, the callbacks must be
 /// un-registered with `drop_callbacks()` before dropping other Rc instances.
-pub struct CanvasViewport {
+pub struct Viewport {
     pub camera: Camera,
+    pub ic: IntegratedCircuit,
     canvas: HtmlCanvasElement,
     ctx: WebGl2RenderingContext,
     cell_program: CellProgram,
@@ -23,8 +25,8 @@ pub struct CanvasViewport {
     test: SubstrateRenderChunk,
 }
 
-impl CanvasViewport {
-    pub fn from_canvas(canvas: HtmlCanvasElement) -> Result<Rc<RefCell<CanvasViewport>>, JsValue> {
+impl Viewport {
+    pub fn from_canvas(canvas: HtmlCanvasElement) -> Result<Rc<RefCell<Viewport>>, JsValue> {
         let ctx = canvas
             .get_context("webgl2")?
             .unwrap()
@@ -40,10 +42,33 @@ impl CanvasViewport {
         program.model.set(&ctx, Mat4::IDENTITY);
 
         let vao = QuadVao::new(&ctx, &program.program)?;
-        let test = SubstrateRenderChunk::new(&ctx)?;
+        let mut test = SubstrateRenderChunk::new(&ctx)?;
+        let mut ic = IntegratedCircuit::default();
+
+        // DEV
+        ic.set_cell(
+            IVec2::ZERO,
+            Cell {
+                metal: Metal::Trace {
+                    has_via: true,
+                    dirs: CellDirs {
+                        up: true,
+                        down: true,
+                        ..Default::default()
+                    },
+                },
+                si: Silicon::NP {
+                    is_n: true,
+                    dirs: Default::default(),
+                },
+            },
+        );
+        ic.compile();
+        test.rasterize_ic_chunk(&ctx, &ic, &IVec2::ZERO)?;
 
         let viewport = Rc::new(RefCell::new(Self {
             camera,
+            ic,
             canvas,
             ctx,
             cell_program: program,
@@ -55,7 +80,7 @@ impl CanvasViewport {
     }
 }
 
-impl DomIntervalTarget for CanvasViewport {
+impl DomIntervalTarget for Viewport {
     fn animation_frame(&mut self) {
         let (w, h) = (
             self.canvas.client_width() as u32,
@@ -67,7 +92,7 @@ impl DomIntervalTarget for CanvasViewport {
             self.ctx.viewport(0, 0, w as i32, h as i32);
         }
 
-        self.ctx.clear_color(0.0, 0.0, 0.0, 1.0);
+        self.ctx.clear_color(0.2, 0.2, 0.2, 1.0);
         self.ctx.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
 
         self.cell_program.use_program(&self.ctx);
@@ -82,6 +107,7 @@ impl DomIntervalTarget for CanvasViewport {
             .view_proj
             .set(&self.ctx, self.camera.get_view_proj_matrix());
 
+        self.test.bind(&self.ctx);
         self.ctx
             .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
     }
@@ -91,13 +117,13 @@ impl DomIntervalTarget for CanvasViewport {
     }
 }
 
-impl ElementEventTarget for CanvasViewport {
+impl ElementEventTarget for Viewport {
     fn on_mouse(&mut self, event: crate::dom::ElementMouseEvent) {
         log!("{:#?}", event);
     }
 }
 
-impl Drop for CanvasViewport {
+impl Drop for Viewport {
     fn drop(&mut self) {
         log!("Canvas viewport dropped");
     }
