@@ -5,6 +5,7 @@
     "wasm/Cargo.toml"
   ],
   "cSpell.words": [
+    "ivec",
     "mipmap",
     "MOSFET",
     "mousedown",

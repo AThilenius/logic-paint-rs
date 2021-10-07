@@ -9,7 +9,6 @@ mod dom;
 mod input;
 mod sim;
 mod substrate;
-mod substrate_render_chunk;
 mod utils;
 mod viewport;
 mod wgl2;

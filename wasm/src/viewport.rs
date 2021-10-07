@@ -1,15 +1,15 @@
 use std::{cell::RefCell, rc::Rc};
 
-use glam::{IVec2, Mat4};
+use glam::{IVec2, Mat4, Vec2, Vec3};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
-    dom::{DomIntervalTarget, ElementEventTarget},
+    dom::{DomIntervalTarget, ElementEventTarget, ElementMouseEvent},
     log,
     substrate::{Cell, CellDirs, IntegratedCircuit, Metal, Silicon},
-    substrate_render_chunk::SubstrateRenderChunk,
-    wgl2::{Camera, CellProgram, QuadVao, SetUniformType},
+    unwrap_or_log_and_return,
+    wgl2::{Camera, CellChunkTexture, CellProgram, QuadVao, SetUniformType},
 };
 
 /// Manages a HTML Canvas element, rendering a viewport of a Substrate. This struct is always stored
@@ -22,7 +22,7 @@ pub struct Viewport {
     ctx: WebGl2RenderingContext,
     cell_program: CellProgram,
     quad_vao: QuadVao,
-    test: SubstrateRenderChunk,
+    cell_chunk_textures: Vec<CellChunkTexture>,
 }
 
 impl Viewport {
@@ -42,7 +42,6 @@ impl Viewport {
         program.model.set(&ctx, Mat4::IDENTITY);
 
         let vao = QuadVao::new(&ctx, &program.program)?;
-        let mut test = SubstrateRenderChunk::new(&ctx)?;
         let mut ic = IntegratedCircuit::default();
 
         // DEV
@@ -64,7 +63,6 @@ impl Viewport {
             },
         );
         ic.compile();
-        test.rasterize_ic_chunk(&ctx, &ic, &IVec2::ZERO)?;
 
         let viewport = Rc::new(RefCell::new(Self {
             camera,
@@ -73,7 +71,7 @@ impl Viewport {
             ctx,
             cell_program: program,
             quad_vao: vao,
-            test,
+            cell_chunk_textures: vec![],
         }));
 
         Ok(viewport)
@@ -100,16 +98,35 @@ impl DomIntervalTarget for Viewport {
 
         self.camera.update(
             window().unwrap().device_pixel_ratio() as f32,
-            w as f32,
-            h as f32,
+            Vec2::new(w as f32, h as f32),
         );
         self.cell_program
             .view_proj
             .set(&self.ctx, self.camera.get_view_proj_matrix());
 
-        self.test.bind(&self.ctx);
-        self.ctx
-            .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
+        // Render visible chunks...
+        let visible_chunks = self.camera.get_visible_substrate_chunk_locs();
+
+        for (i, chunk_loc) in visible_chunks.iter().enumerate() {
+            if i >= self.cell_chunk_textures.len() {
+                self.cell_chunk_textures
+                    .push(unwrap_or_log_and_return!(CellChunkTexture::new(&self.ctx)));
+            }
+
+            let chunk_texture = &mut self.cell_chunk_textures[i];
+            unwrap_or_log_and_return!(
+                chunk_texture.rasterize_ic_chunk(&self.ctx, &self.ic, chunk_loc)
+            );
+
+            // Bind and draw
+            self.cell_program.model.set(
+                &self.ctx,
+                Mat4::from_translation(Vec3::new(chunk_loc.x as f32, chunk_loc.y as f32, 0.0)),
+            );
+            chunk_texture.bind(&mut self.ctx);
+            self.ctx
+                .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
+        }
     }
 
     fn simulate_step(&mut self) -> bool {
@@ -118,8 +135,16 @@ impl DomIntervalTarget for Viewport {
 }
 
 impl ElementEventTarget for Viewport {
-    fn on_mouse(&mut self, event: crate::dom::ElementMouseEvent) {
-        log!("{:#?}", event);
+    fn on_mouse(&mut self, event: ElementMouseEvent) {
+        if let ElementMouseEvent::MouseDown(event) = event {
+            log!(
+                "Cell: {}",
+                self.camera.project_screen_point_to_cell(Vec2::new(
+                    event.offset_x() as f32,
+                    event.offset_y() as f32
+                ))
+            );
+        }
     }
 }
 
