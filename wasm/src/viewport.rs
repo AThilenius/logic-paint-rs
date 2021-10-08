@@ -5,7 +5,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
-    dom::{DomIntervalTarget, ElementEventTarget, ElementMouseEvent},
+    dom::{DomIntervalTarget, ElementEventTarget, ElementInputEvent},
     log,
     substrate::{Cell, CellDirs, IntegratedCircuit, Metal, Silicon},
     unwrap_or_log_and_return,
@@ -135,16 +135,17 @@ impl DomIntervalTarget for Viewport {
 }
 
 impl ElementEventTarget for Viewport {
-    fn on_mouse(&mut self, event: ElementMouseEvent) {
-        if let ElementMouseEvent::MouseDown(event) = event {
-            log!(
-                "Cell: {}",
-                self.camera.project_screen_point_to_cell(Vec2::new(
-                    event.offset_x() as f32,
-                    event.offset_y() as f32
-                ))
-            );
-        }
+    fn on_input_event(&mut self, event: ElementInputEvent) {
+        // if let ElementMouseEvent::MouseDown(event) = event {
+        //     log!(
+        //         "Cell: {}",
+        //         self.camera.project_screen_point_to_cell(Vec2::new(
+        //             event.offset_x() as f32,
+        //             event.offset_y() as f32
+        //         ))
+        //     );
+        // }
+        self.camera.handle_mouse_event(event);
     }
 }
 

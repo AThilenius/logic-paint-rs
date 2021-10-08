@@ -29,6 +29,7 @@ features = [
   "WebGlTexture",
   "WebGlUniformLocation",
   "WebGlVertexArrayObject",
+  "WheelEvent",
   "Window",
   "console",
 ]

@@ -1,6 +1,9 @@
 use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
 
-use crate::substrate::{cell_to_chunk_loc, CHUNK_SIZE};
+use crate::{
+    dom::ElementInputEvent,
+    substrate::{cell_to_chunk_loc, CHUNK_SIZE},
+};
 
 pub struct Camera {
     pub translation: Vec2,
@@ -8,6 +11,7 @@ pub struct Camera {
     pub proj_matrix: Mat4,
     pixel_ratio: f32,
     size: Vec2,
+    drag_world_anchor: Option<Vec2>,
 }
 
 impl Default for Camera {
@@ -18,6 +22,7 @@ impl Default for Camera {
             pixel_ratio: 1.0,
             size: Vec2::ONE,
             proj_matrix: Default::default(),
+            drag_world_anchor: None,
         };
 
         camera.update_proj_matrix();
@@ -44,6 +49,42 @@ impl Camera {
             Quat::IDENTITY,
             Vec3::new(self.translation.x, self.translation.y, 0.0),
         )
+    }
+
+    pub fn handle_mouse_event(&mut self, event: ElementInputEvent) {
+        match event {
+            ElementInputEvent::MouseWheelEvent(event) => {
+                // Zoom centered around the cursor
+                let screen_point = Vec2::new(event.offset_x() as f32, event.offset_y() as f32);
+                let origin_world = self.project_screen_point_to_world(screen_point);
+                self.scale += self.scale * event.delta_y() as f32 * 0.001;
+                self.scale = f32::clamp(self.scale, 0.02, 10.0);
+                self.update_proj_matrix();
+                let new_world_point = self.project_screen_point_to_world(screen_point);
+                self.translation += origin_world - new_world_point;
+            }
+            ElementInputEvent::MouseDown(event) if event.button() == 1 => {
+                self.drag_world_anchor = Some(self.project_screen_point_to_world(Vec2::new(
+                    event.offset_x() as f32,
+                    event.offset_y() as f32,
+                )));
+            }
+            ElementInputEvent::MouseUp(event) if event.button() == 1 => {
+                self.drag_world_anchor = None;
+            }
+            ElementInputEvent::MouseMove(event) if event.buttons() & 4 != 0 => {
+                // We want to put the drag_world_anchor directly under the mouse.
+                let new_world_point = self.project_screen_point_to_world(Vec2::new(
+                    event.offset_x() as f32,
+                    event.offset_y() as f32,
+                ));
+                if let Some(anchor) = self.drag_world_anchor {
+                    // How far do we need to move the camera to move the anchor under the mouse
+                    self.translation += anchor - new_world_point;
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Project a screen x,y point into the world. Z axis is ignored because I don't need it.

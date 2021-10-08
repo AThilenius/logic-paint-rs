@@ -61,97 +61,93 @@ impl CellChunkTexture {
         ic: &IntegratedCircuit,
         chunk_loc: &IVec2,
     ) -> Result<(), JsValue> {
-        let chunk = if let Some(cells) = ic.get_chunk(&chunk_loc) {
-            cells
-        } else {
-            return Ok(());
-        };
-
         let start = IVec2::new(chunk_loc.x << LOG_CHUNK_SIZE, chunk_loc.y << LOG_CHUNK_SIZE);
         let mut pixels = vec![0u8; 4 * CHUNK_SIZE * CHUNK_SIZE];
-        for (loc, cell) in chunk {
-            // To chunk-local coords, then: ((loc.y * CHUNK_SIZE) + loc.x) * 4
-            let loc = *loc - start;
-            let i = ((loc.y << LOG_CHUNK_SIZE) + loc.x) << 2;
-            let buf = &mut pixels[i as usize..];
+        if let Some(chunk) = ic.get_chunk(&chunk_loc) {
+            for (loc, cell) in chunk {
+                // To chunk-local coords, then: ((loc.y * CHUNK_SIZE) + loc.x) * 4
+                let loc = *loc - start;
+                let i = ((loc.y << LOG_CHUNK_SIZE) + loc.x) << 2;
+                let buf = &mut pixels[i as usize..];
 
-            // Bit field masks (3 bytes)
-            let si_n = 1u8 << 7;
-            let si_p = 1u8 << 6;
-            // let si_active = 1u8 << 5;
-            let si_dir_up = 1u8 << 4;
-            let si_dir_right = 1u8 << 3;
-            let si_dir_down = 1u8 << 2;
-            let si_dir_left = 1u8 << 1;
+                // Bit field masks (3 bytes)
+                let si_n = 1u8 << 7;
+                let si_p = 1u8 << 6;
+                // let si_active = 1u8 << 5;
+                let si_dir_up = 1u8 << 4;
+                let si_dir_right = 1u8 << 3;
+                let si_dir_down = 1u8 << 2;
+                let si_dir_left = 1u8 << 1;
 
-            let gate_dir_up = 1u8 << 7;
-            let gate_dir_right = 1u8 << 6;
-            let gate_dir_down = 1u8 << 5;
-            let gate_dir_left = 1u8 << 4;
-            // let gate_active = 1u8 << 3;
+                let gate_dir_up = 1u8 << 7;
+                let gate_dir_right = 1u8 << 6;
+                let gate_dir_down = 1u8 << 5;
+                let gate_dir_left = 1u8 << 4;
+                // let gate_active = 1u8 << 3;
 
-            let metal = 1u8 << 7;
-            let metal_dir_up = 1u8 << 6;
-            let metal_dir_right = 1u8 << 5;
-            let metal_dir_down = 1u8 << 4;
-            let metal_dir_left = 1u8 << 3;
-            // let metal_active = 1u8 << 2;
-            let via = 1u8 << 1;
-            let is_io = 1u8 << 0;
+                let metal = 1u8 << 7;
+                let metal_dir_up = 1u8 << 6;
+                let metal_dir_right = 1u8 << 5;
+                let metal_dir_down = 1u8 << 4;
+                let metal_dir_left = 1u8 << 3;
+                // let metal_active = 1u8 << 2;
+                let via = 1u8 << 1;
+                let is_io = 1u8 << 0;
 
-            match cell.si {
-                Silicon::NP { is_n, dirs, .. }
-                | Silicon::Mosfet {
-                    is_npn: is_n,
-                    ec_dirs: dirs,
-                    ..
-                } => {
-                    buf[0] |= if is_n { si_n } else { si_p };
-                    buf[0] |= if dirs.up { si_dir_up } else { 0 };
-                    buf[0] |= if dirs.right { si_dir_right } else { 0 };
-                    buf[0] |= if dirs.down { si_dir_down } else { 0 };
-                    buf[0] |= if dirs.left { si_dir_left } else { 0 };
+                match cell.si {
+                    Silicon::NP { is_n, dirs, .. }
+                    | Silicon::Mosfet {
+                        is_npn: is_n,
+                        ec_dirs: dirs,
+                        ..
+                    } => {
+                        buf[0] |= if is_n { si_n } else { si_p };
+                        buf[0] |= if dirs.up { si_dir_up } else { 0 };
+                        buf[0] |= if dirs.right { si_dir_right } else { 0 };
+                        buf[0] |= if dirs.down { si_dir_down } else { 0 };
+                        buf[0] |= if dirs.left { si_dir_left } else { 0 };
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
 
-            match cell.si {
-                // Silicon::NP { is_n, .. } => {
-                //     buf[0] |= if is_n { si_n } else { si_p };
-                //     // TODO: Si active (1 << 5)
-                // }
-                Silicon::Mosfet { gate_dirs, .. } => {
-                    buf[1] |= if gate_dirs.up { gate_dir_up } else { 0 };
-                    buf[1] |= if gate_dirs.right { gate_dir_right } else { 0 };
-                    buf[1] |= if gate_dirs.down { gate_dir_down } else { 0 };
-                    buf[1] |= if gate_dirs.left { gate_dir_left } else { 0 };
+                match cell.si {
+                    // Silicon::NP { is_n, .. } => {
+                    //     buf[0] |= if is_n { si_n } else { si_p };
+                    //     // TODO: Si active (1 << 5)
+                    // }
+                    Silicon::Mosfet { gate_dirs, .. } => {
+                        buf[1] |= if gate_dirs.up { gate_dir_up } else { 0 };
+                        buf[1] |= if gate_dirs.right { gate_dir_right } else { 0 };
+                        buf[1] |= if gate_dirs.down { gate_dir_down } else { 0 };
+                        buf[1] |= if gate_dirs.left { gate_dir_left } else { 0 };
 
-                    // TODO: Gate/EC active
+                        // TODO: Gate/EC active
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
 
-            match cell.metal {
-                Metal::IO { dirs } | Metal::Trace { dirs, .. } => {
-                    buf[2] |= metal;
-                    buf[2] |= if dirs.up { metal_dir_up } else { 0 };
-                    buf[2] |= if dirs.right { metal_dir_right } else { 0 };
-                    buf[2] |= if dirs.down { metal_dir_down } else { 0 };
-                    buf[2] |= if dirs.left { metal_dir_left } else { 0 };
+                match cell.metal {
+                    Metal::IO { dirs } | Metal::Trace { dirs, .. } => {
+                        buf[2] |= metal;
+                        buf[2] |= if dirs.up { metal_dir_up } else { 0 };
+                        buf[2] |= if dirs.right { metal_dir_right } else { 0 };
+                        buf[2] |= if dirs.down { metal_dir_down } else { 0 };
+                        buf[2] |= if dirs.left { metal_dir_left } else { 0 };
 
-                    // TODO: Metal active
+                        // TODO: Metal active
+                    }
+                    Metal::None => {}
                 }
-                Metal::None => {}
-            }
 
-            match cell.metal {
-                Metal::IO { .. } => {
-                    buf[2] |= is_io;
+                match cell.metal {
+                    Metal::IO { .. } => {
+                        buf[2] |= is_io;
+                    }
+                    Metal::Trace { has_via: true, .. } => {
+                        buf[2] |= via;
+                    }
+                    _ => {}
                 }
-                Metal::Trace { has_via: true, .. } => {
-                    buf[2] |= via;
-                }
-                _ => {}
             }
         }
 
