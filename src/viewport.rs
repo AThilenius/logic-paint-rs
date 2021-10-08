@@ -25,7 +25,7 @@ pub struct Viewport {
     cell_program: CellProgram,
     quad_vao: QuadVao,
     cell_chunk_textures: Vec<CellChunkTexture>,
-    needs_recompile: bool,
+    simulating: bool,
 }
 
 impl Viewport {
@@ -45,8 +45,9 @@ impl Viewport {
             Cell {
                 metal: Metal::IO {
                     dirs: Default::default(),
+                    path: 0,
                 },
-                si: Silicon::None,
+                ..Default::default()
             },
         );
 
@@ -59,7 +60,7 @@ impl Viewport {
             cell_program: program,
             quad_vao: vao,
             cell_chunk_textures: vec![],
-            needs_recompile: false,
+            simulating: false,
         }));
 
         Ok(viewport)
@@ -67,7 +68,7 @@ impl Viewport {
 }
 
 impl DomIntervalTarget for Viewport {
-    fn animation_frame(&mut self) {
+    fn animation_frame(&mut self, time: f64) {
         let (w, h) = (
             self.canvas.client_width() as u32,
             self.canvas.client_height() as u32,
@@ -78,10 +79,12 @@ impl DomIntervalTarget for Viewport {
             self.ctx.viewport(0, 0, w as i32, h as i32);
         }
 
-        self.needs_recompile = self.brush.commit_changes(&mut self.ic);
+        self.brush.commit_changes(&mut self.ic);
 
-        self.ctx.clear_color(0.2, 0.2, 0.2, 1.0);
-        self.ctx.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
+        // Note: The whole viewport is re-drawn every frame, so we can reduce overdraw by NOT
+        // clearing it. If that changes some day, uncomment these lines:
+        // self.ctx.clear_color(0.2, 0.2, 0.2, 1.0);
+        // self.ctx.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
 
         self.cell_program.use_program(&self.ctx);
         self.quad_vao.bind(&self.ctx);
@@ -123,18 +126,23 @@ impl DomIntervalTarget for Viewport {
     }
 
     fn simulate_step(&mut self) -> bool {
-        if self.needs_recompile {
-            self.ic.compile();
-        }
-
-        false
+        self.ic.compile();
+        self.simulating
     }
 }
 
 impl ElementEventTarget for Viewport {
     fn on_input_event(&mut self, event: ElementInputEvent) {
         self.camera.handle_mouse_event(event.clone());
-        self.brush.handle_input_event(&self.camera, &self.ic, event);
+        self.brush
+            .handle_input_event(&self.camera, &self.ic, event.clone());
+
+        match event {
+            ElementInputEvent::KeyPressed(event) if event.code() == "KeyC" => {
+                self.simulating = !self.simulating;
+            }
+            _ => {}
+        }
     }
 }
 

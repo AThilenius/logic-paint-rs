@@ -19,6 +19,7 @@ use glam::IVec2;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Atom {
     pub src_loc: IVec2,
+    pub path: usize,
     pub atom_type: AtomType,
 }
 

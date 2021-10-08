@@ -15,10 +15,11 @@ pub struct Path {
 }
 
 impl Path {
-    pub fn explore_atom(
+    pub fn explore_atom_and_update_cell_paths(
+        ic: &mut IntegratedCircuit,
         explored: &mut HashSet<Atom>,
         seed_atom: Atom,
-        ic: &IntegratedCircuit,
+        path_idx: usize,
     ) -> Path {
         let mut atoms = vec![];
         let mut edge_set: Vec<Atom> = vec![seed_atom];
@@ -40,6 +41,7 @@ impl Path {
                     // terminal atoms.
                     edge_set.push(Atom {
                         src_loc: loc,
+                        path: path_idx,
                         atom_type: AtomType::Metal,
                     });
                 }
@@ -48,6 +50,7 @@ impl Path {
                     // nothing else. This is done to keep terminal connections single-sibling.
                     edge_set.push(Atom {
                         src_loc: loc,
+                        path: path_idx,
                         atom_type: AtomType::NonMetal,
                     });
 
@@ -57,6 +60,7 @@ impl Path {
                     for offset in gate_dirs.get_offsets() {
                         edge_set.push(Atom {
                             src_loc: loc + offset,
+                            path: path_idx,
                             atom_type: AtomType::NonMetal,
                         });
                     }
@@ -72,7 +76,7 @@ impl Path {
                     // An emitter or collector of a MOSFET *always* connects to non-metal in an
                     // adjacent cell in the `dir` direction. Remember, that's how they are drawn in
                     // the first place.
-                    edge_set.push(Atom { src_loc: loc + dir, atom_type: AtomType::NonMetal });
+                    edge_set.push(Atom { src_loc: loc + dir, path: path_idx, atom_type: AtomType::NonMetal });
                 }
                 (
                     AtomType::NonMetal,
@@ -92,6 +96,7 @@ impl Path {
                                     // MOSFET (this atom) so we just add a TerminalMosfetEC.
                                     edge_set.push(Atom {
                                         src_loc: loc + offset,
+                                        path: path_idx,
                                         atom_type: AtomType::TerminalMosfetEC { is_npn, dir: -offset }
                                     });
                                 } else {
@@ -100,6 +105,7 @@ impl Path {
                                     // the TerminalMosfetBase atom.
                                     edge_set.push(Atom {
                                         src_loc: loc + offset,
+                                        path: path_idx,
                                         atom_type: AtomType::NonMetal
                                     });
                                 }
@@ -109,6 +115,7 @@ impl Path {
                                 // single-layer silicon (otherwise it wouldn't be in `dirs`).
                                 edge_set.push(Atom {
                                     src_loc: loc + offset,
+                                    path: path_idx,
                                     atom_type: AtomType::NonMetal,
                                 });
                             }
@@ -119,6 +126,7 @@ impl Path {
                     if let Metal::Trace { has_via: true, .. } = metal {
                         edge_set.push(Atom {
                             src_loc: loc,
+                            path: path_idx,
                             atom_type: AtomType::Metal
                         });
                     }
@@ -132,17 +140,19 @@ impl Path {
                     // well as any silicon connected to the base.
                     edge_set.push(Atom {
                         src_loc: loc,
+                        path: path_idx,
                         atom_type: AtomType::TerminalMosfetBase { is_npn }
                     });
 
                     for offset in base_dirs.get_offsets() {
-                        edge_set.push(Atom { src_loc: loc + offset, atom_type: AtomType::NonMetal });
+                        edge_set.push(Atom { src_loc: loc + offset, path: path_idx, atom_type: AtomType::NonMetal });
                     }
                 }
                 (AtomType::Metal, Silicon::NP {.. }, Metal::Trace { has_via: true, dirs, .. }) => {
                     // Via connection
                     edge_set.push(Atom {
                         src_loc: loc,
+                        path: path_idx,
                         atom_type: AtomType::NonMetal
                     });
 
@@ -150,6 +160,7 @@ impl Path {
                     for offset in dirs.get_offsets() {
                         edge_set.push(Atom {
                             src_loc: loc + offset,
+                            path: path_idx,
                             atom_type: AtomType::Metal
                         });
                     }
@@ -158,6 +169,7 @@ impl Path {
                     for offset in dirs.get_offsets() {
                         edge_set.push(Atom {
                             src_loc: loc + offset,
+                            path: path_idx,
                             atom_type: AtomType::Metal
                         });
                     }
@@ -167,6 +179,28 @@ impl Path {
                     loc, atom.atom_type, cell.si, cell.metal
                 ),
             }
+        }
+
+        // For code simplicity, update cell path's after the fact or it muddies the atom exploration
+        // logic.
+        for atom in atoms.iter() {
+            let loc = atom.src_loc;
+            let mut cell = ic.get_cell(&loc).unwrap();
+
+            match (atom.atom_type, &mut cell.metal, &mut cell.si) {
+                (AtomType::TerminalIoPin, Metal::IO { path, .. }, _)
+                | (AtomType::Metal, Metal::Trace { path, .. }, _)
+                | (AtomType::NonMetal, _, Silicon::NP { path, .. })
+                | (AtomType::TerminalMosfetBase { .. }, _, Silicon::Mosfet { path, .. }) => {
+                    // TODO: Consider splitting the Emitter/Collector 'active' for rendering.
+                    *path = path_idx;
+                }
+                _ => {
+                    // All other atom types are redundant.
+                }
+            }
+
+            ic.set_cell(loc, cell);
         }
 
         Path { atoms }

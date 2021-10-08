@@ -2,22 +2,35 @@ use std::collections::{HashMap, HashSet};
 
 use glam::IVec2;
 
-use crate::{
-    log,
-    sim::{Graph, Network},
-};
+use crate::sim::{Atom, AtomType, Path};
 
-use super::{cell::Cell, Metal};
+use super::{cell::Cell, Metal, Silicon};
 
 pub const CHUNK_SIZE: usize = 32;
 pub const LOG_CHUNK_SIZE: usize = 5;
 
-#[derive(Default)]
 pub struct IntegratedCircuit {
     cell_chunks: HashMap<IVec2, HashMap<IVec2, Cell>>,
     io_cell_locs: HashSet<IVec2>,
-    network: Network,
-    graph: Graph,
+    dirty: bool,
+    compiled_paths: Option<Vec<Path>>,
+    sim_state: Option<SimState>,
+}
+
+pub struct SimState {
+    pub path_dc: Vec<u16>,
+}
+
+impl Default for IntegratedCircuit {
+    fn default() -> Self {
+        Self {
+            cell_chunks: Default::default(),
+            io_cell_locs: Default::default(),
+            dirty: true,
+            compiled_paths: None,
+            sim_state: None,
+        }
+    }
 }
 
 impl IntegratedCircuit {
@@ -59,6 +72,8 @@ impl IntegratedCircuit {
                 self.io_cell_locs.insert(loc);
             }
         }
+
+        self.set_dirty();
     }
 
     pub fn get_chunk(&self, chunk_loc: &IVec2) -> Option<&HashMap<IVec2, Cell>> {
@@ -66,18 +81,107 @@ impl IntegratedCircuit {
     }
 
     #[inline(always)]
-    pub fn iter_io_cell_locs(&self) -> std::collections::hash_set::Iter<'_, IVec2> {
-        self.io_cell_locs.iter()
+    pub fn get_path_dc(&self, path: usize) -> u16 {
+        if let Some(sim_state) = &self.sim_state {
+            sim_state.path_dc[path]
+        } else {
+            0_u16
+        }
     }
 
     pub fn compile(&mut self) {
-        self.network = Network::compile_ic(&self);
-        self.graph = Graph::from(&self.network);
-
-        // DEV
-        if self.graph.nodes.len() > 1 {
-            log!("{:#?}", self.graph.nodes);
+        if !self.dirty {
+            return;
         }
+        self.dirty = false;
+
+        self.sim_state = None;
+
+        if self.compiled_paths.is_none() {
+            self.compile_paths();
+        }
+    }
+
+    fn compile_paths(&mut self) {
+        let mut paths = Vec::new();
+        let mut explored: HashSet<Atom> = HashSet::new();
+
+        // Seed the edge set with IO pin terminal atoms.
+        let mut edge_set: Vec<Atom> = self
+            .io_cell_locs
+            .iter()
+            .map(|l| Atom {
+                src_loc: *l,
+                path: usize::MAX,
+                atom_type: AtomType::TerminalIoPin,
+            })
+            .collect();
+
+        // Breadth-first search of all paths that connect to at least one IO pin.
+        while edge_set.len() > 0 {
+            let mut atom = edge_set.pop().unwrap();
+            if explored.contains(&atom) {
+                continue;
+            }
+
+            // Assign the atom to this path (needed because the seed atoms aren't assigned)
+            atom.path = paths.len();
+
+            let path =
+                Path::explore_atom_and_update_cell_paths(self, &mut explored, atom, paths.len());
+
+            // Collect all terminal atoms from the path and add connecting MOSFET atoms to the
+            // explore set.
+            for atom in path.atoms.iter() {
+                let cell = self.get_cell(&atom.src_loc).unwrap();
+                match (atom.atom_type, cell.si) {
+                    (AtomType::TerminalMosfetBase { is_npn }, Silicon::Mosfet { ec_dirs, .. }) => {
+                        // Add both Emitter/Collector atoms.
+                        for offset in ec_dirs.get_offsets() {
+                            edge_set.push(Atom {
+                                src_loc: atom.src_loc,
+                                path: paths.len(),
+                                atom_type: AtomType::TerminalMosfetEC {
+                                    is_npn,
+                                    dir: offset,
+                                },
+                            });
+                        }
+                    }
+                    (
+                        AtomType::TerminalMosfetEC { is_npn, dir, .. },
+                        Silicon::Mosfet { ec_dirs, .. },
+                    ) => {
+                        for offset in ec_dirs.get_offsets() {
+                            if offset != dir {
+                                edge_set.push(Atom {
+                                    src_loc: atom.src_loc,
+                                    path: paths.len(),
+                                    atom_type: AtomType::TerminalMosfetEC {
+                                        is_npn,
+                                        dir: offset,
+                                    },
+                                });
+                            }
+                        }
+                    }
+                    _ => {
+                        // We don't care about all other atoms. MOSFETs are the only atoms that
+                        // bridge Paths.
+                    }
+                }
+            }
+
+            paths.push(path);
+        }
+
+        self.compiled_paths = Some(paths);
+    }
+
+    fn set_dirty(&mut self) {
+        self.dirty = true;
+        self.sim_state = None;
+        self.compiled_paths = None;
     }
 }
 

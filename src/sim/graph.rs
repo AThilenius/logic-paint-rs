@@ -4,34 +4,18 @@ use smallvec::SmallVec;
 
 use crate::sim::AtomType;
 
-use super::Network;
+use super::Path;
 
-/// A directed, cyclic graph that represents only the logic needed to simulate I/O, NPN and PNP
-/// logic, with a look-aside buffer for translating that simulation back into Paths.
-///
-/// Paths get boiled down into Nodes and Edges, where a node is one of three types: I/O, NPN or PNP
-/// and edges define what is being DRIVEN on the node: IoOut, Base, Collector. A single Path (all the
-/// atoms connector by a conductor) is boiled down into these directed edges. For example, if a
-/// single I/O is connected to two gates, then it will have two edges, one to each gate. This is
-/// optimal for small Paths (which is more of the graph) but a degenerate for large shared busses.
-/// Each input on a node stores a count of how many things are "driving" it high. When these counts
-/// go to or from 0, the node is reevaluated for a state change. If it's state changed, the
-/// downstream edges are added to a Breadth First Queue which will correctly propagate transistor
-/// delay through the circuit.
-///
-/// An out of band index of edges to source path indexes is kept for rendering. It is not used at all
-/// during simulation however.
 #[derive(Default)]
 pub struct Graph {
     pub nodes: Vec<Node>,
     pub edge_to_path_look_aside: Vec<SmallVec<[u32; 4]>>,
 }
 
-impl From<&Network> for Graph {
-    fn from(network: &Network) -> Self {
+impl Graph {
+    fn from_paths(paths: &Vec<Path>) -> Self {
         // Filter all terminal atoms
-        let terminal_atoms = network
-            .paths
+        let terminal_atoms = paths
             .iter()
             .flat_map(|p| p.atoms.clone())
             .filter(|a| a.atom_type != AtomType::NonMetal && a.atom_type != AtomType::Metal);
@@ -86,7 +70,7 @@ impl From<&Network> for Graph {
         // of edges to source path_idx.
         let mut edge_to_path_look_aside: Vec<SmallVec<[u32; 4]>> =
             vec![Default::default(); nodes.len()];
-        for (i, path) in network.paths.iter().enumerate() {
+        for (i, path) in paths.iter().enumerate() {
             let atoms = &path.atoms;
 
             // Filter the edges into a few categories.

@@ -4,7 +4,6 @@ use glam::{IVec2, Vec2};
 
 use crate::{
     dom::ElementInputEvent,
-    log,
     substrate::{Cell, IntegratedCircuit, Metal, Silicon},
     utils::range_iter,
     wgl2::Camera,
@@ -200,6 +199,7 @@ impl Brush {
             tc.si = Silicon::NP {
                 is_n: paint_n,
                 dirs: Default::default(),
+                path: 0,
             };
         }
 
@@ -225,10 +225,12 @@ impl Brush {
                     Silicon::NP {
                         is_n: fc_is_n,
                         dirs: fc_dirs,
+                        ..
                     },
                     Silicon::NP {
                         is_n: tc_is_n,
                         dirs: tc_dirs,
+                        ..
                     },
                 ) if fc_is_n == tc_is_n && *tc_is_n == paint_n => {
                     fc_dirs.set_direction(dir, true);
@@ -246,6 +248,7 @@ impl Brush {
                     tc.si = Silicon::NP {
                         is_n: !*is_npn,
                         dirs: (-dir).into(),
+                        path: 0,
                     };
                 }
                 // An already existing gate can connect with an existing single-layer cell in the same
@@ -254,7 +257,7 @@ impl Brush {
                     Silicon::Mosfet {
                         is_npn, gate_dirs, ..
                     },
-                    Silicon::NP { is_n, dirs },
+                    Silicon::NP { is_n, dirs, .. },
                 ) if is_npn != is_n => {
                     gate_dirs.set_direction(dir, true);
                     dirs.set_direction(-dir, true);
@@ -277,6 +280,7 @@ impl Brush {
                         is_npn: !paint_n,
                         gate_dirs: (-dir).into(),
                         ec_dirs: *tc_dirs,
+                        path: 0,
                     };
                 }
                 _ => {}
@@ -294,14 +298,15 @@ impl Brush {
             to.1.metal = Metal::Trace {
                 has_via: false,
                 dirs: Default::default(),
+                path: 0,
             };
         }
 
         if let Some((fd, mut fc)) = from {
             match (&mut fc.metal, &mut to.1.metal) {
                 (
-                    Metal::Trace { dirs: fc_dirs, .. } | Metal::IO { dirs: fc_dirs },
-                    Metal::Trace { dirs: tc_dirs, .. } | Metal::IO { dirs: tc_dirs },
+                    Metal::Trace { dirs: fc_dirs, .. } | Metal::IO { dirs: fc_dirs, .. },
+                    Metal::Trace { dirs: tc_dirs, .. } | Metal::IO { dirs: tc_dirs, .. },
                 ) => {
                     fc_dirs.set_direction(to.0 - fd, true);
                     tc_dirs.set_direction(fd - to.0, true);

@@ -18,7 +18,7 @@ pub struct DomIntervalHooks {
 }
 
 pub trait DomIntervalTarget {
-    fn animation_frame(&mut self);
+    fn animation_frame(&mut self, time: f64);
     fn simulate_step(&mut self) -> bool;
 }
 
@@ -62,7 +62,7 @@ impl DomIntervalHooks {
             // next frame otherwise we leak memory when we call cancel_animation(). Kind of shitty.
             let cancel = dom_interval_hooks.cancel_animation.clone();
 
-            *closure.borrow_mut() = Some(Closure::wrap(Box::new(move |_time: JsValue| {
+            *closure.borrow_mut() = Some(Closure::wrap(Box::new(move |time: JsValue| {
                 if *cancel.borrow() {
                     // Drop our handle to this closure so that it will get cleaned up once we
                     // return. This is the only sane way to cleanup without leaking the closure
@@ -84,7 +84,7 @@ impl DomIntervalHooks {
                     )
                     .ok();
 
-                rc.borrow_mut().animation_frame();
+                rc.borrow_mut().animation_frame(time.as_f64().unwrap());
 
                 // Trigger a simulation step at least once per frame. This acts to 'poll' the
                 // handler for if it wants to start simulating.

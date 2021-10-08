@@ -66,8 +66,15 @@ impl CellDirs {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Metal {
     None,
-    Trace { has_via: bool, dirs: CellDirs },
-    IO { dirs: CellDirs },
+    Trace {
+        has_via: bool,
+        dirs: CellDirs,
+        path: usize,
+    },
+    IO {
+        dirs: CellDirs,
+        path: usize,
+    },
 }
 
 impl Default for Metal {
@@ -82,11 +89,13 @@ pub enum Silicon {
     NP {
         is_n: bool,
         dirs: CellDirs,
+        path: usize,
     },
     Mosfet {
         is_npn: bool,
         gate_dirs: CellDirs,
         ec_dirs: CellDirs,
+        path: usize,
     },
 }
 
