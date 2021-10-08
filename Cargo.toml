@@ -1,7 +1,8 @@
 [package]
-name = "wasm"
+name = "logic-paint"
 version = "0.1.0"
 edition = "2018"
+authors = ["Alec Thilenius <alec@thilenius.com>"]
 
 [features]
 default = ["console_error_panic_hook"]

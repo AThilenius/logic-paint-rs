@@ -71,6 +71,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "logic-paint"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "glam",
+ "js-sys",
+ "smallvec",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -130,18 +142,6 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
-
-[[package]]
-name = "wasm"
-version = "0.1.0"
-dependencies = [
- "console_error_panic_hook",
- "glam",
- "js-sys",
- "smallvec",
- "wasm-bindgen",
- "web-sys",
-]
 
 [[package]]
 name = "wasm-bindgen"
