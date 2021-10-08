@@ -19,7 +19,7 @@ bool connection(vec2 texel_uv, bool up, bool right, bool down, bool left) {
     float h = 1.0 - l;
 
     float x = texel_uv.x;
-    float y = 1.0 - texel_uv.y;
+    float y = texel_uv.y;
 
     return false
         || (y < h && y > l && x > l && x < h)
@@ -39,7 +39,7 @@ bool connection_gate(vec2 texel_uv, bool up, bool right, bool down, bool left) {
     float gh = 1.0 - gl;
 
     float x = texel_uv.x;
-    float y = 1.0 - texel_uv.y;
+    float y = texel_uv.y;
 
     return false
         // Gate changes orientation based on up-down or left-right

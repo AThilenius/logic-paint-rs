@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+
 use glam::IVec2;
 use wasm_bindgen::JsValue;
 use web_sys::{WebGl2RenderingContext, WebGlTexture};
 
-use crate::substrate::{IntegratedCircuit, Metal, Silicon, CHUNK_SIZE, LOG_CHUNK_SIZE};
+use crate::substrate::{
+    cell_to_chunk_loc, Cell, IntegratedCircuit, Metal, Silicon, CHUNK_SIZE, LOG_CHUNK_SIZE,
+};
 
 /// A positioned texture quad that draws a fixed-size "chunk" of an infinite Substrate.
 pub struct CellChunkTexture {
@@ -59,12 +63,17 @@ impl CellChunkTexture {
         &mut self,
         ctx: &WebGl2RenderingContext,
         ic: &IntegratedCircuit,
+        overrides: &HashMap<IVec2, Cell>,
         chunk_loc: &IVec2,
     ) -> Result<(), JsValue> {
         let start = IVec2::new(chunk_loc.x << LOG_CHUNK_SIZE, chunk_loc.y << LOG_CHUNK_SIZE);
         let mut pixels = vec![0u8; 4 * CHUNK_SIZE * CHUNK_SIZE];
         if let Some(chunk) = ic.get_chunk(&chunk_loc) {
-            for (loc, cell) in chunk {
+            for (loc, cell) in chunk.iter().chain(
+                overrides
+                    .iter()
+                    .filter(|(loc, _)| cell_to_chunk_loc(loc) == *chunk_loc),
+            ) {
                 // To chunk-local coords, then: ((loc.y * CHUNK_SIZE) + loc.x) * 4
                 let loc = *loc - start;
                 let i = ((loc.y << LOG_CHUNK_SIZE) + loc.x) << 2;

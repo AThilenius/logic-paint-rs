@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{HtmlElement, MouseEvent, WheelEvent};
+use web_sys::{HtmlElement, KeyboardEvent, MouseEvent, WheelEvent};
 
 /// Hooks a DOM Element and feeds mouse/keyboard events to a target trait object. The target cannot
 /// be dropped before this struct is dropped.
@@ -11,6 +11,7 @@ pub struct ElementEventHooks {
     closure_mouse_move: Option<Closure<dyn FnMut(MouseEvent)>>,
     closure_mouse_up: Option<Closure<dyn FnMut(MouseEvent)>>,
     closure_mouse_scroll: Option<Closure<dyn FnMut(WheelEvent)>>,
+    closure_key_down: Option<Closure<dyn FnMut(KeyboardEvent)>>,
 }
 
 pub trait ElementEventTarget {
@@ -23,6 +24,7 @@ pub enum ElementInputEvent {
     MouseMove(MouseEvent),
     MouseUp(MouseEvent),
     MouseWheelEvent(WheelEvent),
+    KeyPressed(KeyboardEvent),
 }
 
 impl ElementEventHooks {
@@ -36,6 +38,7 @@ impl ElementEventHooks {
             closure_mouse_up: None,
             closure_mouse_move: None,
             closure_mouse_scroll: None,
+            closure_key_down: None,
         };
 
         // Register event handlers
@@ -79,6 +82,16 @@ impl ElementEventHooks {
                 .add_event_listener_with_callback("wheel", closure.as_ref().unchecked_ref())?;
             element_event_target.closure_mouse_scroll = Some(closure);
         }
+        {
+            let rc = target.clone();
+            let closure = Closure::wrap(Box::new(move |event: KeyboardEvent| {
+                rc.borrow_mut()
+                    .on_input_event(ElementInputEvent::KeyPressed(event));
+            }) as Box<dyn FnMut(_)>);
+            html_element
+                .add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())?;
+            element_event_target.closure_key_down = Some(closure);
+        }
 
         Ok(element_event_target)
     }
@@ -104,6 +117,11 @@ impl Drop for ElementEventHooks {
         if let Some(closure) = self.closure_mouse_scroll.take() {
             self.element
                 .remove_event_listener_with_callback("wheel", closure.as_ref().unchecked_ref())
+                .ok();
+        }
+        if let Some(closure) = self.closure_key_down.take() {
+            self.element
+                .remove_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
                 .ok();
         }
     }

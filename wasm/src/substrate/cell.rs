@@ -105,12 +105,3 @@ impl Silicon {
         }
     }
 }
-
-impl Cell {
-    #[inline(always)]
-    pub fn pack_into_4_bytes(&self, buf: &mut [u8]) {
-        for i in 0..4usize {
-            buf[i] = 0;
-        }
-    }
-}

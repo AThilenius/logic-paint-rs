@@ -5,8 +5,8 @@ use viewport::Viewport;
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlCanvasElement, HtmlElement};
 
+mod brush;
 mod dom;
-mod input;
 mod sim;
 mod substrate;
 mod utils;

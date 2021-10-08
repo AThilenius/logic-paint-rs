@@ -2,7 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use glam::IVec2;
 
-use crate::sim::{Graph, Network};
+use crate::{
+    log,
+    sim::{Graph, Network},
+};
 
 use super::{cell::Cell, Metal};
 
@@ -43,7 +46,7 @@ impl IntegratedCircuit {
             self.io_cell_locs.remove(&loc);
         } else {
             // Set op. Need to create a chunk if it doesn't already exist.
-            let chunk = if let Some(chunk) = self.cell_chunks.get_mut(&loc) {
+            let chunk = if let Some(chunk) = self.cell_chunks.get_mut(&chunk_loc) {
                 chunk
             } else {
                 self.cell_chunks
@@ -70,6 +73,11 @@ impl IntegratedCircuit {
     pub fn compile(&mut self) {
         self.network = Network::compile_ic(&self);
         self.graph = Graph::from(&self.network);
+
+        // DEV
+        if self.graph.nodes.len() > 1 {
+            log!("{:#?}", self.graph.nodes);
+        }
     }
 }
 
