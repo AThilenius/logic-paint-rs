@@ -71,6 +71,7 @@ impl DomIntervalTarget for Viewport {
     fn animation_frame(&mut self, time: f64) {
         // DEV
         if self.simulating {
+            self.simulating = false;
             self.ic
                 .compile_or_get_graph_mut()
                 .set_io_drive_state(IVec2::ZERO, time.round() as u64 % 2 == 0);
@@ -150,7 +151,7 @@ impl ElementEventTarget for Viewport {
 
         match event {
             ElementInputEvent::KeyPressed(event) if event.code() == "KeyC" => {
-                self.simulating = !self.simulating;
+                self.simulating = true;
             }
             _ => {}
         }

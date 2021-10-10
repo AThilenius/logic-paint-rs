@@ -169,17 +169,11 @@ void main() {
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 
     // Configure (possibly per-cell...)
-    vec3 io_color = vec3(1.0, 0.0, 0.0);
+    vec3 io_color = vec3(0.3);
     io_color = mix(
         io_color,
         active_color,
         metal_active ? stripe_blend * 0.5 : 0.0
-    );
-    vec2 io_dist = tile_uv - vec2(0.5);
-    io_color = mix(
-        io_color,
-        vec3(0.0),
-        dot(io_dist, io_dist) * 3.0
     );
 
     vec3 via_color = mix(si_color, vec3(1.0), 1.0);

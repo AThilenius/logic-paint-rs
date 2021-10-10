@@ -90,16 +90,11 @@ impl IntegratedCircuit {
 
     pub fn compile_or_get_graph_mut(&mut self) -> &mut Graph {
         if self.dirty {
-            log!("IC beginning compilation");
             self.dirty = false;
 
             if self.compiled_paths.is_none() {
-                log!("Compiling paths...");
                 self.compile_paths();
-                log!("Done");
-                log!("Compiling graph...");
                 self.graph = Some(Graph::new(self.compiled_paths.as_ref().unwrap()));
-                log!("Done.");
             }
         }
 
@@ -127,8 +122,6 @@ impl IntegratedCircuit {
             if explored.contains(&(atom.src_loc, atom.atom_type)) {
                 continue;
             }
-
-            log!("Exploring atom: {:#?}", atom);
 
             // Assign the atom to this path (needed because the seed atoms aren't assigned)
             atom.path = paths.len();

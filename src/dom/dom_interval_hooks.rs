@@ -84,7 +84,8 @@ impl DomIntervalHooks {
                     )
                     .ok();
 
-                rc.borrow_mut().animation_frame(time.as_f64().unwrap());
+                rc.borrow_mut()
+                    .animation_frame(time.as_f64().unwrap() / 1000.0);
 
                 // Trigger a simulation step at least once per frame. This acts to 'poll' the
                 // handler for if it wants to start simulating.
