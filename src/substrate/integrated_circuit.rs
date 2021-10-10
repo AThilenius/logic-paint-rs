@@ -2,7 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use glam::IVec2;
 
-use crate::sim::{Atom, AtomType, Path};
+use crate::{
+    log,
+    sim::{Atom, AtomType, Graph, Path},
+};
 
 use super::{cell::Cell, Metal, Silicon};
 
@@ -14,11 +17,7 @@ pub struct IntegratedCircuit {
     io_cell_locs: HashSet<IVec2>,
     dirty: bool,
     compiled_paths: Option<Vec<Path>>,
-    sim_state: Option<SimState>,
-}
-
-pub struct SimState {
-    pub path_dc: Vec<u16>,
+    graph: Option<Graph>,
 }
 
 impl Default for IntegratedCircuit {
@@ -28,7 +27,7 @@ impl Default for IntegratedCircuit {
             io_cell_locs: Default::default(),
             dirty: true,
             compiled_paths: None,
-            sim_state: None,
+            graph: None,
         }
     }
 }
@@ -81,30 +80,35 @@ impl IntegratedCircuit {
     }
 
     #[inline(always)]
-    pub fn get_path_dc(&self, path: usize) -> u16 {
-        if let Some(sim_state) = &self.sim_state {
-            sim_state.path_dc[path]
+    pub fn get_path_dc(&self, path_idx: usize) -> u16 {
+        if let Some(graph) = &self.graph {
+            graph.get_path_dc(path_idx)
         } else {
             0_u16
         }
     }
 
-    pub fn compile(&mut self) {
-        if !self.dirty {
-            return;
-        }
-        self.dirty = false;
+    pub fn compile_or_get_graph_mut(&mut self) -> &mut Graph {
+        if self.dirty {
+            log!("IC beginning compilation");
+            self.dirty = false;
 
-        self.sim_state = None;
-
-        if self.compiled_paths.is_none() {
-            self.compile_paths();
+            if self.compiled_paths.is_none() {
+                log!("Compiling paths...");
+                self.compile_paths();
+                log!("Done");
+                log!("Compiling graph...");
+                self.graph = Some(Graph::new(self.compiled_paths.as_ref().unwrap()));
+                log!("Done.");
+            }
         }
+
+        self.graph.as_mut().unwrap()
     }
 
     fn compile_paths(&mut self) {
         let mut paths = Vec::new();
-        let mut explored: HashSet<Atom> = HashSet::new();
+        let mut explored: HashSet<(IVec2, AtomType)> = HashSet::new();
 
         // Seed the edge set with IO pin terminal atoms.
         let mut edge_set: Vec<Atom> = self
@@ -120,9 +124,11 @@ impl IntegratedCircuit {
         // Breadth-first search of all paths that connect to at least one IO pin.
         while edge_set.len() > 0 {
             let mut atom = edge_set.pop().unwrap();
-            if explored.contains(&atom) {
+            if explored.contains(&(atom.src_loc, atom.atom_type)) {
                 continue;
             }
+
+            log!("Exploring atom: {:#?}", atom);
 
             // Assign the atom to this path (needed because the seed atoms aren't assigned)
             atom.path = paths.len();
@@ -180,8 +186,8 @@ impl IntegratedCircuit {
 
     fn set_dirty(&mut self) {
         self.dirty = true;
-        self.sim_state = None;
         self.compiled_paths = None;
+        self.graph = None;
     }
 }
 

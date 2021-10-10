@@ -8,6 +8,13 @@ macro_rules! log {
     }
 }
 
+#[macro_export]
+macro_rules! warn {
+    ( $( $t:tt )* ) => {
+        web_sys::console::warn_1(&format!( $( $t )* ).into());
+    }
+}
+
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 #[macro_export]
 macro_rules! unwrap_or_log_and_return {

@@ -10,6 +10,7 @@ pub struct CellProgram {
     pub program: WebGlProgram,
     pub view_proj: Uniform<Mat4>,
     pub model: Uniform<Mat4>,
+    pub time: Uniform<f32>,
     pub cells_texture_sampler: Uniform<i32>,
 }
 
@@ -22,15 +23,12 @@ impl CellProgram {
         let program: WebGlProgram = link_program(&ctx, &vert_shader, &frag_shader)?;
         ctx.use_program(Some(&program));
 
-        let view_proj = Uniform::new(&ctx, &program, "view_proj")?;
-        let model = Uniform::new(&ctx, &program, "model")?;
-        let cells_texture_sampler = Uniform::new(&ctx, &program, "cells_texture_sampler")?;
-
         Ok(Self {
-            program,
-            view_proj,
-            model,
-            cells_texture_sampler,
+            program: program.clone(),
+            view_proj: Uniform::new(&ctx, &program, "view_proj"),
+            model: Uniform::new(&ctx, &program, "model"),
+            time: Uniform::new(&ctx, &program, "time"),
+            cells_texture_sampler: Uniform::new(&ctx, &program, "cells_texture_sampler"),
         })
     }
 

@@ -16,7 +16,7 @@ use glam::IVec2;
 ///   Silicon as well.
 /// In other words, 3 paths will always terminate at a MOSFET, and the one connected to the base
 /// will always have at least 2 Atoms (NonMetal and TerminalMosfetBase).
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub struct Atom {
     pub src_loc: IVec2,
     pub path: usize,

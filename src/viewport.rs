@@ -8,7 +8,7 @@ use crate::{
     brush::Brush,
     dom::{DomIntervalTarget, ElementEventTarget, ElementInputEvent},
     log,
-    substrate::{Cell, IntegratedCircuit, Metal, Silicon},
+    substrate::{Cell, IntegratedCircuit, Metal},
     unwrap_or_log_and_return,
     wgl2::{Camera, CellChunkTexture, CellProgram, QuadVao, SetUniformType},
 };
@@ -69,6 +69,16 @@ impl Viewport {
 
 impl DomIntervalTarget for Viewport {
     fn animation_frame(&mut self, time: f64) {
+        // DEV
+        if self.simulating {
+            self.ic
+                .compile_or_get_graph_mut()
+                .set_io_drive_state(IVec2::ZERO, time.round() as u64 % 2 == 0);
+
+            self.ic.compile_or_get_graph_mut().step_simulation(1);
+        }
+        // DEV
+
         let (w, h) = (
             self.canvas.client_width() as u32,
             self.canvas.client_height() as u32,
@@ -89,6 +99,7 @@ impl DomIntervalTarget for Viewport {
         self.cell_program.use_program(&self.ctx);
         self.quad_vao.bind(&self.ctx);
 
+        // Update uniforms
         self.camera.update(
             window().unwrap().device_pixel_ratio() as f32,
             Vec2::new(w as f32, h as f32),
@@ -96,6 +107,7 @@ impl DomIntervalTarget for Viewport {
         self.cell_program
             .view_proj
             .set(&self.ctx, self.camera.get_view_proj_matrix());
+        self.cell_program.time.set(&self.ctx, time as f32);
 
         // Render visible chunks...
         let visible_chunks = self.camera.get_visible_substrate_chunk_locs();
@@ -126,8 +138,7 @@ impl DomIntervalTarget for Viewport {
     }
 
     fn simulate_step(&mut self) -> bool {
-        self.ic.compile();
-        self.simulating
+        false
     }
 }
 

@@ -17,7 +17,7 @@ pub struct Path {
 impl Path {
     pub fn explore_atom_and_update_cell_paths(
         ic: &mut IntegratedCircuit,
-        explored: &mut HashSet<Atom>,
+        explored: &mut HashSet<(IVec2, AtomType)>,
         seed_atom: Atom,
         path_idx: usize,
     ) -> Path {
@@ -26,10 +26,10 @@ impl Path {
 
         while edge_set.len() > 0 {
             let atom = edge_set.pop().unwrap();
-            if explored.contains(&atom) {
+            if explored.contains(&(atom.src_loc, atom.atom_type)) {
                 continue;
             }
-            explored.insert(atom.clone());
+            explored.insert((atom.src_loc, atom.atom_type));
             atoms.push(atom);
 
             let loc = atom.src_loc;

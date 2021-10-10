@@ -5,6 +5,7 @@ precision highp usampler2D;
 
 in vec2 v_uv;
 
+uniform float time;
 uniform usampler2D cells_texture_sampler;
 
 out vec4 out_color;
@@ -122,7 +123,7 @@ void main() {
     float stripe_blend = smoothstep(
         0.5,
         0.6,
-        mod(stripe_uv.x + stripe_uv.y, 2.0) * 0.5
+        mod(stripe_uv.x + stripe_uv.y + time, 2.0) * 0.5
     );
 
     // Configure
