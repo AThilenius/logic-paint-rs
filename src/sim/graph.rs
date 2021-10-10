@@ -3,7 +3,7 @@ use std::collections::{hash_map::Entry, HashMap, VecDeque};
 use glam::IVec2;
 use smallvec::SmallVec;
 
-use crate::{sim::AtomType, warn};
+use crate::{log, sim::AtomType, warn};
 
 use super::Path;
 
@@ -217,6 +217,8 @@ impl Graph {
 
             // TODO: What about IO driving IO (clock sampling, for example).
         }
+
+        log!("Compiled graph into the nodes: {:#?}", &nodes);
 
         Graph {
             nodes,
