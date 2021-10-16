@@ -1,6 +1,6 @@
 use glam::IVec2;
 
-/// The smallest divisible part of an overall network, a single conductor, IO pin, or Mosfet
+/// The smallest divisible part of an overall path, a single conductor, IO pin, or Mosfet
 /// connection. It also stores the `src_loc` for reference back to the original IC.
 ///
 /// Atoms are unique within the Canvas from which they were generated. That is to say, all the
