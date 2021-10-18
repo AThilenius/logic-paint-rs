@@ -194,8 +194,8 @@ impl Brush {
 
         let (tp, tc) = &mut to;
 
-        // We can paint silicon above any non-IO pin that doesn't already have silicon.
-        if matches!(tc.si, Silicon::None) && !matches!(tc.metal, Metal::IO { .. }) {
+        // We can paint silicon above any cell that doesn't already have silicon.
+        if matches!(tc.si, Silicon::None) {
             tc.si = Silicon::NP {
                 is_n: paint_n,
                 dirs: Default::default(),
@@ -304,10 +304,7 @@ impl Brush {
 
         if let Some((fd, mut fc)) = from {
             match (&mut fc.metal, &mut to.1.metal) {
-                (
-                    Metal::Trace { dirs: fc_dirs, .. } | Metal::IO { dirs: fc_dirs, .. },
-                    Metal::Trace { dirs: tc_dirs, .. } | Metal::IO { dirs: tc_dirs, .. },
-                ) => {
+                (Metal::Trace { dirs: fc_dirs, .. }, Metal::Trace { dirs: tc_dirs, .. }) => {
                     fc_dirs.set_direction(to.0 - fd, true);
                     tc_dirs.set_direction(fd - to.0, true);
                 }

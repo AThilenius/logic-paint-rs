@@ -146,11 +146,12 @@ impl CellChunkTexture {
 
                 match cell.si {
                     Silicon::NP { path, .. } => {
-                        buf[0] |= if ic.get_path_dc(path) > 0 {
-                            si_active
-                        } else {
-                            0
-                        };
+                        // TODO: Check active
+                        // buf[0] |= if ic.get_path_dc(path) > 0 {
+                        //     si_active
+                        // } else {
+                        //     0
+                        // };
                     }
                     Silicon::Mosfet {
                         gate_dirs, path, ..
@@ -160,36 +161,39 @@ impl CellChunkTexture {
                         buf[1] |= if gate_dirs.down { gate_dir_down } else { 0 };
                         buf[1] |= if gate_dirs.left { gate_dir_left } else { 0 };
 
-                        buf[1] |= if ic.get_path_dc(path) > 0 {
-                            gate_active
-                        } else {
-                            0
-                        };
+                        // TODO: Check active
+                        // buf[1] |= if ic.get_path_dc(path) > 0 {
+                        //     gate_active
+                        // } else {
+                        //     0
+                        // };
                     }
                     _ => {}
                 }
 
                 match cell.metal {
-                    Metal::IO { dirs, path, .. } | Metal::Trace { dirs, path, .. } => {
+                    Metal::Trace { dirs, path, .. } => {
                         buf[2] |= metal;
                         buf[2] |= if dirs.up { metal_dir_up } else { 0 };
                         buf[2] |= if dirs.right { metal_dir_right } else { 0 };
                         buf[2] |= if dirs.down { metal_dir_down } else { 0 };
                         buf[2] |= if dirs.left { metal_dir_left } else { 0 };
 
-                        buf[2] |= if ic.get_path_dc(path) > 0 {
-                            metal_active
-                        } else {
-                            0
-                        };
+                        // TODO: Check active
+                        // buf[2] |= if ic.get_path_dc(path) > 0 {
+                        //     metal_active
+                        // } else {
+                        //     0
+                        // };
                     }
                     Metal::None => {}
                 }
 
                 match cell.metal {
-                    Metal::IO { .. } => {
-                        buf[2] |= is_io;
-                    }
+                    // TODO: Check for I/O at cell location.
+                    // Metal::IO { .. } => {
+                    //     buf[2] |= is_io;
+                    // }
                     Metal::Trace { has_via: true, .. } => {
                         buf[2] |= via;
                     }

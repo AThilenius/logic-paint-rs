@@ -36,15 +36,6 @@ impl Path {
             let cell = ic.get_cell(&loc).unwrap();
 
             match (atom.atom_type, cell.si, cell.metal) {
-                (AtomType::TerminalIoPin, _, Metal::IO { .. }) => {
-                    // IO pins connect to metal occupying the same cell as the IO pin. Like all
-                    // terminal atoms.
-                    edge_set.push(Atom {
-                        src_loc: loc,
-                        path: path_idx,
-                        atom_type: AtomType::Metal,
-                    });
-                }
                 (AtomType::TerminalMosfetBase { .. }, Silicon::Mosfet { gate_dirs, .. }, _) => {
                     // MOSFET Base pin always connects to non-metal right "above" the gate and
                     // nothing else. This is done to keep terminal connections single-sibling.
@@ -165,7 +156,7 @@ impl Path {
                         });
                     }
                 },
-                (AtomType::Metal, _, Metal::Trace { dirs, ..} | Metal::IO { dirs, .. }) => {
+                (AtomType::Metal, _, Metal::Trace { dirs, ..}) => {
                     for offset in dirs.get_offsets() {
                         edge_set.push(Atom {
                             src_loc: loc + offset,
@@ -188,8 +179,7 @@ impl Path {
             let mut cell = ic.get_cell(&loc).unwrap();
 
             match (atom.atom_type, &mut cell.metal, &mut cell.si) {
-                (AtomType::TerminalIoPin, Metal::IO { path, .. }, _)
-                | (AtomType::Metal, Metal::Trace { path, .. }, _)
+                (AtomType::Metal, Metal::Trace { path, .. }, _)
                 | (AtomType::NonMetal, _, Silicon::NP { path, .. })
                 | (AtomType::TerminalMosfetBase { .. }, _, Silicon::Mosfet { path, .. }) => {
                     // TODO: Consider splitting the Emitter/Collector 'active' for rendering.

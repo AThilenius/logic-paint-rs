@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use glam::{IVec2, Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement, WebGl2RenderingContext};
 
@@ -8,7 +8,7 @@ use crate::{
     brush::Brush,
     dom::{DomIntervalTarget, ElementEventTarget, ElementInputEvent},
     log,
-    substrate::{Cell, IntegratedCircuit, Metal},
+    substrate::IntegratedCircuit,
     unwrap_or_log_and_return,
     wgl2::{Camera, CellChunkTexture, CellProgram, QuadVao, SetUniformType},
 };
@@ -39,21 +39,10 @@ impl Viewport {
         program.use_program(&ctx);
 
         let vao = QuadVao::new(&ctx, &program.program)?;
-        let mut ic = IntegratedCircuit::default();
-        ic.set_cell(
-            IVec2::ZERO,
-            Cell {
-                metal: Metal::IO {
-                    dirs: Default::default(),
-                    path: 0,
-                },
-                ..Default::default()
-            },
-        );
 
         let viewport = Rc::new(RefCell::new(Self {
             camera: Default::default(),
-            ic,
+            ic: IntegratedCircuit::default(),
             brush: Brush::new(),
             canvas,
             ctx,
@@ -71,12 +60,7 @@ impl DomIntervalTarget for Viewport {
     fn animation_frame(&mut self, time: f64) {
         // DEV
         if self.simulating {
-            self.simulating = false;
-            self.ic
-                .compile_or_get_graph_mut()
-                .set_io_drive_state(IVec2::ZERO, time.round() as u64 % 2 == 0);
-
-            self.ic.compile_or_get_graph_mut().step_simulation(1);
+            // TODO
         }
         // DEV
 
