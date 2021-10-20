@@ -1,9 +1,8 @@
 use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
 
-use crate::{
-    dom::ElementInputEvent,
-    substrate::{cell_to_chunk_loc, CHUNK_SIZE},
-};
+use crate::{dom::ElementInputEvent, wgl2::cell_to_chunk_loc};
+
+use super::CHUNK_SIZE;
 
 pub struct Camera {
     pub translation: Vec2,

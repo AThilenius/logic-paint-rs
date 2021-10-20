@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "arrayvec"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be4dc07131ffa69b8072d35f5007352af944213cde02545e2103680baed38fcd"
+
+[[package]]
 name = "bumpalo"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -34,6 +40,15 @@ checksum = "b8d976903543e0c48546a91908f21588a680a8c8f984df9a5d69feccb2b2a211"
 dependencies = [
  "cfg-if 0.1.10",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "generational-arena"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e1d3b771574f62d0548cee0ad9057857e9fc25d7a3335f140c84f6acd0bf601"
+dependencies = [
+ "cfg-if 0.1.10",
 ]
 
 [[package]]
@@ -74,10 +89,11 @@ dependencies = [
 name = "logic-paint"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "console_error_panic_hook",
+ "generational-arena",
  "glam",
  "js-sys",
- "smallvec",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -119,12 +135,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "smallvec"
-version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
 
 [[package]]
 name = "syn"

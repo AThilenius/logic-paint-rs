@@ -1,67 +1,91 @@
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    iter::FromIterator,
+};
 
 use glam::IVec2;
 
-use super::cell::Cell;
+use super::{atom::Cell, Atom};
 
-pub const CHUNK_SIZE: usize = 32;
-pub const LOG_CHUNK_SIZE: usize = 5;
-
+/// Stores atoms, indexed across several dimensions. Focused on fast reads, at the expense of slow
+/// mutations and memory size.
+#[derive(Debug, Default)]
 pub struct IntegratedCircuit {
-    cell_chunks: HashMap<IVec2, HashMap<IVec2, Cell>>,
-}
+    atoms: HashSet<Atom>,
+    cell_lookup_by_loc: HashMap<IVec2, Cell>,
 
-impl Default for IntegratedCircuit {
-    fn default() -> Self {
-        Self {
-            cell_chunks: Default::default(),
-        }
-    }
+    traces: Vec<Vec<Atom>>,
+    trace_lookup_by_atom: HashMap<Atom, usize>,
 }
 
 impl IntegratedCircuit {
-    pub fn get_cell(&self, loc: &IVec2) -> Option<Cell> {
-        if let Some(chunk) = self.cell_chunks.get(&cell_to_chunk_loc(loc)) {
-            chunk.get(loc).map(Clone::clone)
-        } else {
-            None
-        }
-    }
-
-    pub fn set_cell(&mut self, loc: IVec2, cell: Cell) {
-        let chunk_loc = cell_to_chunk_loc(&loc);
-        if cell == Default::default() {
-            // Delete op.
-            let mut last_cell = false;
-            if let Some(chunk) = self.cell_chunks.get_mut(&chunk_loc) {
-                chunk.remove(&loc);
-                if chunk.len() == 0 {
-                    last_cell = true;
+    pub fn commit_cell_changes(&mut self, changes: Vec<(IVec2, Cell)>) {
+        for (loc, change) in changes {
+            if change.len() == 0 {
+                // Delete the cell entirely.
+                if let Some(previous_cell) = self.cell_lookup_by_loc.remove(&loc) {
+                    for atom in previous_cell {
+                        self.atoms.remove(&atom);
+                    }
                 }
-            }
-            if last_cell {
-                self.cell_chunks.remove(&chunk_loc);
-            }
-        } else {
-            // Set op. Need to create a chunk if it doesn't already exist.
-            let chunk = if let Some(chunk) = self.cell_chunks.get_mut(&chunk_loc) {
-                chunk
             } else {
-                self.cell_chunks
-                    .insert(chunk_loc.clone(), Default::default());
-                self.cell_chunks.get_mut(&chunk_loc).unwrap()
-            };
-            chunk.insert(loc, cell.clone());
+                if let Some(previous_cell) = self.cell_lookup_by_loc.insert(loc, change.clone()) {
+                    for atom in previous_cell {
+                        self.atoms.remove(&atom);
+                    }
+                }
+                self.atoms.extend(change);
+            }
+        }
+
+        self.rebuild_traces();
+    }
+
+    pub fn get_cell_by_location(&self, cell_loc: IVec2) -> Option<Cell> {
+        self.cell_lookup_by_loc.get(&cell_loc).cloned()
+    }
+
+    fn rebuild_traces(&mut self) {
+        self.traces.clear();
+        self.trace_lookup_by_atom.clear();
+
+        for atom in self.atoms.iter() {
+            // Atom was already explored.
+            if self.trace_lookup_by_atom.contains_key(atom) {
+                continue;
+            }
+
+            // It's a new trace, search the trace atoms and add them.
+            let mut trace = vec![];
+            let trace_idx = self.traces.len();
+            let mut edge_set = VecDeque::from_iter([*atom]);
+
+            while edge_set.len() > 0 {
+                let atom = edge_set.pop_front().unwrap();
+
+                if self.trace_lookup_by_atom.contains_key(&atom) {
+                    continue;
+                }
+
+                self.trace_lookup_by_atom.insert(atom.clone(), trace_idx);
+
+                // Add atom neighbors of metal and si. Note that this works because atoms are
+                // self-descriptive, ie each atom always describes it's conductive neighbors
+                // irrespective of it's membership to a MOSFET. Likewise, MOSFET parts do not
+                // conductively connect together so they will not be explored.
+                for dir in (atom.metal | atom.si).cardinal_vectors() {
+                    edge_set.extend(
+                        self.get_cell_by_location(atom.cell_loc + dir)
+                            .unwrap()
+                            .iter()
+                            .filter(|o| atom.neighbor_of(o)),
+                    );
+                }
+
+                trace.push(atom);
+            }
+
+            self.traces.push(trace);
         }
     }
-
-    pub fn get_chunk(&self, chunk_loc: &IVec2) -> Option<&HashMap<IVec2, Cell>> {
-        self.cell_chunks.get(&chunk_loc)
-    }
-}
-
-#[inline(always)]
-pub fn cell_to_chunk_loc(loc: &IVec2) -> IVec2 {
-    // Right shift LOG(CHUNK_SIZE) bits, which is: divide by 32, with a floor op.
-    IVec2::new(loc.x >> LOG_CHUNK_SIZE, loc.y >> LOG_CHUNK_SIZE)
 }

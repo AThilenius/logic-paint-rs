@@ -5,11 +5,11 @@ use wasm_bindgen::JsValue;
 use web_sys::{WebGl2RenderingContext, WebGlTexture};
 
 use crate::{
-    log,
-    substrate::{
-        cell_to_chunk_loc, Cell, IntegratedCircuit, Metal, Silicon, CHUNK_SIZE, LOG_CHUNK_SIZE,
-    },
+    substrate::{Cell, IntegratedCircuit, Metal, NormalizedCell, Silicon},
+    wgl2::{cell_to_chunk_loc, LOG_CHUNK_SIZE},
 };
+
+use super::CHUNK_SIZE;
 
 thread_local! {
     pub static PIXEL_BUF: RefCell<[u8; 4 * CHUNK_SIZE * CHUNK_SIZE]> =
@@ -80,15 +80,23 @@ impl CellChunkTexture {
     ) -> Result<(), JsValue> {
         let start = IVec2::new(chunk_loc.x << LOG_CHUNK_SIZE, chunk_loc.y << LOG_CHUNK_SIZE);
 
+        // Collect all cell from the IC that belong to this chunk.
+        let mut cells = vec![];
+        for y in start.y..(start.y + CHUNK_SIZE as i32) {
+            for x in start.x..(start.x + CHUNK_SIZE as i32) {
+                if let Some(cell) = ic.get_cell_by_location(IVec2::new(x, y)) {
+                    cells.push((IVec2::new(x, y), cell));
+                }
+            }
+        }
+
         // Collect all cells that will be drawn in this chunk.
-        let override_cells = overrides
-            .iter()
-            .filter(|(loc, _)| cell_to_chunk_loc(loc) == *chunk_loc);
-        let cells: Vec<_> = if let Some(chunk) = ic.get_chunk(&chunk_loc) {
-            chunk.iter().chain(override_cells).collect()
-        } else {
-            override_cells.collect()
-        };
+        cells.extend(
+            overrides
+                .iter()
+                .filter(|(loc, _)| cell_to_chunk_loc(loc) == *chunk_loc)
+                .map(|(l, c)| (*l, c.clone())),
+        );
 
         // Short-circuit empty drawing
         if cells.len() == 0 && self.blank {
@@ -99,53 +107,58 @@ impl CellChunkTexture {
         PIXEL_BUF.with(|pixels| {
             let mut pixels = pixels.borrow_mut();
             for (loc, cell) in cells {
+                // TODO: Work directly with standard cells.
+                let cell = NormalizedCell::from(cell.clone());
+
                 // To chunk-local coords, then: ((loc.y * CHUNK_SIZE) + loc.x) * 4
-                let loc = *loc - start;
+                let loc = loc - start;
                 let i = ((loc.y << LOG_CHUNK_SIZE) + loc.x) << 2;
                 let buf = &mut pixels[i as usize..];
 
                 // Bit field masks (3 bytes)
                 let si_n = 1u8 << 7;
                 let si_p = 1u8 << 6;
-                let si_active = 1u8 << 5;
-                let si_dir_up = 1u8 << 4;
-                let si_dir_right = 1u8 << 3;
-                let si_dir_down = 1u8 << 2;
-                let si_dir_left = 1u8 << 1;
+                let _si_active = 1u8 << 5;
+                let si_pl_up = 1u8 << 4;
+                let si_pl_right = 1u8 << 3;
+                let si_pl_down = 1u8 << 2;
+                let si_pl_left = 1u8 << 1;
 
-                let gate_dir_up = 1u8 << 7;
-                let gate_dir_right = 1u8 << 6;
-                let gate_dir_down = 1u8 << 5;
-                let gate_dir_left = 1u8 << 4;
-                let gate_active = 1u8 << 3;
+                let gate_pl_up = 1u8 << 7;
+                let gate_pl_right = 1u8 << 6;
+                let gate_pl_down = 1u8 << 5;
+                let gate_pl_left = 1u8 << 4;
+                let _gate_active = 1u8 << 3;
 
                 let metal = 1u8 << 7;
-                let metal_dir_up = 1u8 << 6;
-                let metal_dir_right = 1u8 << 5;
-                let metal_dir_down = 1u8 << 4;
-                let metal_dir_left = 1u8 << 3;
-                let metal_active = 1u8 << 2;
+                let metal_pl_up = 1u8 << 6;
+                let metal_pl_right = 1u8 << 5;
+                let metal_pl_down = 1u8 << 4;
+                let metal_pl_left = 1u8 << 3;
+                let _metal_active = 1u8 << 2;
                 let via = 1u8 << 1;
-                let is_io = 1u8 << 0;
+                let _is_io = 1u8 << 0;
 
                 match cell.si {
-                    Silicon::NP { is_n, dirs, .. }
+                    Silicon::NP {
+                        is_n, placement, ..
+                    }
                     | Silicon::Mosfet {
                         is_npn: is_n,
-                        ec_dirs: dirs,
+                        ec_placement: placement,
                         ..
                     } => {
                         buf[0] |= if is_n { si_n } else { si_p };
-                        buf[0] |= if dirs.up { si_dir_up } else { 0 };
-                        buf[0] |= if dirs.right { si_dir_right } else { 0 };
-                        buf[0] |= if dirs.down { si_dir_down } else { 0 };
-                        buf[0] |= if dirs.left { si_dir_left } else { 0 };
+                        buf[0] |= if placement.up { si_pl_up } else { 0 };
+                        buf[0] |= if placement.right { si_pl_right } else { 0 };
+                        buf[0] |= if placement.down { si_pl_down } else { 0 };
+                        buf[0] |= if placement.left { si_pl_left } else { 0 };
                     }
                     _ => {}
                 }
 
                 match cell.si {
-                    Silicon::NP { path, .. } => {
+                    Silicon::NP { .. } => {
                         // TODO: Check active
                         // buf[0] |= if ic.get_path_dc(path) > 0 {
                         //     si_active
@@ -153,13 +166,15 @@ impl CellChunkTexture {
                         //     0
                         // };
                     }
-                    Silicon::Mosfet {
-                        gate_dirs, path, ..
-                    } => {
-                        buf[1] |= if gate_dirs.up { gate_dir_up } else { 0 };
-                        buf[1] |= if gate_dirs.right { gate_dir_right } else { 0 };
-                        buf[1] |= if gate_dirs.down { gate_dir_down } else { 0 };
-                        buf[1] |= if gate_dirs.left { gate_dir_left } else { 0 };
+                    Silicon::Mosfet { gate_placement, .. } => {
+                        buf[1] |= if gate_placement.up { gate_pl_up } else { 0 };
+                        buf[1] |= if gate_placement.right {
+                            gate_pl_right
+                        } else {
+                            0
+                        };
+                        buf[1] |= if gate_placement.down { gate_pl_down } else { 0 };
+                        buf[1] |= if gate_placement.left { gate_pl_left } else { 0 };
 
                         // TODO: Check active
                         // buf[1] |= if ic.get_path_dc(path) > 0 {
@@ -172,12 +187,12 @@ impl CellChunkTexture {
                 }
 
                 match cell.metal {
-                    Metal::Trace { dirs, path, .. } => {
+                    Metal::Trace { placement, .. } => {
                         buf[2] |= metal;
-                        buf[2] |= if dirs.up { metal_dir_up } else { 0 };
-                        buf[2] |= if dirs.right { metal_dir_right } else { 0 };
-                        buf[2] |= if dirs.down { metal_dir_down } else { 0 };
-                        buf[2] |= if dirs.left { metal_dir_left } else { 0 };
+                        buf[2] |= if placement.up { metal_pl_up } else { 0 };
+                        buf[2] |= if placement.right { metal_pl_right } else { 0 };
+                        buf[2] |= if placement.down { metal_pl_down } else { 0 };
+                        buf[2] |= if placement.left { metal_pl_left } else { 0 };
 
                         // TODO: Check active
                         // buf[2] |= if ic.get_path_dc(path) > 0 {

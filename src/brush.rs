@@ -4,7 +4,7 @@ use glam::{IVec2, Vec2};
 
 use crate::{
     dom::ElementInputEvent,
-    substrate::{Cell, IntegratedCircuit, Metal, Silicon},
+    substrate::{Cell, IntegratedCircuit, Metal, NormalizedCell, Placement, Silicon},
     utils::range_iter,
     wgl2::Camera,
 };
@@ -138,12 +138,9 @@ impl Brush {
 
         // Draw each step
         for i in 0..steps.len() {
-            let to = (steps[i], self.get_cell(&ic, &steps[i]).unwrap_or_default());
+            let to = self.get_norm_cell_or_default(&ic, &steps[i]);
             let from = if i > 0 {
-                Some((
-                    steps[i - 1],
-                    self.get_cell(&ic, &steps[i - 1]).unwrap_or_default(),
-                ))
+                Some(self.get_norm_cell_or_default(&ic, &steps[i - 1]))
             } else {
                 None
             };
@@ -163,23 +160,23 @@ impl Brush {
         }
     }
 
-    fn draw_via(&mut self, from: Option<(IVec2, Cell)>, mut to: (IVec2, Cell)) {
+    fn draw_via(&mut self, from: Option<NormalizedCell>, mut to: NormalizedCell) {
         // Only draw the first place the user clicks for vias.
         if from.is_none() {
-            match (to.1.si, &mut to.1.metal) {
+            match (to.si, &mut to.metal) {
                 (Silicon::NP { .. }, Metal::Trace { has_via, .. }) => *has_via = true,
                 _ => {}
             }
         }
 
-        self.cell_overrides.insert(to.0, to.1);
+        self.cell_overrides.insert(to.cell_loc.clone(), to.into());
     }
 
     fn draw_si(
         &mut self,
         ic: &IntegratedCircuit,
-        mut from: Option<(IVec2, Cell)>,
-        mut to: (IVec2, Cell),
+        mut from: Option<NormalizedCell>,
+        mut to: NormalizedCell,
         paint_n: bool,
     ) {
         // Success cases:
@@ -192,135 +189,153 @@ impl Brush {
         //   - Adjacent cells are also opposite-type si
         //   - Next cell in same direction != opposite type si
 
-        let (tp, tc) = &mut to;
-
         // We can paint silicon above any cell that doesn't already have silicon.
-        if matches!(tc.si, Silicon::None) {
-            tc.si = Silicon::NP {
+        if matches!(to.si, Silicon::None) {
+            to.si = Silicon::NP {
                 is_n: paint_n,
-                dirs: Default::default(),
-                path: 0,
+                placement: Placement::CENTER,
             };
         }
 
         // Everything else requires a from-cell.
-        if let Some((fp, fc)) = &mut from {
-            let dir = *tp - *fp;
+        if let Some(from) = &mut from {
+            let dir = to.cell_loc - from.cell_loc;
 
             // The to cell and tangent cells must all be the opposite type of paint_n to draw a
             // transistor. We check those now to match on it later.
             let tan_dir = IVec2::new(dir.y, dir.x);
-            let fc_matches_n = fc.si.matches_n(paint_n);
-            let to_cell_transistor_ready = [*tp + tan_dir, *tp, *tp - tan_dir].iter().all(|p| {
-                self.get_cell(&ic, p)
-                    .map_or(false, |c| c.si.matches_n(!paint_n))
-            });
+            let fc_matches_n = from.si.matches_n(paint_n);
+            let to_cell_transistor_ready =
+                [to.cell_loc + tan_dir, to.cell_loc, to.cell_loc - tan_dir]
+                    .iter()
+                    .all(|p| {
+                        self.get_norm_cell(&ic, p)
+                            .map_or(false, |c| c.si.matches_n(!paint_n))
+                    });
             let next_cell_over_is_not_same_type = self
-                .get_cell(&ic, &(*tp + dir))
+                .get_norm_cell(&ic, &(to.cell_loc + dir))
                 .map_or(true, |c| c.si == Silicon::None || c.si.matches_n(paint_n));
 
-            match (&mut fc.si, &mut tc.si) {
+            match (&mut from.si, &mut to.si) {
                 // Single-layer cells of the same type can be joined (painted above).
                 (
                     Silicon::NP {
                         is_n: fc_is_n,
-                        dirs: fc_dirs,
+                        placement: fc_pl,
                         ..
                     },
                     Silicon::NP {
                         is_n: tc_is_n,
-                        dirs: tc_dirs,
+                        placement: tc_pl,
                         ..
                     },
                 ) if fc_is_n == tc_is_n && *tc_is_n == paint_n => {
-                    fc_dirs.set_direction(dir, true);
-                    tc_dirs.set_direction(-dir, true);
+                    fc_pl.set_cardinal(dir);
+                    tc_pl.set_cardinal(-dir);
                 }
                 // An already existing gate can connect with an EMPTY cell in the same direction it's
                 // going.
                 (
                     Silicon::Mosfet {
-                        is_npn, gate_dirs, ..
+                        is_npn,
+                        gate_placement,
+                        ..
                     },
                     Silicon::None,
                 ) => {
-                    gate_dirs.set_direction(dir, true);
-                    tc.si = Silicon::NP {
+                    gate_placement.set_cardinal(dir);
+                    let mut placement = Placement::NONE;
+                    placement.set_cardinal(-dir);
+                    to.si = Silicon::NP {
                         is_n: !*is_npn,
-                        dirs: (-dir).into(),
-                        path: 0,
+                        placement,
                     };
                 }
                 // An already existing gate can connect with an existing single-layer cell in the same
                 // direction it's going if that cell is the same type as the gate silicon.
                 (
                     Silicon::Mosfet {
-                        is_npn, gate_dirs, ..
+                        is_npn,
+                        gate_placement,
+                        ..
                     },
-                    Silicon::NP { is_n, dirs, .. },
+                    Silicon::NP {
+                        is_n, placement, ..
+                    },
                 ) if is_npn != is_n => {
-                    gate_dirs.set_direction(dir, true);
-                    dirs.set_direction(-dir, true);
+                    gate_placement.set_cardinal(dir);
+                    placement.set_cardinal(-dir);
                 }
                 // MOSFETs can only be drawn from silicon, onto single-layer silicon of the opposite
                 // type. They also require the tangential cells be of the same type as the MOSFET.
                 (
-                    Silicon::NP { dirs: fc_dirs, .. }
+                    Silicon::NP {
+                        placement: fc_pl, ..
+                    }
                     | Silicon::Mosfet {
-                        gate_dirs: fc_dirs, ..
+                        gate_placement: fc_pl,
+                        ..
                     },
-                    Silicon::NP { dirs: tc_dirs, .. },
+                    Silicon::NP {
+                        placement: tc_pl, ..
+                    },
                 ) if fc_matches_n
                     && to_cell_transistor_ready
                     && next_cell_over_is_not_same_type =>
                 {
-                    fc_dirs.set_direction(dir, true);
+                    fc_pl.set_cardinal(dir);
+                    let mut gate_placement = Placement::NONE;
+                    gate_placement.set_cardinal(-dir);
 
-                    tc.si = Silicon::Mosfet {
+                    to.si = Silicon::Mosfet {
                         is_npn: !paint_n,
-                        gate_dirs: (-dir).into(),
-                        ec_dirs: *tc_dirs,
-                        path: 0,
+                        gate_placement,
+                        ec_placement: *tc_pl,
                     };
                 }
                 _ => {}
             }
         }
 
-        if let Some((fl, fc)) = from {
-            self.cell_overrides.insert(fl, fc);
+        if let Some(from) = from {
+            self.cell_overrides
+                .insert(from.cell_loc.clone(), from.into());
         }
-        self.cell_overrides.insert(to.0, to.1);
+        self.cell_overrides.insert(to.cell_loc.clone(), to.into());
     }
 
-    fn draw_metal(&mut self, from: Option<(IVec2, Cell)>, mut to: (IVec2, Cell)) {
-        if let Metal::None = to.1.metal {
-            to.1.metal = Metal::Trace {
+    fn draw_metal(&mut self, from: Option<NormalizedCell>, mut to: NormalizedCell) {
+        if let Metal::None = to.metal {
+            to.metal = Metal::Trace {
                 has_via: false,
-                dirs: Default::default(),
-                path: 0,
+                placement: Placement::CENTER,
             };
         }
 
-        if let Some((fd, mut fc)) = from {
-            match (&mut fc.metal, &mut to.1.metal) {
-                (Metal::Trace { dirs: fc_dirs, .. }, Metal::Trace { dirs: tc_dirs, .. }) => {
-                    fc_dirs.set_direction(to.0 - fd, true);
-                    tc_dirs.set_direction(fd - to.0, true);
+        if let Some(mut from) = from {
+            match (&mut from.metal, &mut to.metal) {
+                (
+                    Metal::Trace {
+                        placement: fc_pl, ..
+                    },
+                    Metal::Trace {
+                        placement: tc_pl, ..
+                    },
+                ) => {
+                    fc_pl.set_cardinal(to.cell_loc - from.cell_loc);
+                    tc_pl.set_cardinal(from.cell_loc - to.cell_loc);
                 }
                 _ => {}
             }
-            self.cell_overrides.insert(fd, fc);
+            self.cell_overrides
+                .insert(from.cell_loc.clone(), from.into());
         }
-        self.cell_overrides.insert(to.0, to.1);
+        self.cell_overrides.insert(to.cell_loc.clone(), to.into());
     }
 
     pub fn commit_changes(&mut self, ic: &mut IntegratedCircuit) -> bool {
         if !self.previous_buttons.0 && !self.previous_buttons.1 && self.cell_overrides.len() > 0 {
-            for (loc, cell) in self.cell_overrides.drain() {
-                ic.set_cell(loc, cell);
-            }
-
+            ic.commit_cell_changes(self.cell_overrides.drain().collect());
             return true;
         }
 
@@ -331,7 +346,25 @@ impl Brush {
         self.cell_overrides.clear();
     }
 
-    fn get_cell(&self, ic: &IntegratedCircuit, loc: &IVec2) -> Option<Cell> {
-        self.cell_overrides.get(loc).cloned().or(ic.get_cell(loc))
+    fn get_norm_cell(&self, ic: &IntegratedCircuit, loc: &IVec2) -> Option<NormalizedCell> {
+        self.cell_overrides
+            .get(loc)
+            .cloned()
+            .or(ic.get_cell_by_location(*loc))
+            .map(|c| c.into())
+    }
+
+    fn get_norm_cell_or_default(&self, ic: &IntegratedCircuit, loc: &IVec2) -> NormalizedCell {
+        let mut cell: NormalizedCell = self
+            .cell_overrides
+            .get(loc)
+            .cloned()
+            .or(ic.get_cell_by_location(*loc))
+            .map(|c| c.into())
+            .unwrap_or_default();
+
+        cell.cell_loc = *loc;
+
+        cell
     }
 }

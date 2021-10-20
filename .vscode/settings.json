@@ -1,5 +1,7 @@
 {
   "cSpell.words": [
+    "arrayvec",
+    "bitor",
     "Deque",
     "eval",
     "evals",
@@ -7,6 +9,7 @@
     "keydown",
     "mipmap",
     "MOSFET",
+    "MOSFETS",
     "mousedown",
     "mousemove",
     "mouseup",
