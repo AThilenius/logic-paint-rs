@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use glam::{Mat4, Vec2, Vec3};
+use glam::{IVec2, Mat4, Vec2, Vec3};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement, WebGl2RenderingContext};
 
@@ -8,7 +8,7 @@ use crate::{
     brush::Brush,
     dom::{DomIntervalTarget, ElementEventTarget, ElementInputEvent},
     log,
-    substrate::IntegratedCircuit,
+    substrate::{IntegratedCircuit, PinModule, SimIcState},
     unwrap_or_log_and_return,
     wgl2::{Camera, CellChunkTexture, CellProgram, QuadVao, SetUniformType},
 };
@@ -25,7 +25,7 @@ pub struct Viewport {
     cell_program: CellProgram,
     quad_vao: QuadVao,
     cell_chunk_textures: Vec<CellChunkTexture>,
-    simulating: bool,
+    sim_state: Option<SimIcState>,
 }
 
 impl Viewport {
@@ -39,17 +39,25 @@ impl Viewport {
         program.use_program(&ctx);
 
         let vao = QuadVao::new(&ctx, &program.program)?;
+        let mut ic = IntegratedCircuit::default();
+
+        ic.add_pin_module(PinModule::Clock {
+            cell_loc: IVec2::ZERO,
+            interval: 1,
+            name: "CLK".to_string(),
+            starts_high: false,
+        });
 
         let viewport = Rc::new(RefCell::new(Self {
             camera: Default::default(),
-            ic: IntegratedCircuit::default(),
+            ic,
             brush: Brush::new(),
             canvas,
             ctx,
             cell_program: program,
             quad_vao: vao,
             cell_chunk_textures: vec![],
-            simulating: false,
+            sim_state: None,
         }));
 
         Ok(viewport)
@@ -59,8 +67,8 @@ impl Viewport {
 impl DomIntervalTarget for Viewport {
     fn animation_frame(&mut self, time: f64) {
         // DEV
-        if self.simulating {
-            // TODO
+        if let Some(sim_ic_state) = &self.sim_state {
+            self.sim_state = Some(self.ic.step_simulation_state(&sim_ic_state));
         }
         // DEV
 
@@ -135,7 +143,11 @@ impl ElementEventTarget for Viewport {
 
         match event {
             ElementInputEvent::KeyPressed(event) if event.code() == "KeyC" => {
-                self.simulating = true;
+                if let Some(_) = self.sim_state {
+                    self.sim_state = None;
+                } else {
+                    self.sim_state = Some(self.ic.build_new_sim_state());
+                }
             }
             _ => {}
         }
