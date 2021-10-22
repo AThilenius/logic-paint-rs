@@ -93,7 +93,6 @@ void main() {
     bool metal_active = (cells.a & (1u << 7u)) > 0u;
 
     // TODO: NOPE
-    bool si_active = false;
     bool is_io = false;
     //
 
@@ -144,6 +143,8 @@ void main() {
         + (grid_1 ? grid_blend_strength : 0.0);
 
     vec3 si_color = si_n ? n_color.rgb : p_color.rgb;
+    bool si_active = (tile_uv.x < 0.5 || tile_uv.y > 0.5)
+        ? si_ul_active : si_dr_active;
     si_color = mix(
         si_color,
         active_color,

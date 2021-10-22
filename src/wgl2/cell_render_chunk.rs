@@ -112,12 +112,16 @@ impl CellRenderChunk {
         ctx: &WebGl2RenderingContext,
         sim_state: &SimIcState,
     ) -> Result<(), JsValue> {
+        if self.texel_component_to_trace_handle.len() == 0 {
+            return Ok(());
+        }
+
         for (texel_cmp, trace_handle) in &self.texel_component_to_trace_handle {
             let active = sim_state.trace_states[*trace_handle];
             if active {
                 self.pixels[*texel_cmp] |= FLAG_ACTIVE;
             } else {
-                self.pixels[*texel_cmp] ^= FLAG_ACTIVE;
+                self.pixels[*texel_cmp] &= !FLAG_ACTIVE;
             }
         }
 

@@ -40,9 +40,13 @@ impl Viewport {
         let vao = QuadVao::new(&ctx, &program.program)?;
         let mut ic = IntegratedCircuit::default();
 
+        ic.add_pin_module(PinModule::ConstVal {
+            cell_loc: IVec2::new(-1, 0),
+            high: true,
+        });
         ic.add_pin_module(PinModule::Clock {
             cell_loc: IVec2::ZERO,
-            interval: 1,
+            interval: 30,
             name: "CLK".to_string(),
             starts_high: false,
         });
@@ -66,8 +70,8 @@ impl Viewport {
 impl DomIntervalTarget for Viewport {
     fn animation_frame(&mut self, time: f64) {
         // DEV
-        if let Some(sim_ic_state) = &self.sim_state {
-            self.sim_state = Some(self.ic.step_simulation_state(&sim_ic_state));
+        if let Some(sim_ic_state) = self.sim_state.take() {
+            self.sim_state = Some(self.ic.step_simulation_state(sim_ic_state));
         }
         // DEV
 

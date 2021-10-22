@@ -34,7 +34,7 @@ pub struct IntegratedCircuit {
 #[derive(Debug, Clone, Copy)]
 pub struct Gate {
     pub is_npn: bool,
-    pub gate_trace: usize,
+    pub base_trace: usize,
     pub left_ec_trace: usize,
     pub right_ec_trace: usize,
 }
@@ -102,8 +102,14 @@ impl IntegratedCircuit {
         }
     }
 
-    pub fn step_simulation_state(&self, previous_state: &SimIcState) -> SimIcState {
-        let mut state = previous_state.clone();
+    pub fn step_simulation_state(&self, previous_state: SimIcState) -> SimIcState {
+        let mut state = SimIcState {
+            params: previous_state.params,
+            gate_states: previous_state.gate_states,
+            trace_states: vec![false; previous_state.trace_states.len()],
+            pin_module_states: previous_state.pin_module_states,
+            pin_states: previous_state.pin_states,
+        };
 
         // Pull input pin modules and update corresponding traces.
         for (i, pin_module) in self.pin_modules.iter().enumerate() {
@@ -112,7 +118,7 @@ impl IntegratedCircuit {
             state.pin_module_states[i].update_pin_state_inputs(pin_states, &state.params);
 
             // Pull the pin states and write them to their corresponding trace.
-            for pin in pin_module.get_pins().iter() {
+            for (j, pin) in pin_module.get_pins().iter().enumerate() {
                 // Technically an I/O pin doesn't need to correspond with metal in the cell.
                 if let Some(cell) = self.get_cell_by_location(&pin.cell_loc) {
                     for atom in cell {
@@ -127,14 +133,41 @@ impl IntegratedCircuit {
                             .get(atom)
                             .expect("Trace index by atom missing for metal atom");
 
-                        state.trace_states[trace_idx] |= pin_states[i].input_high;
+                        state.trace_states[trace_idx] |= pin_states[j].input_high;
                     }
                 }
             }
         }
 
-        state.params.tick += 1;
+        // Propagate 'high' signals through the graph.
+        let mut change = true;
+        while change {
+            change = false;
 
+            for i in 0..self.gates.len() {
+                // If the gate isn't open, ignore it.
+                if !state.gate_states[i] {
+                    continue;
+                }
+
+                let gate = self.gates[i];
+                let left = state.trace_states[gate.left_ec_trace];
+                let right = state.trace_states[gate.right_ec_trace];
+                let high = left || right;
+                change |= left != right;
+                state.trace_states[gate.left_ec_trace] = high;
+                state.trace_states[gate.right_ec_trace] = high;
+            }
+        }
+
+        // Update gate states
+        for (i, gate) in self.gates.iter().enumerate() {
+            let base = state.trace_states[gate.base_trace];
+
+            state.gate_states[i] = if gate.is_npn { base } else { !base };
+        }
+
+        state.params.tick += 1;
         state
     }
 
@@ -228,7 +261,7 @@ impl IntegratedCircuit {
         for base_atom in base_atoms {
             let mut gate = Gate {
                 is_npn: !base_atom.is_si_n,
-                gate_trace: *self.trace_lookup_by_atom.get(&base_atom).unwrap(),
+                base_trace: *self.trace_lookup_by_atom.get(&base_atom).unwrap(),
                 left_ec_trace: usize::MAX,
                 right_ec_trace: usize::MAX,
             };

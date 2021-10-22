@@ -4,6 +4,10 @@ use super::SimTickParams;
 
 #[derive(Debug, Clone)]
 pub enum PinModule {
+    ConstVal {
+        cell_loc: IVec2,
+        high: bool,
+    },
     Clock {
         cell_loc: IVec2,
         interval: usize,
@@ -21,6 +25,14 @@ pub struct Pin {
 impl PinModule {
     pub fn get_pins(&self) -> Vec<Pin> {
         match self {
+            PinModule::ConstVal { cell_loc, high } => vec![Pin {
+                name: if *high {
+                    "VCC".to_owned()
+                } else {
+                    "GND".to_owned()
+                },
+                cell_loc: *cell_loc,
+            }],
             PinModule::Clock { name, cell_loc, .. } => vec![Pin {
                 name: name.clone(),
                 cell_loc: *cell_loc,
@@ -31,6 +43,9 @@ impl PinModule {
 
 #[derive(Debug, Clone)]
 pub enum PinModuleState {
+    ConstVal {
+        high: bool,
+    },
     Clock {
         module: PinModule,
         next_edge: usize,
@@ -41,6 +56,7 @@ pub enum PinModuleState {
 impl PinModuleState {
     pub fn instantiate(pin_module: &PinModule) -> PinModuleState {
         match pin_module {
+            &PinModule::ConstVal { high, .. } => PinModuleState::ConstVal { high },
             &PinModule::Clock {
                 interval,
                 starts_high,
@@ -71,6 +87,10 @@ impl PinModuleState {
 
                 pin_states[0].input_high = *high;
             }
+            PinModuleState::ConstVal { high } => {
+                pin_states[0].input_high = *high;
+            }
+            _ => unreachable!("Module type should always match module state type"),
         }
     }
 
