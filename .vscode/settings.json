@@ -1,5 +1,6 @@
 {
   "cSpell.words": [
+    "affinitize",
     "arrayvec",
     "bitor",
     "Deque",
@@ -7,6 +8,8 @@
     "evals",
     "ivec",
     "keydown",
+    "lookaside",
+    "memset",
     "mipmap",
     "MOSFET",
     "MOSFETS",
@@ -19,6 +22,7 @@
     "rasterizer",
     "raycast",
     "smallvec",
+    "texel",
     "webgl"
   ]
 }

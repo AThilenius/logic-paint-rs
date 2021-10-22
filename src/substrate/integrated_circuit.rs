@@ -1,11 +1,11 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, VecDeque},
     iter::FromIterator,
 };
 
 use glam::IVec2;
 
-use crate::{log, substrate::MosfetPart};
+use crate::{log, substrate::MosfetPart, utils::ChunkedCellLookup};
 
 use super::{
     atom::Cell,
@@ -15,11 +15,10 @@ use super::{
 
 /// Stores atoms, indexed across several dimensions. Focused on fast reads, at the expense of slow
 /// mutations and memory size.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct IntegratedCircuit {
     // Atoms
-    atoms: HashSet<Atom>,
-    cell_lookup_by_loc: HashMap<IVec2, Cell>,
+    cell_lookup_by_loc: ChunkedCellLookup,
 
     // Traces
     traces: Vec<Vec<Atom>>,
@@ -57,28 +56,26 @@ pub struct SimIcState {
 impl IntegratedCircuit {
     pub fn commit_cell_changes(&mut self, changes: Vec<(IVec2, Cell)>) {
         for (loc, change) in changes {
-            if change.len() == 0 {
-                // Delete the cell entirely.
-                if let Some(previous_cell) = self.cell_lookup_by_loc.remove(&loc) {
-                    for atom in previous_cell {
-                        self.atoms.remove(&atom);
-                    }
-                }
-            } else {
-                if let Some(previous_cell) = self.cell_lookup_by_loc.insert(loc, change.clone()) {
-                    for atom in previous_cell {
-                        self.atoms.remove(&atom);
-                    }
-                }
-                self.atoms.extend(change);
-            }
+            self.cell_lookup_by_loc.set_cell((loc, change));
         }
 
         self.rebuild_traces_and_gates();
     }
 
-    pub fn get_cell_by_location(&self, cell_loc: IVec2) -> Option<Cell> {
-        self.cell_lookup_by_loc.get(&cell_loc).cloned()
+    pub fn get_cell_by_location(&self, cell_loc: &IVec2) -> Option<&Cell> {
+        self.cell_lookup_by_loc.get_cell(&cell_loc)
+    }
+
+    pub fn get_cell_chunk_by_chunk_location(
+        &self,
+        chunk_loc: &IVec2,
+    ) -> Option<&HashMap<IVec2, Cell>> {
+        self.cell_lookup_by_loc.get_chunk(&chunk_loc)
+    }
+
+    #[inline(always)]
+    pub fn get_trace_handle_by_atom(&self, atom: &Atom) -> Option<usize> {
+        self.trace_lookup_by_atom.get(atom).cloned()
     }
 
     pub fn add_pin_module(&mut self, pin_module: PinModule) {
@@ -117,7 +114,7 @@ impl IntegratedCircuit {
             // Pull the pin states and write them to their corresponding trace.
             for pin in pin_module.get_pins().iter() {
                 // Technically an I/O pin doesn't need to correspond with metal in the cell.
-                if let Some(cell) = self.cell_lookup_by_loc.get(&pin.cell_loc) {
+                if let Some(cell) = self.get_cell_by_location(&pin.cell_loc) {
                     for atom in cell {
                         // Find the metal atom in the cell (if any)
                         if atom.metal == Placement::NONE {
@@ -158,7 +155,7 @@ impl IntegratedCircuit {
             .iter()
             .flat_map(|m| m.get_pins())
             .map(|p| {
-                self.get_cell_by_location(p.cell_loc)
+                self.get_cell_by_location(&p.cell_loc)
                     .map(|c| c.iter().find(|a| a.metal != Placement::NONE).cloned())
             })
             .filter(|a| matches!(a, Some(Some(_))))
@@ -197,7 +194,7 @@ impl IntegratedCircuit {
                 // conductively connect together so they will not be explored.
                 for dir in (atom.metal | atom.si).cardinal_vectors() {
                     trace_edge_set.extend(
-                        self.get_cell_by_location(atom.cell_loc + dir)
+                        self.get_cell_by_location(&(atom.cell_loc + dir))
                             .unwrap()
                             .iter()
                             .filter(|o| atom.neighbor_of(o)),
@@ -215,7 +212,7 @@ impl IntegratedCircuit {
                 // because that is handled at the start of the outer loop.
                 if atom.mosfet_part != MosfetPart::None {
                     edge_set.extend(
-                        self.get_cell_by_location(atom.cell_loc)
+                        self.get_cell_by_location(&atom.cell_loc)
                             .unwrap()
                             .iter()
                             .filter(|a| a.mosfet_part != MosfetPart::None),
@@ -237,7 +234,7 @@ impl IntegratedCircuit {
             };
 
             // Find the EC atoms
-            for atom in self.get_cell_by_location(base_atom.cell_loc).unwrap() {
+            for atom in self.get_cell_by_location(&base_atom.cell_loc).unwrap() {
                 match atom.mosfet_part {
                     MosfetPart::LeftEC => {
                         gate.left_ec_trace = *self.trace_lookup_by_atom.get(&atom).unwrap()

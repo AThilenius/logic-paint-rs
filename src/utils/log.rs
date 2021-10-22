@@ -15,9 +15,20 @@ macro_rules! warn {
     }
 }
 
-// A macro to provide `println!(..)`-style syntax for `console.log` logging.
 #[macro_export]
-macro_rules! unwrap_or_log_and_return {
+macro_rules! unwrap_or_return {
+    ($e:expr) => {
+        match $e {
+            Some(x) => x,
+            None => {
+                return;
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! result_or_log_and_return {
     ($e:expr) => {
         match $e {
             Ok(x) => x,

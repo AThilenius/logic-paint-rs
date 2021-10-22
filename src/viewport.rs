@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use glam::{IVec2, Mat4, Vec2, Vec3};
 use wasm_bindgen::{prelude::*, JsCast};
@@ -7,10 +7,9 @@ use web_sys::{window, HtmlCanvasElement, WebGl2RenderingContext};
 use crate::{
     brush::Brush,
     dom::{DomIntervalTarget, ElementEventTarget, ElementInputEvent},
-    log,
+    log, result_or_log_and_return,
     substrate::{IntegratedCircuit, PinModule, SimIcState},
-    unwrap_or_log_and_return,
-    wgl2::{Camera, CellChunkTexture, CellProgram, QuadVao, SetUniformType},
+    wgl2::{Camera, CellProgram, CellRenderChunk, QuadVao, SetUniformType},
 };
 
 /// Manages a HTML Canvas element, rendering a viewport of a Substrate. This struct is always stored
@@ -24,7 +23,7 @@ pub struct Viewport {
     ctx: WebGl2RenderingContext,
     cell_program: CellProgram,
     quad_vao: QuadVao,
-    cell_chunk_textures: Vec<CellChunkTexture>,
+    cell_render_chunks: HashMap<IVec2, CellRenderChunk>,
     sim_state: Option<SimIcState>,
 }
 
@@ -56,7 +55,7 @@ impl Viewport {
             ctx,
             cell_program: program,
             quad_vao: vao,
-            cell_chunk_textures: vec![],
+            cell_render_chunks: Default::default(),
             sim_state: None,
         }));
 
@@ -82,12 +81,8 @@ impl DomIntervalTarget for Viewport {
             self.ctx.viewport(0, 0, w as i32, h as i32);
         }
 
-        self.brush.commit_changes(&mut self.ic);
-
-        // Note: The whole viewport is re-drawn every frame, so we can reduce overdraw by NOT
-        // clearing it. If that changes some day, uncomment these lines:
-        // self.ctx.clear_color(0.2, 0.2, 0.2, 1.0);
-        // self.ctx.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
+        let rebuild_trace_caches = self.brush.commit_changes(&mut self.ic);
+        let rebuild_layout = self.brush.cell_overrides.len() > 0;
 
         self.cell_program.use_program(&self.ctx);
         self.quad_vao.bind(&self.ctx);
@@ -105,26 +100,39 @@ impl DomIntervalTarget for Viewport {
         // Render visible chunks...
         let visible_chunks = self.camera.get_visible_substrate_chunk_locs();
 
-        for (i, chunk_loc) in visible_chunks.iter().enumerate() {
-            if i >= self.cell_chunk_textures.len() {
-                self.cell_chunk_textures
-                    .push(unwrap_or_log_and_return!(CellChunkTexture::new(&self.ctx)));
+        for chunk_loc in visible_chunks {
+            let cell_render_chunk = if let Some(crc) = self.cell_render_chunks.get_mut(&chunk_loc) {
+                crc
+            } else {
+                self.cell_render_chunks.insert(
+                    chunk_loc.clone(),
+                    result_or_log_and_return!(CellRenderChunk::new(&self.ctx)),
+                );
+                self.cell_render_chunks.get_mut(&chunk_loc).unwrap()
+            };
+
+            if rebuild_layout {
+                result_or_log_and_return!(cell_render_chunk.reset_and_update_layout(
+                    &self.ctx,
+                    &self.ic,
+                    &self.brush.cell_overrides,
+                    &chunk_loc,
+                ));
+            } else if rebuild_trace_caches {
+                cell_render_chunk.rebuild_trace_state_lookaside_cache(&self.ic, &chunk_loc);
             }
 
-            let chunk_texture = &mut self.cell_chunk_textures[i];
-            unwrap_or_log_and_return!(chunk_texture.rasterize_ic_chunk(
-                &self.ctx,
-                &self.ic,
-                &self.brush.cell_overrides,
-                chunk_loc
-            ));
+            if let Some(sim_ic_state) = &self.sim_state {
+                result_or_log_and_return!(
+                    cell_render_chunk.update_trace_active(&self.ctx, sim_ic_state)
+                );
+            }
 
-            // Bind and draw
             self.cell_program.model.set(
                 &self.ctx,
                 Mat4::from_translation(Vec3::new(chunk_loc.x as f32, chunk_loc.y as f32, 0.0)),
             );
-            chunk_texture.bind(&mut self.ctx);
+            cell_render_chunk.bind(&mut self.ctx);
             self.ctx
                 .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
         }

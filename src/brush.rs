@@ -350,7 +350,7 @@ impl Brush {
         self.cell_overrides
             .get(loc)
             .cloned()
-            .or(ic.get_cell_by_location(*loc))
+            .or(ic.get_cell_by_location(loc).cloned())
             .map(|c| c.into())
     }
 
@@ -359,7 +359,7 @@ impl Brush {
             .cell_overrides
             .get(loc)
             .cloned()
-            .or(ic.get_cell_by_location(*loc))
+            .or(ic.get_cell_by_location(loc).cloned())
             .map(|c| c.into())
             .unwrap_or_default();
 

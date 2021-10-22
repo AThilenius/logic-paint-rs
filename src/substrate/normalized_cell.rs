@@ -65,7 +65,7 @@ impl From<Cell> for NormalizedCell {
 
             if atom.metal != Placement::NONE {
                 nc.metal = Metal::Trace {
-                    has_via: atom.metal != Placement::NONE && atom.si != Placement::NONE,
+                    has_via: atom.si != Placement::NONE,
                     placement: atom.metal,
                 };
             }
