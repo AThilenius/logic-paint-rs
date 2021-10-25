@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use glam::{IVec2, Mat4, Vec2, Vec3};
+use glam::{IVec2, Vec2};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement, WebGl2RenderingContext};
 
@@ -9,7 +9,7 @@ use crate::{
     dom::{DomIntervalTarget, ElementEventTarget, ElementInputEvent},
     log, result_or_log_and_return,
     substrate::{IntegratedCircuit, PinModule, SimIcState},
-    wgl2::{Camera, CellProgram, CellRenderChunk, QuadVao, SetUniformType},
+    wgl2::{Camera, CellProgram, CellRenderChunk, SetUniformType},
 };
 
 /// Manages a HTML Canvas element, rendering a viewport of a Substrate. This struct is always stored
@@ -20,10 +20,11 @@ pub struct Viewport {
     pub ic: IntegratedCircuit,
     pub brush: Brush,
     canvas: HtmlCanvasElement,
-    ctx: WebGl2RenderingContext,
     cell_program: CellProgram,
-    quad_vao: QuadVao,
     cell_render_chunks: HashMap<IVec2, CellRenderChunk>,
+    ctx: WebGl2RenderingContext,
+    deferred_mouse_event: Option<ElementInputEvent>,
+    deferred_buttons_down: (bool, bool),
     sim_state: Option<SimIcState>,
 }
 
@@ -37,7 +38,6 @@ impl Viewport {
         let program = CellProgram::compile(&ctx)?;
         program.use_program(&ctx);
 
-        let vao = QuadVao::new(&ctx, &program.program)?;
         let mut ic = IntegratedCircuit::default();
 
         ic.add_pin_module(PinModule::ConstVal {
@@ -56,10 +56,11 @@ impl Viewport {
             ic,
             brush: Brush::new(),
             canvas,
-            ctx,
             cell_program: program,
-            quad_vao: vao,
             cell_render_chunks: Default::default(),
+            ctx,
+            deferred_mouse_event: None,
+            deferred_buttons_down: (false, false),
             sim_state: None,
         }));
 
@@ -75,6 +76,7 @@ impl DomIntervalTarget for Viewport {
         }
         // DEV
 
+        // Maintain HTML Canvas size and context viewport.
         let (w, h) = (
             self.canvas.client_width() as u32,
             self.canvas.client_height() as u32,
@@ -85,13 +87,13 @@ impl DomIntervalTarget for Viewport {
             self.ctx.viewport(0, 0, w as i32, h as i32);
         }
 
-        let rebuild_trace_caches = self.brush.commit_changes(&mut self.ic);
-        let rebuild_layout = self.brush.cell_overrides.len() > 0;
+        // Pass on any deferred mouse events to the Brush.
+        if let Some(event) = self.deferred_mouse_event.take() {
+            self.brush.handle_input_event(&self.camera, &self.ic, event);
+        }
 
+        // Update camera uniform.
         self.cell_program.use_program(&self.ctx);
-        self.quad_vao.bind(&self.ctx);
-
-        // Update uniforms
         self.camera.update(
             window().unwrap().device_pixel_ratio() as f32,
             Vec2::new(w as f32, h as f32),
@@ -101,8 +103,10 @@ impl DomIntervalTarget for Viewport {
             .set(&self.ctx, self.camera.get_view_proj_matrix());
         self.cell_program.time.set(&self.ctx, time as f32);
 
-        // Render visible chunks...
+        // Render visible chunks.
         let visible_chunks = self.camera.get_visible_substrate_chunk_locs();
+        let dirty_chunks = self.brush.get_effected_chunks();
+        let should_rebuild_trace_caches = self.brush.commit_changes(&mut self.ic);
 
         for chunk_loc in visible_chunks {
             let cell_render_chunk = if let Some(crc) = self.cell_render_chunks.get_mut(&chunk_loc) {
@@ -110,35 +114,29 @@ impl DomIntervalTarget for Viewport {
             } else {
                 self.cell_render_chunks.insert(
                     chunk_loc.clone(),
-                    result_or_log_and_return!(CellRenderChunk::new(&self.ctx)),
+                    result_or_log_and_return!(CellRenderChunk::new(
+                        &self.ctx,
+                        &self.cell_program,
+                        &chunk_loc
+                    )),
                 );
                 self.cell_render_chunks.get_mut(&chunk_loc).unwrap()
             };
 
-            if rebuild_layout {
-                result_or_log_and_return!(cell_render_chunk.reset_and_update_layout(
-                    &self.ctx,
-                    &self.ic,
-                    &self.brush.cell_overrides,
-                    &chunk_loc,
-                ));
-            } else if rebuild_trace_caches {
-                cell_render_chunk.rebuild_trace_state_lookaside_cache(&self.ic, &chunk_loc);
-            }
+            let layout_dirty = dirty_chunks.contains(&chunk_loc);
+            // Or-equal because it could be dirty from last loop.
+            cell_render_chunk.layout_dirty |= layout_dirty;
+            cell_render_chunk.trace_cache_dirty = should_rebuild_trace_caches;
 
-            if let Some(sim_ic_state) = &self.sim_state {
-                result_or_log_and_return!(
-                    cell_render_chunk.update_trace_active(&self.ctx, sim_ic_state)
-                );
-            }
+            result_or_log_and_return!(cell_render_chunk.draw(
+                &self.ic,
+                &self.brush.cell_overrides,
+                &self.sim_state,
+            ));
 
-            self.cell_program.model.set(
-                &self.ctx,
-                Mat4::from_translation(Vec3::new(chunk_loc.x as f32, chunk_loc.y as f32, 0.0)),
-            );
-            cell_render_chunk.bind(&mut self.ctx);
-            self.ctx
-                .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
+            // Set dirty a second time. This covers the case where a chunk was being drawn in but
+            // isn't any more.
+            cell_render_chunk.layout_dirty = layout_dirty;
         }
     }
 
@@ -150,8 +148,27 @@ impl DomIntervalTarget for Viewport {
 impl ElementEventTarget for Viewport {
     fn on_input_event(&mut self, event: ElementInputEvent) {
         self.camera.handle_mouse_event(event.clone());
-        self.brush
-            .handle_input_event(&self.camera, &self.ic, event.clone());
+
+        match &event {
+            ElementInputEvent::MouseDown(e)
+            | ElementInputEvent::MouseUp(e)
+            | ElementInputEvent::MouseMove(e) => {
+                // Mouse events to the Brush are only sent in the event handler if the button state changed
+                // from the last event to now. Otherwise the latest event is simply deferred till render
+                // time.
+                let pressed = (e.buttons() & 1 != 0, e.buttons() & 2 != 0);
+                if pressed != self.deferred_buttons_down {
+                    self.brush.handle_input_event(&self.camera, &self.ic, event.clone());
+                    self.deferred_buttons_down = pressed;
+                } else {
+                    self.deferred_mouse_event = Some(event.clone());
+                }
+            }
+            _ => {
+                // All other events are sent right now.
+                self.brush.handle_input_event(&self.camera, &self.ic, event.clone());
+            }
+        };
 
         match event {
             ElementInputEvent::KeyPressed(event) if event.code() == "KeyC" => {

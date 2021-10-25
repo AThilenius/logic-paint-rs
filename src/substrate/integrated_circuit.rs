@@ -176,6 +176,9 @@ impl IntegratedCircuit {
         self.trace_lookup_by_atom.clear();
         self.gates.clear();
 
+        // The 0 trace is reserved as the null-trace.
+        self.traces.push(vec![]);
+
         // Traces (and thus gates) have to be explored breadth-first off I/O pins. Reason being,
         // gates only hold back-references to traces when calculating their new states
         // (open/closed). Breadth first traversal means that gates are already in the order in which

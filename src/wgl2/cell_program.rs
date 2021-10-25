@@ -9,9 +9,10 @@ const CELL_FRAG_SRC: &str = include_str!("../shaders/cell.frag");
 pub struct CellProgram {
     pub program: WebGlProgram,
     pub view_proj: Uniform<Mat4>,
-    pub model: Uniform<Mat4>,
     pub time: Uniform<f32>,
     pub cells_texture_sampler: Uniform<i32>,
+    pub attr_position: u32,
+    pub attr_uv: u32,
 }
 
 impl CellProgram {
@@ -22,13 +23,16 @@ impl CellProgram {
             compile_shader(&ctx, WebGl2RenderingContext::FRAGMENT_SHADER, CELL_FRAG_SRC)?;
         let program: WebGlProgram = link_program(&ctx, &vert_shader, &frag_shader)?;
         ctx.use_program(Some(&program));
+        let attr_position = ctx.get_attrib_location(&program, "position") as u32;
+        let attr_uv = ctx.get_attrib_location(&program, "uv") as u32;
 
         Ok(Self {
             program: program.clone(),
             view_proj: Uniform::new(&ctx, &program, "view_proj"),
-            model: Uniform::new(&ctx, &program, "model"),
             time: Uniform::new(&ctx, &program, "time"),
             cells_texture_sampler: Uniform::new(&ctx, &program, "cells_texture_sampler"),
+            attr_position,
+            attr_uv,
         })
     }
 

@@ -7,7 +7,6 @@ use web_sys::{HtmlCanvasElement, HtmlElement};
 
 mod brush;
 mod dom;
-mod sim;
 mod substrate;
 mod utils;
 mod viewport;

@@ -1,48 +1,59 @@
-use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlVertexArrayObject};
+use glam::IVec2;
+use web_sys::{WebGl2RenderingContext, WebGlBuffer, WebGlVertexArrayObject};
+
+use super::CellProgram;
 
 pub struct QuadVao {
+    ctx: WebGl2RenderingContext,
     vao: WebGlVertexArrayObject,
+    buffers: (WebGlBuffer, WebGlBuffer),
 }
 
 impl QuadVao {
-    pub fn new(ctx: &WebGl2RenderingContext, program: &WebGlProgram) -> Result<QuadVao, String> {
-        // Used for both position and UV coords.
-        let vertices: [f32; 12] = [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+    pub fn new(
+        ctx: &WebGl2RenderingContext,
+        program: &CellProgram,
+        chunk_loc: &IVec2,
+    ) -> Result<QuadVao, String> {
+        let l = chunk_loc.as_vec2();
+        let vertices: [f32; 12] = [
+            l.x,
+            l.y,
+            l.x + 1.0,
+            l.y,
+            l.x + 1.0,
+            l.y + 1.0,
+            l.x,
+            l.y,
+            l.x + 1.0,
+            l.y + 1.0,
+            l.x,
+            l.y + 1.0,
+        ];
+
+        let uvs: [f32; 12] = [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
 
         let vao = ctx
             .create_vertex_array()
             .ok_or("Could not create vertex array object")?;
         ctx.bind_vertex_array(Some(&vao));
 
-        let position_uv_buffer = ctx.create_buffer().ok_or("Failed to create buffer")?;
-        ctx.bind_buffer(
-            WebGl2RenderingContext::ARRAY_BUFFER,
-            Some(&position_uv_buffer),
-        );
+        // Positions buffer.
+        let position_buffer = ctx.create_buffer().ok_or("Failed to create buffer")?;
+        ctx.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&position_buffer));
 
-        // Note that `Float32Array::view` is somewhat dangerous (hence the
-        // `unsafe`!). This is creating a raw view into our module's
-        // `WebAssembly.Memory` buffer, but if we allocate more pages for ourself
-        // (aka do a memory allocation in Rust) it'll cause the buffer to change,
-        // causing the `Float32Array` to be invalid.
-        //
-        // As a result, after `Float32Array::view` we have to be very careful not to
-        // do any memory allocations before it's dropped.
         unsafe {
-            let position_uv_array_buf_view = js_sys::Float32Array::view(&vertices);
-
+            let position_array_buf_view = js_sys::Float32Array::view(&vertices);
             ctx.buffer_data_with_array_buffer_view(
                 WebGl2RenderingContext::ARRAY_BUFFER,
-                &position_uv_array_buf_view,
+                &position_array_buf_view,
                 WebGl2RenderingContext::STATIC_DRAW,
             );
         }
 
-        let position_uv_attribute_location =
-            ctx.get_attrib_location(&program, "position_uv") as u32;
-        ctx.enable_vertex_attrib_array(position_uv_attribute_location);
+        ctx.enable_vertex_attrib_array(program.attr_position);
         ctx.vertex_attrib_pointer_with_i32(
-            position_uv_attribute_location,
+            program.attr_position,
             2,
             WebGl2RenderingContext::FLOAT,
             false,
@@ -50,10 +61,45 @@ impl QuadVao {
             0,
         );
 
-        Ok(Self { vao })
+        // UV buffer.
+        let uv_buffer = ctx.create_buffer().ok_or("Failed to create buffer")?;
+        ctx.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&uv_buffer));
+
+        unsafe {
+            let uv_array_buf_view = js_sys::Float32Array::view(&uvs);
+            ctx.buffer_data_with_array_buffer_view(
+                WebGl2RenderingContext::ARRAY_BUFFER,
+                &uv_array_buf_view,
+                WebGl2RenderingContext::STATIC_DRAW,
+            );
+        }
+
+        ctx.enable_vertex_attrib_array(program.attr_uv);
+        ctx.vertex_attrib_pointer_with_i32(
+            program.attr_uv,
+            2,
+            WebGl2RenderingContext::FLOAT,
+            false,
+            0,
+            0,
+        );
+
+        Ok(Self {
+            ctx: ctx.clone(),
+            vao,
+            buffers: (position_buffer, uv_buffer),
+        })
     }
 
-    pub fn bind(&self, ctx: &WebGl2RenderingContext) {
-        ctx.bind_vertex_array(Some(&self.vao));
+    pub fn bind(&self) {
+        self.ctx.bind_vertex_array(Some(&self.vao));
+    }
+}
+
+impl Drop for QuadVao {
+    fn drop(&mut self) {
+        self.ctx.delete_buffer(Some(&self.buffers.0));
+        self.ctx.delete_buffer(Some(&self.buffers.1));
+        self.ctx.delete_vertex_array(Some(&self.vao));
     }
 }

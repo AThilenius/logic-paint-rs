@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use glam::{IVec2, Vec2};
 
@@ -6,7 +6,7 @@ use crate::{
     dom::ElementInputEvent,
     substrate::{Cell, IntegratedCircuit, Metal, NormalizedCell, Placement, Silicon},
     utils::range_iter,
-    wgl2::Camera,
+    wgl2::{Camera, LOG_CHUNK_SIZE},
 };
 
 pub struct Brush {
@@ -74,6 +74,7 @@ impl Brush {
         let screen_loc = Vec2::new(event.offset_x() as f32, event.offset_y() as f32);
         let end = camera.project_screen_point_to_cell(screen_loc);
 
+        // Only re-compute what was rendered if the mouse moved to another cell.
         if let Some(previous) = self.last_event_cell {
             if previous == end && pressed == self.previous_buttons {
                 return;
@@ -340,6 +341,25 @@ impl Brush {
         }
 
         false
+    }
+
+    pub fn get_effected_chunks(&self) -> HashSet<IVec2> {
+        let mut chunks = HashSet::new();
+
+        // `last_chunk` is just a small optimization to reduce hashing / set lookup.
+        let mut last_chunk = IVec2::new(i32::MAX, i32::MAX);
+
+        for cell_loc in self.cell_overrides.keys() {
+            let chunk_loc = IVec2::new(cell_loc.x >> LOG_CHUNK_SIZE, cell_loc.y >> LOG_CHUNK_SIZE);
+
+            if chunk_loc != last_chunk {
+                chunks.insert(chunk_loc.clone());
+            }
+
+            last_chunk = chunk_loc;
+        }
+
+        chunks
     }
 
     fn cancel_drawing(&mut self) {
