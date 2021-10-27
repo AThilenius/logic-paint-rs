@@ -91,10 +91,7 @@ void main() {
     bool via = (cells.b & (1u << 1u)) > 0u;
 
     bool metal_active = (cells.a & (1u << 7u)) > 0u;
-
-    // TODO: NOPE
-    bool is_io = false;
-    //
+    bool is_io = (cells.a & (1u << 6u)) > 0u;
 
     bool metal_connection = connection(
         tile_uv,

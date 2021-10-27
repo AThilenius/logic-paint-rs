@@ -16,7 +16,7 @@ pub enum PinModule {
     },
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Pin {
     pub cell_loc: IVec2,
     pub name: String,

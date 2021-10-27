@@ -39,6 +39,7 @@ const FLAG_B_VIA: u8 = 1u8 << 1;
 
 // Alpha component bit masks.
 const _FLAG_A_METAL_ACTIVE: u8 = 1u8 << 7;
+const FLAG_A_IO: u8 = 1u8 << 6;
 
 // The *_ACTIVE flags are all the same as far as code cares. They only exist above for organization.
 const FLAG_ACTIVE: u8 = 1u8 << 7;
@@ -115,7 +116,7 @@ impl CellRenderChunk {
                 chunk_loc.x << LOG_CHUNK_SIZE,
                 chunk_loc.y << LOG_CHUNK_SIZE,
             ),
-            layout_dirty: false,
+            layout_dirty: true,
             trace_cache_dirty: false,
             pixels: vec![0u8; 4 * CHUNK_SIZE * CHUNK_SIZE],
             texel_component_to_trace_handle: Vec::new(),
@@ -173,9 +174,7 @@ impl CellRenderChunk {
     /// Rebuilds the trace state look-aside cache. This should be called before simulation begins.
     fn rebuild_trace_state_lookaside_cache(&mut self, ic: &IntegratedCircuit) {
         // Nothing interesting to be done if the chunk is empty, so unwrap or return.
-        let cells = unwrap_or_return!(ic
-            .get_cell_chunk_by_chunk_location(&self.chunk_loc)
-            .map(|chunk| chunk.iter()));
+        let cells = unwrap_or_return!(ic.get_cell_chunk_by_chunk_location(&self.chunk_loc));
 
         for (loc, cell) in cells {
             // To chunk-local coords, then: ((loc.y * CHUNK_SIZE) + loc.x) * 4
@@ -250,12 +249,13 @@ impl CellRenderChunk {
             } else {
                 override_cells.collect()
             };
+        let pins = ic.get_pin_chunk_by_chunk_location(&self.chunk_loc);
 
         // Short-circuit empty drawing
-        if cells.len() == 0 && self.blank {
+        if cells.len() == 0 && pins.is_none() && self.blank {
             return Ok(());
         }
-        self.blank = cells.len() == 0;
+        self.blank = cells.len() == 0 && pins.is_none();
 
         for (loc, cell) in cells {
             // To chunk-local coords, then: ((loc.y * CHUNK_SIZE) + loc.x) * 4
@@ -324,6 +324,17 @@ impl CellRenderChunk {
                         }
                     }
                 }
+            }
+        }
+
+        if let Some(pins) = pins {
+            for (loc, _pin) in pins.iter() {
+                // To chunk-local coords, then: ((loc.y * CHUNK_SIZE) + loc.x) * 4
+                let loc = *loc - self.chunk_start_cell;
+                let i = ((loc.y << LOG_CHUNK_SIZE) + loc.x) << 2;
+                let pixel = &mut self.pixels[i as usize..];
+
+                pixel[3] |= FLAG_A_IO;
             }
         }
 

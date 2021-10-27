@@ -5,12 +5,12 @@ use std::{
 
 use glam::IVec2;
 
-use crate::{log, substrate::MosfetPart, utils::ChunkedCellLookup};
+use crate::{log, substrate::MosfetPart, utils::ChunkedHashMap};
 
 use super::{
     atom::Cell,
     pin::{PinModule, PinModuleState, PinState},
-    Atom, Placement,
+    Atom, Pin, Placement,
 };
 
 /// Stores atoms, indexed across several dimensions. Focused on fast reads, at the expense of slow
@@ -18,7 +18,7 @@ use super::{
 #[derive(Default)]
 pub struct IntegratedCircuit {
     // Atoms
-    cell_lookup_by_loc: ChunkedCellLookup,
+    cell_lookup_by_loc: ChunkedHashMap<Cell>,
 
     // Traces
     traces: Vec<Vec<Atom>>,
@@ -29,6 +29,7 @@ pub struct IntegratedCircuit {
 
     // Pins
     pin_modules: Vec<PinModule>,
+    pin_lookup_by_loc: ChunkedHashMap<Pin>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -56,16 +57,18 @@ pub struct SimIcState {
 impl IntegratedCircuit {
     pub fn commit_cell_changes(&mut self, changes: Vec<(IVec2, Cell)>) {
         for (loc, change) in changes {
-            self.cell_lookup_by_loc.set_cell((loc, change));
+            self.cell_lookup_by_loc.set_cell(loc, change);
         }
 
         self.rebuild_traces_and_gates();
     }
 
+    #[inline]
     pub fn get_cell_by_location(&self, cell_loc: &IVec2) -> Option<&Cell> {
         self.cell_lookup_by_loc.get_cell(&cell_loc)
     }
 
+    #[inline]
     pub fn get_cell_chunk_by_chunk_location(
         &self,
         chunk_loc: &IVec2,
@@ -73,12 +76,24 @@ impl IntegratedCircuit {
         self.cell_lookup_by_loc.get_chunk(&chunk_loc)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn get_trace_handle_by_atom(&self, atom: &Atom) -> Option<usize> {
         self.trace_lookup_by_atom.get(atom).cloned()
     }
 
+    #[inline]
+    pub fn get_pin_chunk_by_chunk_location(
+        &self,
+        chunk_loc: &IVec2,
+    ) -> Option<&HashMap<IVec2, Pin>> {
+        self.pin_lookup_by_loc.get_chunk(chunk_loc)
+    }
+
     pub fn add_pin_module(&mut self, pin_module: PinModule) {
+        for pin in pin_module.get_pins() {
+            self.pin_lookup_by_loc.set_cell(pin.cell_loc, pin);
+        }
+
         self.pin_modules.push(pin_module);
 
         self.rebuild_traces_and_gates();
