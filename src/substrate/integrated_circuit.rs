@@ -55,6 +55,23 @@ pub struct SimIcState {
 }
 
 impl IntegratedCircuit {
+    pub fn new(cell_lookup_by_loc: ChunkedHashMap<Cell>, pin_modules: Vec<PinModule>) -> Self {
+        let mut ic = Self {
+            cell_lookup_by_loc,
+            pin_modules,
+            ..Default::default()
+        };
+
+        for pin_module in ic.pin_modules.iter() {
+            for pin in pin_module.get_pins() {
+                ic.pin_lookup_by_loc.set_cell(pin.cell_loc, pin);
+            }
+        }
+
+        ic.rebuild_traces_and_gates();
+        ic
+    }
+
     pub fn commit_cell_changes(&mut self, changes: Vec<(IVec2, Cell)>) {
         for (loc, change) in changes {
             self.cell_lookup_by_loc.set_cell(loc, change);
@@ -74,6 +91,14 @@ impl IntegratedCircuit {
         chunk_loc: &IVec2,
     ) -> Option<&HashMap<IVec2, Cell>> {
         self.cell_lookup_by_loc.get_chunk(&chunk_loc)
+    }
+
+    pub fn chunk_locs<'a>(&'a self) -> impl Iterator<Item = &'a IVec2> {
+        self.cell_lookup_by_loc.chunk_lookup_by_chunk_idx.keys()
+    }
+
+    pub fn pin_modules<'a>(&'a self) -> impl Iterator<Item = &'a PinModule> {
+        self.pin_modules.iter()
     }
 
     #[inline]
@@ -302,6 +327,10 @@ impl IntegratedCircuit {
             self.gates.push(gate);
         }
 
-        log!("Traces: {}, Gates: {}", self.traces.len(), self.gates.len());
+        log!(
+            "Traces: {}, Gates: {}",
+            self.traces.len() - 1,
+            self.gates.len()
+        );
     }
 }

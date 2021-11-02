@@ -53,8 +53,8 @@ bool connection_gate(vec2 texel_uv, bool up, bool right, bool down, bool left) {
 void main() {
     // Configure
     vec2 grid_res = vec2(32.0, 32.0);
-    vec4 n_color = vec4(0.0, 0.5, 0.0, 1.0);
-    vec4 p_color = vec4(0.0, 0.0, 0.5, 1.0);
+    vec4 n_color = vec4(0.98, 0, 0.77, 1);
+    vec4 p_color = vec4(0, 0.87, 1, 1);
 
     uvec2 texel = uvec2(floor(v_uv * grid_res));
 
@@ -140,8 +140,10 @@ void main() {
         + (grid_1 ? grid_blend_strength : 0.0);
 
     vec3 si_color = si_n ? n_color.rgb : p_color.rgb;
-    bool si_active = (tile_uv.x < 0.5 || tile_uv.y > 0.5)
-        ? si_ul_active : si_dr_active;
+    bool vertical_gate = gate_dir_up || gate_dir_down;
+    bool si_active = vertical_gate
+        ?  (tile_uv.x < 0.5 ? si_ul_active : si_dr_active)
+        :  (tile_uv.y > 0.5 ? si_ul_active : si_dr_active);
     si_color = mix(
         si_color,
         active_color,

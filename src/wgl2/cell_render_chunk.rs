@@ -57,6 +57,7 @@ pub struct CellRenderChunk {
     chunk_start_cell: IVec2,
     ctx: WebGl2RenderingContext,
     pixels: Vec<u8>,
+    pixels_dirty: bool,
     texel_component_to_trace_handle: Vec<(usize, usize)>,
     texture: WebGlTexture,
     vao: QuadVao,
@@ -119,6 +120,7 @@ impl CellRenderChunk {
             layout_dirty: true,
             trace_cache_dirty: false,
             pixels: vec![0u8; 4 * CHUNK_SIZE * CHUNK_SIZE],
+            pixels_dirty: false,
             texel_component_to_trace_handle: Vec::new(),
             texture,
             vao,
@@ -131,9 +133,18 @@ impl CellRenderChunk {
         overrides: &HashMap<IVec2, Cell>,
         sim_state: &Option<SimIcState>,
     ) -> Result<(), JsValue> {
+        // Reset all trace active bits each frame.
+        for (texel_cmp, _trace_handle) in &self.texel_component_to_trace_handle {
+            self.pixels[*texel_cmp] &= !FLAG_ACTIVE;
+        }
+        self.pixels_dirty |= self.texel_component_to_trace_handle.len() > 0;
+
         if self.layout_dirty {
             self.layout_dirty = false;
-            self.reset_and_update_layout(ic, overrides)?;
+            self.reset_and_update_layout(ic, overrides);
+
+            // Traces always need to be rebuild after layout.
+            self.trace_cache_dirty = true;
         }
 
         if self.trace_cache_dirty {
@@ -142,8 +153,18 @@ impl CellRenderChunk {
         }
 
         if let Some(sim_state) = sim_state {
-            self.update_trace_active(sim_state)?;
+            // Set the trace active bits on any active traces
+            for (texel_cmp, trace_handle) in &self.texel_component_to_trace_handle {
+                // Set the active bit only if the trace is active.
+                if sim_state.trace_states[*trace_handle] {
+                    self.pixels[*texel_cmp] |= FLAG_ACTIVE;
+                }
+            }
+
+            self.pixels_dirty |= self.texel_component_to_trace_handle.len() > 0;
         }
+
+        self.upload_pixels_if_dirty()?;
 
         self.ctx
             .bind_texture(WebGl2RenderingContext::TEXTURE_2D, Some(&self.texture));
@@ -152,23 +173,6 @@ impl CellRenderChunk {
             .draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
 
         Ok(())
-    }
-
-    fn update_trace_active(&mut self, sim_state: &SimIcState) -> Result<(), JsValue> {
-        if self.texel_component_to_trace_handle.len() == 0 {
-            return Ok(());
-        }
-
-        for (texel_cmp, trace_handle) in &self.texel_component_to_trace_handle {
-            let active = sim_state.trace_states[*trace_handle];
-            if active {
-                self.pixels[*texel_cmp] |= FLAG_ACTIVE;
-            } else {
-                self.pixels[*texel_cmp] &= !FLAG_ACTIVE;
-            }
-        }
-
-        self.upload_pixels()
     }
 
     /// Rebuilds the trace state look-aside cache. This should be called before simulation begins.
@@ -235,7 +239,7 @@ impl CellRenderChunk {
         &mut self,
         ic: &IntegratedCircuit,
         overrides: &HashMap<IVec2, Cell>,
-    ) -> Result<(), JsValue> {
+    ) {
         self.texel_component_to_trace_handle.clear();
         self.pixels.iter_mut().for_each(|m| *m = 0);
 
@@ -253,7 +257,7 @@ impl CellRenderChunk {
 
         // Short-circuit empty drawing
         if cells.len() == 0 && pins.is_none() && self.blank {
-            return Ok(());
+            return;
         }
         self.blank = cells.len() == 0 && pins.is_none();
 
@@ -338,10 +342,15 @@ impl CellRenderChunk {
             }
         }
 
-        self.upload_pixels()
+        self.pixels_dirty = true;
     }
 
-    fn upload_pixels(&self) -> Result<(), JsValue> {
+    fn upload_pixels_if_dirty(&mut self) -> Result<(), JsValue> {
+        if !self.pixels_dirty {
+            return Ok(());
+        }
+        self.pixels_dirty = false;
+
         self.ctx
             .bind_texture(WebGl2RenderingContext::TEXTURE_2D, Some(&self.texture));
         self.ctx

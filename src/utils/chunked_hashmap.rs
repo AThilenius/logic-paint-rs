@@ -7,15 +7,15 @@ use crate::wgl2::LOG_CHUNK_SIZE;
 #[derive(Default)]
 pub struct ChunkedHashMap<T>
 where
-    T: PartialEq + Default,
+    T: Clone + PartialEq + Default,
 {
-    chunks: Vec<HashMap<IVec2, T>>,
-    chunk_lookup_by_chunk_idx: HashMap<IVec2, usize>,
+    pub chunks: Vec<HashMap<IVec2, T>>,
+    pub chunk_lookup_by_chunk_idx: HashMap<IVec2, usize>,
 }
 
 impl<T> ChunkedHashMap<T>
 where
-    T: PartialEq + Default,
+    T: Clone + PartialEq + Default,
 {
     #[inline]
     pub fn get_cell(&self, cell_loc: &IVec2) -> Option<&T> {

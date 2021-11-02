@@ -1,6 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use glam::{IVec2, Vec2};
+use miniz_oxide::deflate::compress_to_vec;
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement, WebGl2RenderingContext};
 
@@ -8,7 +9,7 @@ use crate::{
     brush::Brush,
     dom::{DomIntervalTarget, ElementEventTarget, ElementInputEvent},
     log, result_or_log_and_return,
-    substrate::{IntegratedCircuit, PinModule, SimIcState},
+    substrate::{serialize_ic, IntegratedCircuit, PinModule, SimIcState},
     wgl2::{Camera, CellProgram, CellRenderChunk, SetUniformType},
 };
 
@@ -30,8 +31,12 @@ pub struct Viewport {
 
 impl Viewport {
     pub fn from_canvas(canvas: HtmlCanvasElement) -> Result<Rc<RefCell<Viewport>>, JsValue> {
+        let options = js_sys::Object::new();
+        js_sys::Reflect::set(&options, &"desynchronized".into(), &JsValue::TRUE)?;
+        js_sys::Reflect::set(&options, &"preserveDrawingBuffer".into(), &JsValue::TRUE)?;
         let ctx = canvas
-            .get_context("webgl2")?
+            // .get_context("webgl2")?
+            .get_context_with_context_options("webgl2", &options)?
             .unwrap()
             .dyn_into::<WebGl2RenderingContext>()?;
 
@@ -41,11 +46,11 @@ impl Viewport {
         let mut ic = IntegratedCircuit::default();
 
         ic.add_pin_module(PinModule::ConstVal {
-            cell_loc: IVec2::new(-1, 0),
+            cell_loc: IVec2::new(-4, 16),
             high: true,
         });
         ic.add_pin_module(PinModule::Clock {
-            cell_loc: IVec2::ZERO,
+            cell_loc: IVec2::new(-4, 14),
             interval: 30,
             name: "CLK".to_string(),
             starts_high: false,
@@ -65,6 +70,15 @@ impl Viewport {
         }));
 
         Ok(viewport)
+    }
+
+    pub fn set_ic(&mut self, ic: IntegratedCircuit) {
+        self.ic = ic;
+        for (_, render_chunk) in self.cell_render_chunks.iter_mut() {
+            // TODO: This needs to be stored in self.
+            render_chunk.layout_dirty = true;
+            render_chunk.trace_cache_dirty = true;
+        }
     }
 }
 
@@ -107,6 +121,19 @@ impl DomIntervalTarget for Viewport {
         let visible_chunks = self.camera.get_visible_substrate_chunk_locs();
         let dirty_chunks = self.brush.get_effected_chunks();
         let should_rebuild_trace_caches = self.brush.commit_changes(&mut self.ic);
+
+        // TODO: This really shouldn't go here...
+        if should_rebuild_trace_caches {
+            let compressed_bytes = compress_to_vec(&serialize_ic(&self.ic), 6);
+            let compressed_b64 = base64::encode(compressed_bytes);
+            web_sys::window()
+                .unwrap()
+                .local_storage()
+                .unwrap()
+                .unwrap()
+                .set_item(&"logic-paint-ic", &compressed_b64)
+                .expect("Failed to save IC");
+        }
 
         for chunk_loc in visible_chunks {
             let cell_render_chunk = if let Some(crc) = self.cell_render_chunks.get_mut(&chunk_loc) {
@@ -158,7 +185,8 @@ impl ElementEventTarget for Viewport {
                 // time.
                 let pressed = (e.buttons() & 1 != 0, e.buttons() & 2 != 0);
                 if pressed != self.deferred_buttons_down {
-                    self.brush.handle_input_event(&self.camera, &self.ic, event.clone());
+                    self.brush
+                        .handle_input_event(&self.camera, &self.ic, event.clone());
                     self.deferred_buttons_down = pressed;
                 } else {
                     self.deferred_mouse_event = Some(event.clone());
@@ -166,7 +194,8 @@ impl ElementEventTarget for Viewport {
             }
             _ => {
                 // All other events are sent right now.
-                self.brush.handle_input_event(&self.camera, &self.ic, event.clone());
+                self.brush
+                    .handle_input_event(&self.camera, &self.ic, event.clone());
             }
         };
 

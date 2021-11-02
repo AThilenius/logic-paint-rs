@@ -1,8 +1,9 @@
 use glam::IVec2;
+use serde::{Deserialize, Serialize};
 
 use super::SimTickParams;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PinModule {
     ConstVal {
         cell_loc: IVec2,
