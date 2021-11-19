@@ -1,6 +1,11 @@
+use std::collections::HashSet;
+
 use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
 
-use crate::{dom::ElementInputEvent, wgl2::cell_to_chunk_loc};
+use crate::{
+    dom::ElementInputEvent,
+    v2::{CellCoord, ChunkCoord},
+};
 
 use super::CHUNK_SIZE;
 
@@ -8,13 +13,13 @@ pub struct Camera {
     pub translation: Vec2,
     pub scale: f32,
     pub proj_matrix: Mat4,
+    pub size: Vec2,
     pixel_ratio: f32,
-    size: Vec2,
     drag_world_anchor: Option<Vec2>,
 }
 
-impl Default for Camera {
-    fn default() -> Self {
+impl Camera {
+    pub fn new() -> Self {
         let mut camera = Self {
             translation: Vec2::ZERO,
             scale: 1.0,
@@ -27,9 +32,7 @@ impl Default for Camera {
         camera.update_proj_matrix();
         camera
     }
-}
 
-impl Camera {
     pub fn update(&mut self, pixel_ratio: f32, size: Vec2) {
         if self.pixel_ratio != pixel_ratio || self.size != size {
             self.pixel_ratio = pixel_ratio;
@@ -114,28 +117,28 @@ impl Camera {
 
     /// Project a screen point to a cell location. It's the caller's responsibility to ensure the
     /// point is within the visible bounds of the window.
-    pub fn project_screen_point_to_cell(&self, position: Vec2) -> IVec2 {
+    pub fn project_screen_point_to_cell(&self, position: Vec2) -> CellCoord {
         let world_point = self.project_screen_point_to_world(position);
 
         // A single chunk is always 1.0 x 1.0 in world coords, and has CHUNK_SIZE x CHUNK_SIZE cells
         // in it. Aka, there are CHUNK_SIZE cells per world-space unit. This makes the math pretty
         // easy from world-space then.
-        (world_point * CHUNK_SIZE as f32).floor().as_ivec2()
+        CellCoord((world_point * CHUNK_SIZE as f32).floor().as_ivec2())
     }
 
     /// Returns a list of all currently-visible substrate chunks to this camera.
-    pub fn get_visible_substrate_chunk_locs(&self) -> Vec<IVec2> {
-        let lower_left = cell_to_chunk_loc(
-            &self.project_screen_point_to_cell(Vec2::new(-1.0, self.size.y + 1.0)),
-        );
-        let upper_right = cell_to_chunk_loc(
-            &self.project_screen_point_to_cell(Vec2::new(self.size.x + 1.0, -1.0)),
-        );
+    pub fn get_visible_chunk_coords(&self) -> HashSet<ChunkCoord> {
+        let lower_left: ChunkCoord = self
+            .project_screen_point_to_cell(Vec2::new(-1.0, self.size.y + 1.0))
+            .into();
+        let upper_right: ChunkCoord = self
+            .project_screen_point_to_cell(Vec2::new(self.size.x + 1.0, -1.0))
+            .into();
 
-        let mut v = vec![];
-        for y in lower_left.y..(upper_right.y + 1) {
-            for x in lower_left.x..(upper_right.x + 1) {
-                v.push(IVec2::new(x, y));
+        let mut v = HashSet::new();
+        for y in lower_left.0.y..(upper_right.0.y + 1) {
+            for x in lower_left.0.x..(upper_right.0.x + 1) {
+                v.insert(ChunkCoord(IVec2::new(x, y)));
             }
         }
 

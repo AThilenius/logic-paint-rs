@@ -2,7 +2,7 @@ use std::{collections::HashMap, iter::FromIterator};
 
 use glam::IVec2;
 
-use crate::substrate_v2::coords::CHUNK_SIZE;
+use crate::v2::coords::CHUNK_SIZE;
 
 use super::{
     coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE},
@@ -11,23 +11,6 @@ use super::{
     upc::UPC,
 };
 
-/// Buffer: Unpacked Blueprint, in UPC format with an optional undo stack.
-/// - Chunks (for cells) are blittable to the GPU and can be quickly serialized to Blueprints.
-///   Modules are custom rendered, thus will never be blittable.
-/// - Almost always wrapped in a Rc<RefCell<T>> for shared ownership.
-/// - Supports beginning, canceling, and committing a mutation transaction:
-///   - Start of a transaction conceptually marks the 'before state' for an undo Blueprint.
-///   - Mutating during a transaction is done by cloning the effected Chunk, and mutating the clone
-///     in-place.
-///     - A chunk is considered mutated when any bit in the UPC cells changes, or a bit in the
-///       serialized module data changes (again, does not include the contents of blob refs).
-///   - Cancelling a transaction effectively throws away all cloned chunks / modules.
-///   - Committing first takes a snapshot of mutated chunks and modules in their starting state (if
-///     the undo stack is enabled) before replacing the base chunks with the mutated ones.
-/// - Keeps a generation counter (usize) for each chunk, which allows rendering code to quickly
-///   check for mutation. The counter is rolled back when a transaction is canceled.
-/// - Supports undo by keeping a stack of Blueprints, each representing a subset of buffer chunks
-///   and modules from BEFORE a change was made. Overwrites each chunk in the undo frame.
 #[derive(Default)]
 pub struct Buffer {
     chunks: HashMap<ChunkCoord, BufferChunk>,
@@ -39,14 +22,17 @@ pub struct Buffer {
 
 #[derive(Clone)]
 pub struct BufferChunk {
-    /// Cells, in row-major order. Ready for blitting to the GPU.
-    pub cells: Vec<UPC>,
+    /// 4-byte cells, in row-major order. Ready for blitting to the GPU.
+    pub cells: Vec<u8>,
 
     /// How many cells are non-default.
     pub cell_count: usize,
 
     /// Modules, by module root-node coords.
     pub modules: HashMap<CellCoord, Module>,
+
+    /// The generation number of this chunk. Monotonically increasing each mutation.
+    pub generation: usize,
 }
 
 pub struct BufferSnapshot {
@@ -72,7 +58,7 @@ impl Buffer {
         if let Some(chunk) = self.get_chunk(coord) {
             chunk.get_cell(coord)
         } else {
-            0
+            Default::default()
         }
     }
 
@@ -140,31 +126,27 @@ impl Buffer {
         let chunk = if let Some(chunk) = self.transact_chunks.get_mut(&chunk_coord) {
             chunk
         } else {
-            self.transact_chunks.insert(chunk_coord, Default::default());
+            self.transact_chunks.insert(
+                chunk_coord,
+                self.get_chunk(chunk_coord).cloned().unwrap_or_default(),
+            );
             self.transact_chunks.get_mut(&chunk_coord).unwrap()
         };
 
+        chunk.generation += 1;
         chunk.set_cell(coord, cell);
     }
 
     pub fn clone_range(&self, range: Range) -> Buffer {
-        match range {
-            Range::Rectangle {
-                lower_left,
-                upper_right,
-            } => {
-                // TODO: This can be made much more efficient, but I might not care -shrug-
-                let mut buf = Buffer::default();
-                buf.transaction_begin();
-                for y in lower_left.0.y..upper_right.0.y {
-                    for x in lower_left.0.x..upper_right.0.x {
-                        buf.transact_set_cell((x, y), self.get_cell((x, y)));
-                    }
-                }
-                buf.transaction_commit(false);
-                buf
-            }
+        // TODO: This can be made much more efficient (broken iter over effected chunks), but I
+        // probably don't care. It's only executed in human-time. -shrug-
+        let mut buf = Buffer::default();
+        buf.transaction_begin();
+        for cell_coord in range.iter_cell_coords() {
+            buf.transact_set_cell(cell_coord, self.get_cell(cell_coord));
         }
+        buf.transaction_commit(false);
+        buf
     }
 
     pub fn extend(&mut self, data: &Buffer, offset: &IVec2) {
@@ -200,7 +182,8 @@ impl BufferChunk {
         T: Into<LocalCoord>,
     {
         let coord: LocalCoord = c.into();
-        self.cells[((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize]
+        let idx = ((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize;
+        UPC::from_slice(&self.cells[idx..idx + 4])
     }
 
     #[inline(always)]
@@ -209,25 +192,28 @@ impl BufferChunk {
         T: Into<LocalCoord>,
     {
         let coord: LocalCoord = c.into();
-        let slot = &mut self.cells[((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize];
+        let idx = ((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize;
+        let slice = &mut self.cells[idx..idx + 4];
+        let existing = UPC::from_slice(slice);
 
         // Track cell count as well.
-        if *slot == Default::default() && cell != Default::default() {
+        if existing == Default::default() && cell != Default::default() {
             self.cell_count += 1;
-        } else if *slot != Default::default() && cell == Default::default() {
+        } else if existing != Default::default() && cell == Default::default() {
             self.cell_count -= 1;
         }
 
-        *slot = cell;
+        slice.copy_from_slice(&cell.0);
     }
 }
 
 impl Default for BufferChunk {
     fn default() -> Self {
         Self {
-            cells: vec![0u32; CHUNK_SIZE * CHUNK_SIZE],
+            cells: vec![Default::default(); CHUNK_SIZE * CHUNK_SIZE],
             cell_count: 0,
             modules: Default::default(),
+            generation: 0,
         }
     }
 }

@@ -1,5 +1,6 @@
-use glam::IVec2;
 use web_sys::{WebGl2RenderingContext, WebGlBuffer, WebGlVertexArrayObject};
+
+use crate::v2::ChunkCoord;
 
 use super::CellProgram;
 
@@ -13,9 +14,9 @@ impl QuadVao {
     pub fn new(
         ctx: &WebGl2RenderingContext,
         program: &CellProgram,
-        chunk_loc: &IVec2,
+        chunk_coord: &ChunkCoord,
     ) -> Result<QuadVao, String> {
-        let l = chunk_loc.as_vec2();
+        let l = chunk_coord.0.as_vec2();
         let vertices: [f32; 12] = [
             l.x,
             l.y,

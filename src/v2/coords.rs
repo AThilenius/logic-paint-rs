@@ -13,6 +13,12 @@ pub struct ChunkCoord(pub IVec2);
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct LocalCoord(pub UVec2);
 
+pub enum Coord {
+    Cell(IVec2),
+    Chunk(IVec2),
+    Local(UVec2),
+}
+
 impl From<(i32, i32)> for CellCoord {
     fn from(v: (i32, i32)) -> Self {
         Self(IVec2::new(v.0, v.1))

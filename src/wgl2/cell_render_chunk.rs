@@ -7,7 +7,8 @@ use web_sys::{WebGl2RenderingContext, WebGlTexture};
 use crate::{
     substrate::{Cell, IntegratedCircuit, MosfetPart, Placement, SimIcState},
     unwrap_or_return,
-    wgl2::{cell_to_chunk_loc, LOG_CHUNK_SIZE},
+    v2::{CellCoord, ChunkCoord},
+    wgl2::LOG_CHUNK_SIZE,
 };
 
 use super::{CellProgram, QuadVao, CHUNK_SIZE};
@@ -107,7 +108,7 @@ impl CellRenderChunk {
             None,
         )?;
 
-        let vao = QuadVao::new(ctx, program, chunk_loc)?;
+        let vao = QuadVao::new(ctx, program, &ChunkCoord(*chunk_loc))?;
 
         Ok(CellRenderChunk {
             blank: true,
@@ -246,7 +247,7 @@ impl CellRenderChunk {
         // Collect all cells that will be drawn in this chunk.
         let override_cells = overrides
             .iter()
-            .filter(|(loc, _)| cell_to_chunk_loc(loc) == self.chunk_loc);
+            .filter(|(loc, _)| ChunkCoord::from(CellCoord(**loc)).0 == self.chunk_loc);
         let cells: Vec<_> =
             if let Some(chunk) = ic.get_cell_chunk_by_chunk_location(&self.chunk_loc) {
                 chunk.iter().chain(override_cells).collect()

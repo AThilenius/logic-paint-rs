@@ -57,7 +57,7 @@ impl Viewport {
         });
 
         let viewport = Rc::new(RefCell::new(Self {
-            camera: Default::default(),
+            camera: Camera::new(),
             ic,
             brush: Brush::new(),
             canvas,
@@ -118,7 +118,7 @@ impl DomIntervalTarget for Viewport {
         self.cell_program.time.set(&self.ctx, time as f32);
 
         // Render visible chunks.
-        let visible_chunks = self.camera.get_visible_substrate_chunk_locs();
+        let visible_chunks = self.camera.get_visible_chunk_coords();
         let dirty_chunks = self.brush.get_effected_chunks();
         let should_rebuild_trace_caches = self.brush.commit_changes(&mut self.ic);
 
@@ -136,6 +136,7 @@ impl DomIntervalTarget for Viewport {
         }
 
         for chunk_loc in visible_chunks {
+            let chunk_loc = chunk_loc.0;
             let cell_render_chunk = if let Some(crc) = self.cell_render_chunks.get_mut(&chunk_loc) {
                 crc
             } else {

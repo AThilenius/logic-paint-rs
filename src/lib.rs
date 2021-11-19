@@ -2,7 +2,6 @@ use std::mem::forget;
 
 use dom::{DomIntervalHooks, ElementEventHooks};
 use miniz_oxide::inflate::decompress_to_vec;
-use viewport::Viewport;
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlCanvasElement, HtmlElement};
 
@@ -11,8 +10,8 @@ use crate::substrate::deserialize_ic;
 mod brush;
 mod dom;
 mod substrate;
-mod substrate_v2;
 mod utils;
+mod v2;
 mod viewport;
 mod wgl2;
 
@@ -40,9 +39,10 @@ mod wgl2;
 //      check for mutation. The counter is rolled back when a transaction is canceled.
 //    - Supports undo by keeping a stack of Blueprints, each representing a subset of buffer chunks
 //      and modules from BEFORE a change was made. Overwrites each chunk in the undo frame.
-//  - UPC format: Universal Packed Cell format stores each cell as a bit packed u32, ready for
-//    direct blitting to a GPU 32 bit integer type texture. Does not encode ActiveMask data. Modules
-//    are rendered separately from cells, allowing each module to render itself differently.
+//  - UPC format: Universal Packed Cell format stores each cell as a bit packed [u8; 4], ready for
+//    direct blitting to a GPU RGBu8 texture. Stored as [u8; 4] instead of u32 for endian
+//    agnosticism. Does not encode ActiveMask data. Modules are rendered separately from cells,
+//    allowing each module to render itself differently.
 //  - ActiveMask: a mask over a specific buffer to activate atoms, and/or highlight cells. Like
 //    Buffer, it's stored in chunks that are blittable directly to the GPU. They represent the
 //    second texture sampled per-fragment while rendering cells. It is used for both editing and
@@ -144,31 +144,42 @@ fn main() {
     let canvas = document.get_element_by_id("wasm-canvas").unwrap();
     let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<HtmlCanvasElement>().unwrap();
 
-    let substrate_viewport = result_or_log_and_return!(Viewport::from_canvas(canvas.clone()));
+    // let viewport = v2::Viewport::from_canvas(canvas.clone());
 
-    // Try to load from local storage
-    if let Ok(Some(compressed_b64)) = web_sys::window()
-        .unwrap()
-        .local_storage()
-        .unwrap()
-        .unwrap()
-        .get_item(&"logic-paint-ic")
-    {
-        if let Ok(compressed_bytes) = base64::decode(compressed_b64) {
-            if let Ok(bytes) = decompress_to_vec(&compressed_bytes) {
-                let ic = deserialize_ic(&bytes);
-                substrate_viewport.borrow_mut().set_ic(ic);
-            }
-        }
-    }
+    // let dom_interval_hooks = result_or_log_and_return!(DomIntervalHooks::new(viewport.clone()));
+    // let element_event_hooks = result_or_log_and_return!(ElementEventHooks::new(
+    //     canvas.dyn_into::<HtmlElement>().unwrap(),
+    //     viewport.clone()
+    // ));
 
-    let dom_interval_hooks =
-        result_or_log_and_return!(DomIntervalHooks::new(substrate_viewport.clone()));
-    let element_event_hooks = result_or_log_and_return!(ElementEventHooks::new(
-        canvas.dyn_into::<HtmlElement>().unwrap(),
-        substrate_viewport.clone()
-    ));
+    // forget(dom_interval_hooks);
+    // forget(element_event_hooks);
 
-    forget(dom_interval_hooks);
-    forget(element_event_hooks);
+    // let substrate_viewport = result_or_log_and_return!(Viewport::from_canvas(canvas.clone()));
+
+    // // Try to load from local storage
+    // if let Ok(Some(compressed_b64)) = web_sys::window()
+    //     .unwrap()
+    //     .local_storage()
+    //     .unwrap()
+    //     .unwrap()
+    //     .get_item(&"logic-paint-ic")
+    // {
+    //     if let Ok(compressed_bytes) = base64::decode(compressed_b64) {
+    //         if let Ok(bytes) = decompress_to_vec(&compressed_bytes) {
+    //             let ic = deserialize_ic(&bytes);
+    //             substrate_viewport.borrow_mut().set_ic(ic);
+    //         }
+    //     }
+    // }
+
+    // let dom_interval_hooks =
+    //     result_or_log_and_return!(DomIntervalHooks::new(substrate_viewport.clone()));
+    // let element_event_hooks = result_or_log_and_return!(ElementEventHooks::new(
+    //     canvas.dyn_into::<HtmlElement>().unwrap(),
+    //     substrate_viewport.clone()
+    // ));
+
+    // forget(dom_interval_hooks);
+    // forget(element_event_hooks);
 }

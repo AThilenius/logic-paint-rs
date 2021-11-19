@@ -1,8 +1,5 @@
 use super::coords::CellCoord;
 
-/// Range: An abstract "selection" of cell / modules which can be applied to a Buffer to get or set
-/// a range of cells at once.
-
 pub enum Range {
     Rectangle {
         lower_left: CellCoord,
@@ -21,6 +18,19 @@ impl Range {
         Self::Rectangle {
             lower_left: CellCoord(first_point.0.min(second_point.0)),
             upper_right: CellCoord(first_point.0.max(second_point.0)),
+        }
+    }
+
+    pub fn iter_cell_coords(&self) -> impl Iterator<Item = CellCoord> {
+        match self {
+            Range::Rectangle {
+                lower_left,
+                upper_right,
+            } => {
+                let ll = lower_left.clone();
+                let ur = upper_right.clone();
+                (ll.0.y..ur.0.y).flat_map(move |y| (ll.0.x..ur.0.x).map(move |x| (x, y).into()))
+            }
         }
     }
 }

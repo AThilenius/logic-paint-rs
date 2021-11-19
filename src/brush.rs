@@ -72,7 +72,7 @@ impl Brush {
         );
 
         let screen_loc = Vec2::new(event.offset_x() as f32, event.offset_y() as f32);
-        let end = camera.project_screen_point_to_cell(screen_loc);
+        let end = camera.project_screen_point_to_cell(screen_loc).0;
 
         // Only re-compute what was rendered if the mouse moved to another cell.
         if let Some(previous) = self.last_event_cell {
