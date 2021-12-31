@@ -1,7 +1,7 @@
 use wasm_bindgen::JsValue;
 use web_sys::{WebGl2RenderingContext, WebGlTexture};
 
-use crate::v2::CHUNK_SIZE;
+use crate::coords::CHUNK_SIZE;
 
 pub struct Texture {
     texture: WebGlTexture,

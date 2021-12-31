@@ -1,24 +1,25 @@
-import { Viewport, Session } from 'logic-paint';
+import { LogicPaint, Mode } from 'logic-paint';
 
-// Load data from firestore...
-const dataFromFirestore = '...';
-const session = Session.from_base_64(dataFromFirestore);
+// Load data from Firestore or wherever.
+const strFromFirestore = '...';
 
+// Canvas element will always be passed into Rust.
 const canvas = document.getElementById('id') as HTMLCanvasElement;
 
-// Hooks all the input events it could need automatically.
-const viewport = Viewport.from_existing_canvas(canvas);
-viewport.set_editing_enabled(false);
-viewport.set_session(session);
+// Main state-machine for a Logic Paint instance.
+const logicPaint = new LogicPaint(canvas);
 
-// Control of simulation is done through the session object.
-const simulation = session.beginSimulation();
+// A `Session` contains a 'user session', meaning all data that a user would
+// want when rehydrating an editor.
+logicPaint.set_session_from_base_64(strFromFirestore);
 
-// When JS starts the sim, then the viewport is essentially read-only?
-
-// Dual-mode like a code editor:
-// - Editing: user can mutate buffers.
-// - Running: user cannot edit anything, and has run controls.
+// For example, if you wanted to put it into readonly (view) mode.
+logicPaint.set_read_only(true);
+logicPaint.set_sim_config({
+  mode: 'limit-ticks-per-frame',
+  ticks: 1,
+});
+logicPaint.set_mode(Mode.Simulating);
 
 // Run modes:
 // - Single step: User can single-step the sim loop with a key.

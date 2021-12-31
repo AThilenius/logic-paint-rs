@@ -2,17 +2,25 @@ use std::mem::forget;
 
 use dom::{DomIntervalHooks, ElementEventHooks};
 use miniz_oxide::inflate::decompress_to_vec;
-use wasm_bindgen::JsCast;
+use viewport::Viewport;
+use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{HtmlCanvasElement, HtmlElement};
 
-use crate::substrate::deserialize_ic;
+pub mod buffer;
+pub mod coords;
+pub mod gloo_test;
+pub mod module;
+pub mod range;
+pub mod render_context;
+pub mod session;
+pub mod upc;
+pub mod viewport;
 
 mod brush;
 mod dom;
+mod logic_paint;
 mod substrate;
 mod utils;
-mod v2;
-mod viewport;
 mod wgl2;
 
 // Another new idea:

@@ -1,14 +1,14 @@
 use std::collections::HashSet;
 
 use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
+use serde::{Deserialize, Serialize};
 
 use crate::{
+    coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
     dom::ElementInputEvent,
-    v2::{CellCoord, ChunkCoord},
 };
 
-use super::CHUNK_SIZE;
-
+#[derive(Serialize, Deserialize)]
 pub struct Camera {
     pub translation: Vec2,
     pub scale: f32,

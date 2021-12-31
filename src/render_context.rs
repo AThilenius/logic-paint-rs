@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
-use crate::wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture};
+use crate::{
+    buffer::Buffer,
+    wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
+};
 
-use super::{buffer::Buffer, coords::ChunkCoord};
+use super::coords::ChunkCoord;
 
 pub struct RenderContext {
     program: CellProgram,

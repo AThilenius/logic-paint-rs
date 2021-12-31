@@ -1,21 +1,16 @@
-use std::{cell::RefCell, rc::Rc};
-
+use futures::channel::mpsc;
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{HtmlElement, KeyboardEvent, MouseEvent, WheelEvent};
+use web_sys::{EventTarget, KeyboardEvent, MouseEvent, WheelEvent};
 
 /// Hooks a DOM Element and feeds mouse/keyboard events to a target trait object. The target cannot
 /// be dropped before this struct is dropped.
 pub struct ElementEventHooks {
-    element: HtmlElement,
-    closure_mouse_down: Option<Closure<dyn FnMut(MouseEvent)>>,
-    closure_mouse_move: Option<Closure<dyn FnMut(MouseEvent)>>,
-    closure_mouse_up: Option<Closure<dyn FnMut(MouseEvent)>>,
-    closure_mouse_scroll: Option<Closure<dyn FnMut(WheelEvent)>>,
-    closure_key_down: Option<Closure<dyn FnMut(KeyboardEvent)>>,
-}
-
-pub trait ElementEventTarget {
-    fn on_input_event(&mut self, event: ElementInputEvent);
+    target: EventTarget,
+    closure_mouse_down: Closure<dyn FnMut(MouseEvent)>,
+    closure_mouse_move: Closure<dyn FnMut(MouseEvent)>,
+    closure_mouse_up: Closure<dyn FnMut(MouseEvent)>,
+    closure_mouse_scroll: Closure<dyn FnMut(WheelEvent)>,
+    closure_key_down: Closure<dyn FnMut(KeyboardEvent)>,
 }
 
 #[derive(Clone, Debug)]
@@ -28,101 +23,115 @@ pub enum ElementInputEvent {
 }
 
 impl ElementEventHooks {
-    pub fn new(
-        html_element: HtmlElement,
-        target: Rc<RefCell<dyn ElementEventTarget>>,
-    ) -> Result<Self, JsValue> {
-        let mut element_event_target = Self {
-            element: html_element.clone(),
-            closure_mouse_down: None,
-            closure_mouse_up: None,
-            closure_mouse_move: None,
-            closure_mouse_scroll: None,
-            closure_key_down: None,
+    pub fn new(target: &EventTarget) -> Result<(Self, mpsc::Receiver<ElementInputEvent>), JsValue> {
+        let (sender, receiver) = mpsc::channel(1_000);
+
+        let closure_mouse_down = {
+            let mut sender = sender.clone();
+            let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+                sender
+                    .try_send(ElementInputEvent::MouseDown(event))
+                    .unwrap_throw();
+            }) as Box<dyn FnMut(_)>);
+            target
+                .add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())?;
+            closure
         };
 
-        // Register event handlers
-        {
-            let rc = target.clone();
+        let closure_mouse_up = {
+            let mut sender = sender.clone();
             let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
-                rc.borrow_mut()
-                    .on_input_event(ElementInputEvent::MouseDown(event));
+                sender
+                    .try_send(ElementInputEvent::MouseUp(event))
+                    .unwrap_throw();
             }) as Box<dyn FnMut(_)>);
-            html_element
-                .add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())?;
-            element_event_target.closure_mouse_down = Some(closure);
-        }
-        {
-            let rc = target.clone();
-            let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
-                rc.borrow_mut()
-                    .on_input_event(ElementInputEvent::MouseUp(event));
-            }) as Box<dyn FnMut(_)>);
-            html_element
-                .add_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref())?;
-            element_event_target.closure_mouse_up = Some(closure);
-        }
-        {
-            let rc = target.clone();
-            let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
-                rc.borrow_mut()
-                    .on_input_event(ElementInputEvent::MouseMove(event));
-            }) as Box<dyn FnMut(_)>);
-            html_element
-                .add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
-            element_event_target.closure_mouse_move = Some(closure);
-        }
-        {
-            let rc = target.clone();
-            let closure = Closure::wrap(Box::new(move |event: WheelEvent| {
-                rc.borrow_mut()
-                    .on_input_event(ElementInputEvent::MouseWheelEvent(event));
-            }) as Box<dyn FnMut(_)>);
-            html_element
-                .add_event_listener_with_callback("wheel", closure.as_ref().unchecked_ref())?;
-            element_event_target.closure_mouse_scroll = Some(closure);
-        }
-        {
-            let rc = target.clone();
-            let closure = Closure::wrap(Box::new(move |event: KeyboardEvent| {
-                rc.borrow_mut()
-                    .on_input_event(ElementInputEvent::KeyPressed(event));
-            }) as Box<dyn FnMut(_)>);
-            html_element
-                .add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())?;
-            element_event_target.closure_key_down = Some(closure);
-        }
+            target.add_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref())?;
+            closure
+        };
 
-        Ok(element_event_target)
+        let closure_mouse_move = {
+            let mut sender = sender.clone();
+            let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+                sender
+                    .try_send(ElementInputEvent::MouseMove(event))
+                    .unwrap_throw();
+            }) as Box<dyn FnMut(_)>);
+            target
+                .add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
+            closure
+        };
+
+        let closure_mouse_scroll = {
+            let mut sender = sender.clone();
+            let closure = Closure::wrap(Box::new(move |event: WheelEvent| {
+                sender
+                    .try_send(ElementInputEvent::MouseWheelEvent(event))
+                    .unwrap_throw();
+            }) as Box<dyn FnMut(_)>);
+            target.add_event_listener_with_callback("wheel", closure.as_ref().unchecked_ref())?;
+            closure
+        };
+
+        let closure_key_down = {
+            let mut sender = sender.clone();
+            let closure = Closure::wrap(Box::new(move |event: KeyboardEvent| {
+                sender
+                    .try_send(ElementInputEvent::KeyPressed(event))
+                    .unwrap_throw();
+            }) as Box<dyn FnMut(_)>);
+            target.add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())?;
+            closure
+        };
+
+        Ok((
+            Self {
+                target: target.clone(),
+                closure_mouse_down,
+                closure_mouse_up,
+                closure_mouse_move,
+                closure_mouse_scroll,
+                closure_key_down,
+            },
+            receiver,
+        ))
     }
 }
 
 impl Drop for ElementEventHooks {
     fn drop(&mut self) {
-        if let Some(closure) = self.closure_mouse_down.take() {
-            self.element
-                .remove_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref())
-                .ok();
-        }
-        if let Some(closure) = self.closure_mouse_up.take() {
-            self.element
-                .remove_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref())
-                .ok();
-        }
-        if let Some(closure) = self.closure_mouse_move.take() {
-            self.element
-                .remove_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())
-                .ok();
-        }
-        if let Some(closure) = self.closure_mouse_scroll.take() {
-            self.element
-                .remove_event_listener_with_callback("wheel", closure.as_ref().unchecked_ref())
-                .ok();
-        }
-        if let Some(closure) = self.closure_key_down.take() {
-            self.element
-                .remove_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
-                .ok();
-        }
+        self.target
+            .remove_event_listener_with_callback(
+                "mousedown",
+                self.closure_mouse_down.as_ref().unchecked_ref(),
+            )
+            .ok();
+
+        self.target
+            .remove_event_listener_with_callback(
+                "mouseup",
+                self.closure_mouse_up.as_ref().unchecked_ref(),
+            )
+            .ok();
+
+        self.target
+            .remove_event_listener_with_callback(
+                "mousemove",
+                self.closure_mouse_move.as_ref().unchecked_ref(),
+            )
+            .ok();
+
+        self.target
+            .remove_event_listener_with_callback(
+                "wheel",
+                self.closure_mouse_scroll.as_ref().unchecked_ref(),
+            )
+            .ok();
+
+        self.target
+            .remove_event_listener_with_callback(
+                "keydown",
+                self.closure_key_down.as_ref().unchecked_ref(),
+            )
+            .ok();
     }
 }

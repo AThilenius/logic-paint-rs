@@ -1,17 +1,13 @@
 use std::{collections::HashMap, iter::FromIterator};
 
 use glam::IVec2;
+use serde::{Deserialize, Serialize};
 
-use crate::v2::coords::CHUNK_SIZE;
+use crate::{coords::CHUNK_SIZE, module::Module, range::Range, upc::UPC};
 
-use super::{
-    coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE},
-    module::Module,
-    range::Range,
-    upc::UPC,
-};
+use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Buffer {
     chunks: HashMap<ChunkCoord, BufferChunk>,
     transact_chunks: HashMap<ChunkCoord, BufferChunk>,
@@ -20,7 +16,7 @@ pub struct Buffer {
     redo_stack: Vec<BufferSnapshot>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BufferChunk {
     /// 4-byte cells, in row-major order. Ready for blitting to the GPU.
     pub cells: Vec<u8>,
@@ -35,6 +31,7 @@ pub struct BufferChunk {
     pub generation: usize,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct BufferSnapshot {
     pub chunks: HashMap<ChunkCoord, Option<BufferChunk>>,
 }

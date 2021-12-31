@@ -1,18 +1,20 @@
 use glam::{IVec2, UVec2};
+use serde::{Deserialize, Serialize};
 
 pub(crate) const CHUNK_SIZE: usize = 32;
 pub(crate) const LOG_CHUNK_SIZE: usize = 5;
 const UPPER_MASK: i32 = !((CHUNK_SIZE as i32) - 1);
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CellCoord(pub IVec2);
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct ChunkCoord(pub IVec2);
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct LocalCoord(pub UVec2);
 
+#[derive(Serialize, Deserialize)]
 pub enum Coord {
     Cell(IVec2),
     Chunk(IVec2),

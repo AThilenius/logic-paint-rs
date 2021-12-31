@@ -1,8 +1,6 @@
 use glam::IVec2;
 use serde::{Deserialize, Serialize};
 
-use super::SimTickParams;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PinModule {
     ConstVal {
@@ -70,38 +68,38 @@ impl PinModuleState {
         }
     }
 
-    pub fn update_pin_state_inputs(
-        &mut self,
-        pin_states: &mut Vec<PinState>,
-        params: &SimTickParams,
-    ) {
-        match self {
-            PinModuleState::Clock {
-                module: PinModule::Clock { interval, .. },
-                next_edge,
-                high,
-            } => {
-                if params.tick >= *next_edge {
-                    *high = !*high;
-                    *next_edge = *interval + params.tick;
-                }
+    // pub fn update_pin_state_inputs(
+    //     &mut self,
+    //     pin_states: &mut Vec<PinState>,
+    //     params: &SimTickParams,
+    // ) {
+    //     match self {
+    //         PinModuleState::Clock {
+    //             module: PinModule::Clock { interval, .. },
+    //             next_edge,
+    //             high,
+    //         } => {
+    //             if params.tick >= *next_edge {
+    //                 *high = !*high;
+    //                 *next_edge = *interval + params.tick;
+    //             }
 
-                pin_states[0].input_high = *high;
-            }
-            PinModuleState::ConstVal { high } => {
-                pin_states[0].input_high = *high;
-            }
-            _ => unreachable!("Module type should always match module state type"),
-        }
-    }
+    //             pin_states[0].input_high = *high;
+    //         }
+    //         PinModuleState::ConstVal { high } => {
+    //             pin_states[0].input_high = *high;
+    //         }
+    //         _ => unreachable!("Module type should always match module state type"),
+    //     }
+    // }
 
-    pub fn handle_pin_state_outputs(
-        &mut self,
-        _pin_states: &Vec<PinState>,
-        _sim_state: &SimTickParams,
-    ) {
-        // Clock pins are like the Honey Badger, it doesn't give a shit. Other pin modules will.
-    }
+    // pub fn handle_pin_state_outputs(
+    //     &mut self,
+    //     _pin_states: &Vec<PinState>,
+    //     _sim_state: &SimTickParams,
+    // ) {
+    //     // Clock pins are like the Honey Badger, it doesn't give a shit. Other pin modules will.
+    // }
 }
 
 #[derive(Debug, Default, Clone)]
