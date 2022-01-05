@@ -7,8 +7,10 @@ use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlCanvasElement;
 
 use crate::{
+    coords::CellCoord,
     dom::{DomIntervalHooks, ElementEventHooks},
-    session::Session,
+    session::SerdeSession,
+    upc::{Bit, UPC},
     viewport::Viewport,
 };
 
@@ -28,6 +30,23 @@ impl LogicPaint {
         let (dom_hooks, mut dom_recv) = DomIntervalHooks::new().unwrap_throw();
 
         let viewport = Rc::new(RefCell::new(Viewport::from_canvas(canvas).unwrap_throw()));
+
+        // Dev
+        viewport
+            .borrow_mut()
+            .session
+            .active_buffer
+            .transaction_begin();
+        viewport
+            .borrow_mut()
+            .session
+            .active_buffer
+            .transact_set_cell(CellCoord::from((0, 0)), UPC::from_slice(&[255, 255, 0, 0]));
+        viewport
+            .borrow_mut()
+            .session
+            .active_buffer
+            .transaction_commit(true);
 
         // Handle DOM events
         {
@@ -94,7 +113,7 @@ impl LogicPaint {
         };
 
         let session = {
-            let res = bincode::deserialize::<Session>(&bytes);
+            let res = bincode::deserialize::<SerdeSession>(&bytes);
 
             if let Err(err) = res {
                 return Some(err.to_string());
@@ -103,13 +122,14 @@ impl LogicPaint {
             res.unwrap()
         };
 
-        self.viewport.borrow_mut().set_session(session);
+        self.viewport.borrow_mut().set_session((&session).into());
 
         None
     }
 
     pub fn get_session_as_string(&mut self) -> String {
-        let bytes = bincode::serialize(&self.viewport.borrow().session).unwrap_throw();
+        let bytes =
+            bincode::serialize(&SerdeSession::from(&self.viewport.borrow().session)).unwrap_throw();
         let compressed_bytes = compress_to_vec(&bytes, 6);
         format!("LP-S-V1:{}", base64::encode(compressed_bytes))
     }

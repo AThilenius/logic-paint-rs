@@ -8,7 +8,7 @@ use crate::{
     dom::ElementInputEvent,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Camera {
     pub translation: Vec2,
     pub scale: f32,

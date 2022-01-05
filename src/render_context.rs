@@ -4,8 +4,9 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
-    buffer::Buffer,
-    wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
+    log,
+    session::Session,
+    wgl2::{CellProgram, QuadVao, SetUniformType, Texture},
 };
 
 use super::coords::ChunkCoord;
@@ -43,19 +44,23 @@ impl RenderContext {
         })
     }
 
-    pub fn draw(&mut self, camera: &Camera, buffer: &Buffer, time: f32) -> Result<(), JsValue> {
-        self.gl
-            .viewport(0, 0, camera.size.x as i32, camera.size.y as i32);
+    pub fn draw(&mut self, time: f64, session: &Session) -> Result<(), JsValue> {
+        self.gl.viewport(
+            0,
+            0,
+            session.camera.size.x as i32,
+            session.camera.size.y as i32,
+        );
 
         // Update camera uniform.
         self.program.use_program(&self.gl);
         self.program
             .view_proj
-            .set(&self.gl, camera.get_view_proj_matrix());
-        self.program.time.set(&self.gl, time);
+            .set(&self.gl, session.camera.get_view_proj_matrix());
+        self.program.time.set(&self.gl, time as f32);
 
         // Get chunks visible to the camera.
-        let visible_chunks = camera.get_visible_chunk_coords();
+        let visible_chunks = session.camera.get_visible_chunk_coords();
 
         // Drop RenderChunks that aren't visible any more.
         self.render_chunks.retain(|c, _| visible_chunks.contains(c));
@@ -78,16 +83,16 @@ impl RenderContext {
             };
 
             // Draw the RenderChunk...
-            if let Some(buffer_chunk) = buffer.get_chunk(chunk_coord) {
+            if let Some(buffer_chunk) = session.active_buffer.get_chunk(chunk_coord) {
                 if render_chunk.buffer_generation != buffer_chunk.generation {
                     render_chunk.buffer_generation = buffer_chunk.generation;
                     render_chunk.texture.set_pixels(&buffer_chunk.cells[..])?;
                 }
-
-                render_chunk.texture.bind();
-                render_chunk.vao.bind();
-                self.gl.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
             }
+
+            render_chunk.texture.bind();
+            render_chunk.vao.bind();
+            self.gl.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
         }
 
         Ok(())

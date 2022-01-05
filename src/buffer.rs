@@ -3,7 +3,12 @@ use std::{collections::HashMap, iter::FromIterator};
 use glam::IVec2;
 use serde::{Deserialize, Serialize};
 
-use crate::{coords::CHUNK_SIZE, module::Module, range::Range, upc::UPC};
+use crate::{
+    coords::CHUNK_SIZE,
+    module::Module,
+    range::Range,
+    upc::{UPC, UPC_BYTE_LEN},
+};
 
 use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
 
@@ -32,7 +37,7 @@ pub struct BufferChunk {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct BufferSnapshot {
+struct BufferSnapshot {
     pub chunks: HashMap<ChunkCoord, Option<BufferChunk>>,
 }
 
@@ -45,6 +50,11 @@ impl Buffer {
         self.transact_chunks
             .get(&coord)
             .or_else(|| self.chunks.get(&coord))
+    }
+
+    /// Returns an iterator for only committed chunk data (ignoring any pending transactions).
+    pub fn get_base_chunks(&self) -> impl Iterator<Item = (&ChunkCoord, &BufferChunk)> {
+        self.chunks.iter()
     }
 
     pub fn get_cell<T>(&self, c: T) -> UPC
@@ -134,6 +144,22 @@ impl Buffer {
         chunk.set_cell(coord, cell);
     }
 
+    pub fn transact_set_chunk<T>(&mut self, c: T, mut chunk: BufferChunk)
+    where
+        T: Into<ChunkCoord>,
+    {
+        debug_assert!(self.transact);
+
+        let chunk_coord: ChunkCoord = c.into();
+        let gen = self
+            .get_chunk(chunk_coord)
+            .map(|c| c.generation)
+            .unwrap_or(0);
+
+        chunk.generation = gen;
+        self.transact_chunks.insert(chunk_coord, chunk);
+    }
+
     pub fn clone_range(&self, range: Range) -> Buffer {
         // TODO: This can be made much more efficient (broken iter over effected chunks), but I
         // probably don't care. It's only executed in human-time. -shrug-
@@ -180,7 +206,7 @@ impl BufferChunk {
     {
         let coord: LocalCoord = c.into();
         let idx = ((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize;
-        UPC::from_slice(&self.cells[idx..idx + 4])
+        UPC::from_slice(&self.cells[idx..idx + UPC_BYTE_LEN])
     }
 
     #[inline(always)]
@@ -190,7 +216,7 @@ impl BufferChunk {
     {
         let coord: LocalCoord = c.into();
         let idx = ((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize;
-        let slice = &mut self.cells[idx..idx + 4];
+        let slice = &mut self.cells[idx..idx + UPC_BYTE_LEN];
         let existing = UPC::from_slice(slice);
 
         // Track cell count as well.
@@ -207,7 +233,7 @@ impl BufferChunk {
 impl Default for BufferChunk {
     fn default() -> Self {
         Self {
-            cells: vec![Default::default(); CHUNK_SIZE * CHUNK_SIZE],
+            cells: vec![Default::default(); UPC_BYTE_LEN * CHUNK_SIZE * CHUNK_SIZE],
             cell_count: 0,
             modules: Default::default(),
             generation: 0,

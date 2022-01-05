@@ -1,10 +1,17 @@
+pub const UPC_BYTE_LEN: usize = 4;
+pub const LOG_UPC_BYTE_LEN: usize = 2;
+
+/// Universal Packed Cell format stores each cell as a bit packed [u8; 4], ready for direct blitting
+/// to a GPU RGBu8 texture. Stored as [u8; 4] instead of u32 for endian agnosticism during blitting.
+/// Does not encode ActiveMask data. The first 16 bits are also encoded as part of Blueprint
+/// serialization.
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
-pub struct UPC(pub [u8; 4]);
+pub struct UPC(pub [u8; UPC_BYTE_LEN]);
 
 impl UPC {
     #[inline]
     pub fn from_slice(slice: &[u8]) -> Self {
-        let mut bytes = [0_u8; 4];
+        let mut bytes = [0_u8; UPC_BYTE_LEN];
         bytes.copy_from_slice(slice);
         Self(bytes)
     }

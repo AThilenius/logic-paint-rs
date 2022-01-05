@@ -1,27 +1,28 @@
-use std::mem::forget;
+use wasm_bindgen::prelude::*;
 
-use dom::{DomIntervalHooks, ElementEventHooks};
-use miniz_oxide::inflate::decompress_to_vec;
-use viewport::Viewport;
-use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{HtmlCanvasElement, HtmlElement};
-
-pub mod buffer;
-pub mod coords;
-pub mod gloo_test;
-pub mod module;
-pub mod range;
-pub mod render_context;
-pub mod session;
-pub mod upc;
-pub mod viewport;
-
+mod blueprint;
 mod brush;
+mod buffer;
+mod coords;
 mod dom;
 mod logic_paint;
+mod module;
+mod range;
+mod render_context;
+mod session;
 mod substrate;
+mod upc;
 mod utils;
+mod viewport;
 mod wgl2;
+
+pub use logic_paint::*;
+
+#[wasm_bindgen(start)]
+pub fn main() {
+    #[cfg(feature = "console_error_panic_hook")]
+    console_error_panic_hook::set_once();
+}
 
 // Another new idea:
 
@@ -61,11 +62,12 @@ mod wgl2;
 //    does not need to be coincident a pin however, nor does a module need to have any pins at all
 //    (ex. a label). Pins are not stored themselves, but are provided by the specific module.
 //    However, the UPC format encodes pin presence, and that must always line up one-for-one with
-//    the module provided pins; pin generation must be deterministic and idempotent.
+//    the module provided pins; pin generation must be deterministic and idempotent. Finally,
+//    modules are not frustum culled (they are always rendered)
 //  - Range: An abstract "selection" of cell / modules which can be applied to a Buffer to get or
 //    set a range of cells at once.
 //  - AST: An analogy to an abstract syntax tree; stores a "compiled" buffer without execution
-//    state; stores atoms, traces and gates. Used by both the execution engine (along with an
+//    state. Stores atoms, traces and gates. Used by both the execution engine (along with an
 //    ExecutionState) and for presentation when updating an ActiveMask from an AST and
 //    ExecutionState. ASTs are invalidated when a buffer changes.
 //  - ExecutionState: State associated with an execution of a specific AST (notable gate state).
@@ -143,51 +145,3 @@ mod wgl2;
 //   - Redefine "active" to be "selected", and how that is rendered is defined in uniforms. Then it
 //     can be reused for things like selection highlighting, errors, and so on.
 //   - Add one more bit for 'entire cell is selected' as is the case for visual-mode.
-
-fn main() {
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
-
-    let document = web_sys::window().unwrap().document().unwrap();
-    let canvas = document.get_element_by_id("wasm-canvas").unwrap();
-    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<HtmlCanvasElement>().unwrap();
-
-    // let viewport = v2::Viewport::from_canvas(canvas.clone());
-
-    // let dom_interval_hooks = result_or_log_and_return!(DomIntervalHooks::new(viewport.clone()));
-    // let element_event_hooks = result_or_log_and_return!(ElementEventHooks::new(
-    //     canvas.dyn_into::<HtmlElement>().unwrap(),
-    //     viewport.clone()
-    // ));
-
-    // forget(dom_interval_hooks);
-    // forget(element_event_hooks);
-
-    // let substrate_viewport = result_or_log_and_return!(Viewport::from_canvas(canvas.clone()));
-
-    // // Try to load from local storage
-    // if let Ok(Some(compressed_b64)) = web_sys::window()
-    //     .unwrap()
-    //     .local_storage()
-    //     .unwrap()
-    //     .unwrap()
-    //     .get_item(&"logic-paint-ic")
-    // {
-    //     if let Ok(compressed_bytes) = base64::decode(compressed_b64) {
-    //         if let Ok(bytes) = decompress_to_vec(&compressed_bytes) {
-    //             let ic = deserialize_ic(&bytes);
-    //             substrate_viewport.borrow_mut().set_ic(ic);
-    //         }
-    //     }
-    // }
-
-    // let dom_interval_hooks =
-    //     result_or_log_and_return!(DomIntervalHooks::new(substrate_viewport.clone()));
-    // let element_event_hooks = result_or_log_and_return!(ElementEventHooks::new(
-    //     canvas.dyn_into::<HtmlElement>().unwrap(),
-    //     substrate_viewport.clone()
-    // ));
-
-    // forget(dom_interval_hooks);
-    // forget(element_event_hooks);
-}

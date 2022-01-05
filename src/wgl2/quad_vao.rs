@@ -1,6 +1,6 @@
 use web_sys::{WebGl2RenderingContext, WebGlBuffer, WebGlVertexArrayObject};
 
-use crate::coords::ChunkCoord;
+use crate::{coords::ChunkCoord, log};
 
 use super::CellProgram;
 
