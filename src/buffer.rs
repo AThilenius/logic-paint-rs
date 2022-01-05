@@ -7,7 +7,7 @@ use crate::{
     coords::CHUNK_SIZE,
     module::Module,
     range::Range,
-    upc::{UPC, UPC_BYTE_LEN},
+    upc::{LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
 };
 
 use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
@@ -215,7 +215,7 @@ impl BufferChunk {
         T: Into<LocalCoord>,
     {
         let coord: LocalCoord = c.into();
-        let idx = ((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize;
+        let idx = (((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize) << LOG_UPC_BYTE_LEN;
         let slice = &mut self.cells[idx..idx + UPC_BYTE_LEN];
         let existing = UPC::from_slice(slice);
 

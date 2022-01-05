@@ -67,31 +67,37 @@ void main() {
 
     uvec4 cells = texelFetch(cells_texture_sampler, ivec2(texel), 0);
 
-    // Mirrors the format in cell_render_chunk.rs
-    bool si_ul_active = (cells.r & (1u << 7u)) > 0u;
-    bool si_n = (cells.r & (1u << 6u)) > 0u;
-    bool si_p = (cells.r & (1u << 5u)) > 0u;
-    bool si_dir_up = (cells.r & (1u << 4u)) > 0u;
-    bool si_dir_right = (cells.r & (1u << 3u)) > 0u;
-    bool si_dir_down = (cells.r & (1u << 2u)) > 0u;
-    bool si_dir_left = (cells.r & (1u << 1u)) > 0u;
+    // Mirrors the format in upc.rs
+    bool si_n = (cells.r & (1u << 7u)) > 0u;
+    bool si_p = (cells.r & (1u << 6u)) > 0u;
+    bool si_dir_up = (cells.r & (1u << 5u)) > 0u;
+    bool si_dir_right = (cells.r & (1u << 4u)) > 0u;
+    bool si_dir_down = (cells.r & (1u << 3u)) > 0u;
+    bool si_dir_left = (cells.r & (1u << 2u)) > 0u;
+    bool gate_dir_up = (cells.r & (1u << 1u)) > 0u;
+    bool gate_dir_right = (cells.r & (1u << 0u)) > 0u;
 
-    bool si_dr_active = (cells.g & (1u << 7u)) > 0u;
-    bool gate_dir_up = (cells.g & (1u << 6u)) > 0u;
-    bool gate_dir_right = (cells.g & (1u << 5u)) > 0u;
-    bool gate_dir_down = (cells.g & (1u << 4u)) > 0u;
-    bool gate_dir_left = (cells.g & (1u << 3u)) > 0u;
+    bool gate_dir_down = (cells.g & (1u << 7u)) > 0u;
+    bool gate_dir_left = (cells.g & (1u << 6u)) > 0u;
+    bool metal = (cells.g & (1u << 5u)) > 0u;
+    bool metal_dir_up = (cells.g & (1u << 4u)) > 0u;
+    bool metal_dir_right = (cells.g & (1u << 3u)) > 0u;
+    bool metal_dir_down = (cells.g & (1u << 2u)) > 0u;
+    bool metal_dir_left = (cells.g & (1u << 1u)) > 0u;
+    bool via = (cells.g & (1u << 0u)) > 0u;
 
-    bool gate_active = (cells.b & (1u << 7u)) > 0u;
-    bool metal = (cells.b & (1u << 6u)) > 0u;
-    bool metal_dir_up = (cells.b & (1u << 5u)) > 0u;
-    bool metal_dir_right = (cells.b & (1u << 4u)) > 0u;
-    bool metal_dir_down = (cells.b & (1u << 3u)) > 0u;
-    bool metal_dir_left = (cells.b & (1u << 2u)) > 0u;
-    bool via = (cells.b & (1u << 1u)) > 0u;
+    bool is_io = (cells.b & (1u << 7u)) > 0u;
 
-    bool metal_active = (cells.a & (1u << 7u)) > 0u;
-    bool is_io = (cells.a & (1u << 6u)) > 0u;
+    // TODO:
+    // bool gate_active = (cells.b & (1u << 7u)) > 0u;
+    // bool metal_active = (cells.a & (1u << 7u)) > 0u;
+    // bool si_ul_active = (cells.r & (1u << 7u)) > 0u;
+    // bool si_dr_active = (cells.g & (1u << 7u)) > 0u;
+
+    bool gate_active = false;
+    bool metal_active = false;
+    bool si_ul_active = false;
+    bool si_dr_active = false;
 
     bool metal_connection = connection(
         tile_uv,

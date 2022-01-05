@@ -10,7 +10,7 @@ use crate::{
     coords::CellCoord,
     dom::{DomIntervalHooks, ElementEventHooks},
     session::SerdeSession,
-    upc::{Bit, UPC},
+    upc::{Bit, UnpackedCell, UPC},
     viewport::Viewport,
 };
 
@@ -41,7 +41,20 @@ impl LogicPaint {
             .borrow_mut()
             .session
             .active_buffer
-            .transact_set_cell(CellCoord::from((0, 0)), UPC::from_slice(&[255, 255, 0, 0]));
+            .transact_set_cell(
+                CellCoord::from((-1, -1)),
+                UnpackedCell {
+                    si_n: true,
+                    si_dir_left: true,
+                    si_dir_up: true,
+                    metal: true,
+                    metal_dir_right: true,
+                    metal_dir_down: true,
+                    via: true,
+                    ..Default::default()
+                }
+                .into(),
+            );
         viewport
             .borrow_mut()
             .session
