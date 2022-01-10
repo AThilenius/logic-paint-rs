@@ -21,12 +21,14 @@ console_error_panic_hook = { version = "0.1.6", optional = true }
 futures = "0.3.17"
 generational-arena = "0.2.8"
 glam = { version = "0.20.0", features = ["serde", "bytemuck"] }
+gloo="0.6.0"
 itertools = "0.10.3"
 js-sys = "0.3.55"
 miniz_oxide = "0.5.0"
 serde = "1.0.130"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.28"
+yew = "0.19.3"
 
 [dependencies.web-sys]
 version = "0.3.55"

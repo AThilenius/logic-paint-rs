@@ -3,20 +3,20 @@ use wasm_bindgen::prelude::*;
 mod blueprint;
 mod brush;
 mod buffer;
+mod compiler;
 mod coords;
 mod dom;
 mod logic_paint;
 mod module;
 mod range;
-mod render_context;
 mod session;
 mod substrate;
 mod upc;
 mod utils;
-mod viewport;
 mod wgl2;
+mod yew_viewport;
 
-pub use logic_paint::*;
+pub use yew_viewport::*;
 
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -75,8 +75,8 @@ pub fn main() {
 //  - RenderContext: Stores all state associated with painting Buffers and ActiveMasks to the
 //    screen. Does not however own the Camera, which is owned by the Context object. Includes GL
 //    context, GL render target, shader programs, VBOs, VAOs, and textures associated with a
-//    BufferChunk or ActiveMaskChunk. Chuck dirty tracking (re-upload to GPU is done with the
-//    generation flags on chunks).
+//    BufferChunk or ActiveMaskChunk. Chuck dirty tracking (re-upload to GPU) is done with the
+//    generation counter on chunks.
 //  - Painter: Paints on a Buffer; the primary way a user draws things. Painter can selectively be
 //    fed input events to enable or disable it.
 //  - Context: The outer most object that owns the memory of everything visible in a given viewport,

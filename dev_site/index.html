@@ -7,14 +7,33 @@
       body {
         margin: 0;
         overflow: hidden;
+        background-color: #080808;
       }
-      canvas {
+
+      .sample-mount {
         width: 100vw;
         height: 100vh;
+      }
+
+      .logic-paint-viewport {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+
+      .logic-paint-viewport canvas,
+      div {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        overflow: hidden;
       }
     </style>
   </head>
   <body>
-    <canvas id="wasm-canvas" tabindex="1"></canvas>
+    <div id="root" class="sample-mount">
+      <!-- <div id="wasm-overlay"></div>
+      <canvas id="wasm-canvas" tabindex="1"></canvas> -->
+    </div>
   </body>
 </html>

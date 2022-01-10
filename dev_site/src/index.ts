@@ -1,7 +1,7 @@
 import { LogicPaint } from '../../pkg/index.js';
 
 const logicPaint = new LogicPaint(
-  document.getElementById('wasm-canvas') as HTMLCanvasElement
+  document.getElementById('root') as HTMLCanvasElement
 );
 
 // DEV

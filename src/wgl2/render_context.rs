@@ -9,7 +9,7 @@ use crate::{
     wgl2::{CellProgram, QuadVao, SetUniformType, Texture},
 };
 
-use super::coords::ChunkCoord;
+use crate::coords::ChunkCoord;
 
 pub struct RenderContext {
     program: CellProgram,

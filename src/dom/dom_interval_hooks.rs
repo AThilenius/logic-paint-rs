@@ -1,4 +1,3 @@
-use futures::channel::mpsc;
 use std::{cell::RefCell, rc::Rc};
 
 use wasm_bindgen::{prelude::*, JsCast};
@@ -12,13 +11,11 @@ pub struct DomIntervalHooks {
     cancel_animation: Rc<RefCell<bool>>,
 }
 
-pub enum DomIntervalEvent {
-    RequestAnimationFrame(f64),
-}
-
 impl DomIntervalHooks {
-    pub fn new() -> Result<(Self, mpsc::Receiver<DomIntervalEvent>), JsValue> {
-        let (mut sender, receiver) = mpsc::channel(1);
+    pub fn new<F>(mut callback: F) -> Result<Self, JsValue>
+    where
+        F: FnMut(f64) + 'static,
+    {
         let cancel_animation = Rc::new(RefCell::new(false));
 
         // The closure needs to self-reference to keep registering itself. That requires an Rc.
@@ -51,11 +48,7 @@ impl DomIntervalHooks {
                 )
                 .ok();
 
-            // We don't actually care if the MPSC is overflowed (although I don't think it's
-            // actually possible with the JS scheduling model).
-            let _ = sender.try_send(DomIntervalEvent::RequestAnimationFrame(
-                time.as_f64().unwrap_throw() / 1000.0,
-            ));
+            callback(time.as_f64().unwrap_throw() / 1000.0);
         }) as Box<dyn FnMut(_)>));
 
         // Schedule the first frame.
@@ -63,7 +56,7 @@ impl DomIntervalHooks {
             .unwrap()
             .request_animation_frame(closure.borrow().as_ref().unwrap().as_ref().unchecked_ref())?;
 
-        Ok((Self { cancel_animation }, receiver))
+        Ok(Self { cancel_animation })
     }
 }
 

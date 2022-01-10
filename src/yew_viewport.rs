@@ -1,0 +1,120 @@
+use glam::Vec2;
+use wasm_bindgen::prelude::*;
+use web_sys::{window, HtmlCanvasElement};
+use yew::prelude::*;
+
+use crate::{dom::DomIntervalHooks, session::Session, wgl2::RenderContext};
+
+pub struct YewViewport {
+    pub session: Session,
+    canvas: NodeRef,
+    render_context: Option<RenderContext>,
+    dom_events: Option<DomIntervalHooks>,
+}
+
+pub enum Msg {
+    SetSession(Session),
+    RawInput(RawInput),
+    Render(f64),
+}
+
+pub enum RawInput {
+    MouseDown(MouseEvent),
+    MouseMove(MouseEvent),
+    MouseUp(MouseEvent),
+    MouseWheelEvent(WheelEvent),
+    KeyPressed(KeyboardEvent),
+}
+
+impl YewViewport {
+    fn draw(&mut self, time: f64) {
+        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+
+        // Maintain HTML Canvas size and context viewport.
+        let w = canvas.client_width() as u32;
+        let h = canvas.client_height() as u32;
+
+        if w != canvas.width() || h != canvas.height() {
+            canvas.set_width(w);
+            canvas.set_height(h);
+        }
+
+        self.session.camera.update(
+            window().unwrap().device_pixel_ratio() as f32,
+            Vec2::new(w as f32, h as f32),
+        );
+
+        if let Some(render_context) = &mut self.render_context {
+            render_context.draw(time, &self.session).unwrap_throw();
+        }
+    }
+}
+
+impl Component for YewViewport {
+    type Message = Msg;
+    type Properties = ();
+
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {
+            session: Session::new(),
+            canvas: NodeRef::default(),
+            render_context: None,
+            dom_events: None,
+        }
+    }
+
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+        match msg {
+            Msg::RawInput(raw_input) => self.session.camera.handle_mouse_event(raw_input),
+            Msg::Render(time) => self.draw(time),
+            Msg::SetSession(session) => self.session = session,
+        };
+
+        false
+    }
+
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let onmousedown = ctx
+            .link()
+            .callback(|e| Msg::RawInput(RawInput::MouseDown(e)));
+        let onmouseup = ctx.link().callback(|e| Msg::RawInput(RawInput::MouseUp(e)));
+        let onmousemove = ctx
+            .link()
+            .callback(|e| Msg::RawInput(RawInput::MouseMove(e)));
+        let onwheel = ctx
+            .link()
+            .callback(|e| Msg::RawInput(RawInput::MouseWheelEvent(e)));
+        let onkeypress = ctx
+            .link()
+            .callback(|e| Msg::RawInput(RawInput::KeyPressed(e)));
+        html! {
+            <div class="logic-paint-viewport">
+                <canvas
+                    {onmousedown}
+                    {onmouseup}
+                    {onmousemove}
+                    {onwheel}
+                    {onkeypress}
+                    ref={self.canvas.clone()}
+                ></canvas>
+            </div>
+        }
+    }
+
+    fn rendered(&mut self, ctx: &Context<Self>, first_render: bool) {
+        if !first_render {
+            return;
+        }
+
+        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+        self.render_context = Some(RenderContext::new(canvas).unwrap_throw());
+
+        let link = ctx.link().clone();
+        self.dom_events = Some(
+            DomIntervalHooks::new(move |time| {
+                link.send_message(Msg::Render(time));
+            })
+            .unwrap_throw(),
+        );
+    }
+}

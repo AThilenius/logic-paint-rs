@@ -1,6 +1,7 @@
 use futures::channel::mpsc;
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{EventTarget, KeyboardEvent, MouseEvent, WheelEvent};
+use yew::{KeyboardEvent, MouseEvent, WheelEvent};
+use web_sys::{EventTarget};
 
 /// Hooks a DOM Element and feeds mouse/keyboard events to a target trait object. The target cannot
 /// be dropped before this struct is dropped.
@@ -29,6 +30,7 @@ impl ElementEventHooks {
         let closure_mouse_down = {
             let mut sender = sender.clone();
             let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+                event.prevent_default();
                 sender
                     .try_send(ElementInputEvent::MouseDown(event))
                     .unwrap_throw();
@@ -41,6 +43,7 @@ impl ElementEventHooks {
         let closure_mouse_up = {
             let mut sender = sender.clone();
             let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+                event.prevent_default();
                 sender
                     .try_send(ElementInputEvent::MouseUp(event))
                     .unwrap_throw();
@@ -52,6 +55,7 @@ impl ElementEventHooks {
         let closure_mouse_move = {
             let mut sender = sender.clone();
             let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+                event.prevent_default();
                 sender
                     .try_send(ElementInputEvent::MouseMove(event))
                     .unwrap_throw();
@@ -64,6 +68,7 @@ impl ElementEventHooks {
         let closure_mouse_scroll = {
             let mut sender = sender.clone();
             let closure = Closure::wrap(Box::new(move |event: WheelEvent| {
+                event.prevent_default();
                 sender
                     .try_send(ElementInputEvent::MouseWheelEvent(event))
                     .unwrap_throw();
@@ -75,6 +80,7 @@ impl ElementEventHooks {
         let closure_key_down = {
             let mut sender = sender.clone();
             let closure = Closure::wrap(Box::new(move |event: KeyboardEvent| {
+                event.prevent_default();
                 sender
                     .try_send(ElementInputEvent::KeyPressed(event))
                     .unwrap_throw();

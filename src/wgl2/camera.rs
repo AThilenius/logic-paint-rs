@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
-    dom::ElementInputEvent,
+    RawInput,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -53,9 +53,9 @@ impl Camera {
         )
     }
 
-    pub fn handle_mouse_event(&mut self, event: ElementInputEvent) {
+    pub fn handle_mouse_event(&mut self, event: RawInput) {
         match event {
-            ElementInputEvent::MouseWheelEvent(event) => {
+            RawInput::MouseWheelEvent(event) => {
                 // Zoom centered around the cursor
                 let screen_point = Vec2::new(event.offset_x() as f32, event.offset_y() as f32);
                 let origin_world = self.project_screen_point_to_world(screen_point);
@@ -65,16 +65,16 @@ impl Camera {
                 let new_world_point = self.project_screen_point_to_world(screen_point);
                 self.translation += origin_world - new_world_point;
             }
-            ElementInputEvent::MouseDown(event) if event.button() == 1 => {
+            RawInput::MouseDown(event) if event.button() == 1 => {
                 self.drag_world_anchor = Some(self.project_screen_point_to_world(Vec2::new(
                     event.offset_x() as f32,
                     event.offset_y() as f32,
                 )));
             }
-            ElementInputEvent::MouseUp(event) if event.button() == 1 => {
+            RawInput::MouseUp(event) if event.button() == 1 => {
                 self.drag_world_anchor = None;
             }
-            ElementInputEvent::MouseMove(event) if event.buttons() & 4 != 0 => {
+            RawInput::MouseMove(event) if event.buttons() & 4 != 0 => {
                 // We want to put the drag_world_anchor directly under the mouse.
                 let new_world_point = self.project_screen_point_to_world(Vec2::new(
                     event.offset_x() as f32,
@@ -101,8 +101,6 @@ impl Camera {
         let cursor_pos_ndc_far: Vec3 = cursor_ndc.extend(1.0);
 
         // Use near and far ndc points to generate a ray in world space
-        // This method is more robust than using the location of the camera as the start of
-        // the ray, because ortho cameras have a focal point at infinity!
         let ndc_to_world: Mat4 = camera_position * self.proj_matrix.inverse();
         let cursor_pos_near: Vec3 = ndc_to_world.project_point3(cursor_pos_ndc_near);
         let cursor_pos_far: Vec3 = ndc_to_world.project_point3(cursor_pos_ndc_far);
@@ -136,6 +134,9 @@ impl Camera {
             .into();
 
         let mut v = HashSet::new();
+        v.reserve(
+            ((upper_right.0.y - lower_left.0.y) * (upper_right.0.x - lower_left.0.x)) as usize,
+        );
         for y in lower_left.0.y..(upper_right.0.y + 1) {
             for x in lower_left.0.x..(upper_right.0.x + 1) {
                 v.insert(ChunkCoord(IVec2::new(x, y)));
