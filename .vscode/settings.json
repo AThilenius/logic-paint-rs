@@ -45,6 +45,7 @@
     "repr",
     "smallvec",
     "submap",
+    "tabindex",
     "texel",
     "webgl"
   ]

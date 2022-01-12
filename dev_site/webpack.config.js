@@ -8,6 +8,7 @@ const distPath = path.resolve(__dirname, 'dist');
 module.exports = {
   mode: 'development',
   entry: './src/index.ts',
+  devtool: 'source-map',
   output: {
     path: distPath,
     filename: '[name].js',

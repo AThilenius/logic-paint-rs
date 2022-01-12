@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{blueprint::Blueprint, buffer::Buffer, wgl2::Camera};
+use crate::{blueprint::Blueprint, brush::Brush, buffer::Buffer, wgl2::Camera};
 
 pub struct Session {
     pub active_buffer: Buffer,
     pub camera: Camera,
+    pub brush: Brush,
 }
 
 impl Session {
@@ -12,6 +13,7 @@ impl Session {
         Self {
             active_buffer: Default::default(),
             camera: Camera::new(),
+            brush: Brush::new(),
         }
     }
 }
@@ -36,6 +38,7 @@ impl From<&SerdeSession> for Session {
         Self {
             active_buffer: (&serde_session.active_buffer_blueprint).into(),
             camera: serde_session.camera.clone(),
+            brush: Brush::new(),
         }
     }
 }

@@ -1,10 +1,10 @@
 use std::{collections::HashMap, iter::FromIterator};
 
-use glam::IVec2;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     coords::CHUNK_SIZE,
+    log,
     module::Module,
     range::Range,
     upc::{LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
@@ -31,9 +31,6 @@ pub struct BufferChunk {
 
     /// Modules, by module root-node coords.
     pub modules: HashMap<CellCoord, Module>,
-
-    /// The generation number of this chunk. Monotonically increasing each mutation.
-    pub generation: usize,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -70,23 +67,16 @@ impl Buffer {
     }
 
     pub fn transaction_begin(&mut self) {
-        debug_assert!(!self.transact);
-
         self.transact = true;
-        self.transact_chunks.clear();
     }
 
     pub fn transaction_abort(&mut self) {
-        debug_assert!(self.transact);
-
         self.transact = false;
         self.transact_chunks.clear();
     }
 
     pub fn transaction_commit(&mut self, push_undo_stack: bool) {
-        debug_assert!(self.transact);
-
-        if push_undo_stack {
+        if push_undo_stack && self.transact_chunks.len() > 0 {
             self.undo_stack
                 .push(self.snapshot_chunks(self.transact_chunks.keys()));
             self.redo_stack.clear();
@@ -103,8 +93,6 @@ impl Buffer {
     }
 
     pub fn transaction_undo(&mut self) {
-        debug_assert!(!self.transact);
-
         if let Some(snapshot) = self.undo_stack.pop() {
             self.redo_stack
                 .push(self.snapshot_chunks(snapshot.chunks.keys()));
@@ -113,8 +101,6 @@ impl Buffer {
     }
 
     pub fn transaction_redo(&mut self) {
-        debug_assert!(!self.transact);
-
         if let Some(snapshot) = self.redo_stack.pop() {
             self.undo_stack
                 .push(self.snapshot_chunks(snapshot.chunks.keys()));
@@ -126,37 +112,24 @@ impl Buffer {
     where
         T: Into<CellCoord>,
     {
-        debug_assert!(self.transact);
-
         let coord: CellCoord = c.into();
         let chunk_coord: ChunkCoord = coord.into();
         let chunk = if let Some(chunk) = self.transact_chunks.get_mut(&chunk_coord) {
             chunk
         } else {
-            self.transact_chunks.insert(
-                chunk_coord,
-                self.get_chunk(chunk_coord).cloned().unwrap_or_default(),
-            );
+            let chunk = self.get_chunk(chunk_coord).cloned().unwrap_or_default();
+            self.transact_chunks.insert(chunk_coord, chunk);
             self.transact_chunks.get_mut(&chunk_coord).unwrap()
         };
 
-        chunk.generation += 1;
         chunk.set_cell(coord, cell);
     }
 
-    pub fn transact_set_chunk<T>(&mut self, c: T, mut chunk: BufferChunk)
+    pub fn transact_set_chunk<T>(&mut self, c: T, chunk: BufferChunk)
     where
         T: Into<ChunkCoord>,
     {
-        debug_assert!(self.transact);
-
         let chunk_coord: ChunkCoord = c.into();
-        let gen = self
-            .get_chunk(chunk_coord)
-            .map(|c| c.generation)
-            .unwrap_or(0);
-
-        chunk.generation = gen;
         self.transact_chunks.insert(chunk_coord, chunk);
     }
 
@@ -170,10 +143,6 @@ impl Buffer {
         }
         buf.transaction_commit(false);
         buf
-    }
-
-    pub fn extend(&mut self, data: &Buffer, offset: &IVec2) {
-        todo!()
     }
 
     fn snapshot_chunks<'a, T>(&'a self, chunks: T) -> BufferSnapshot
@@ -205,7 +174,7 @@ impl BufferChunk {
         T: Into<LocalCoord>,
     {
         let coord: LocalCoord = c.into();
-        let idx = ((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize;
+        let idx = (((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize) << LOG_UPC_BYTE_LEN;
         UPC::from_slice(&self.cells[idx..idx + UPC_BYTE_LEN])
     }
 
@@ -236,7 +205,6 @@ impl Default for BufferChunk {
             cells: vec![Default::default(); UPC_BYTE_LEN * CHUNK_SIZE * CHUNK_SIZE],
             cell_count: 0,
             modules: Default::default(),
-            generation: 0,
         }
     }
 }

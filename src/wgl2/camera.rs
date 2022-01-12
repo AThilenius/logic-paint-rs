@@ -53,7 +53,7 @@ impl Camera {
         )
     }
 
-    pub fn handle_mouse_event(&mut self, event: RawInput) {
+    pub fn handle_input_event(&mut self, event: &RawInput) {
         match event {
             RawInput::MouseWheelEvent(event) => {
                 // Zoom centered around the cursor

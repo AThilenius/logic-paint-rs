@@ -4,7 +4,6 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
-    log,
     session::Session,
     wgl2::{CellProgram, QuadVao, SetUniformType, Texture},
 };
@@ -15,10 +14,10 @@ pub struct RenderContext {
     program: CellProgram,
     render_chunks: HashMap<ChunkCoord, RenderChunk>,
     gl: WebGl2RenderingContext,
+    empty_texture: Texture,
 }
 
 struct RenderChunk {
-    buffer_generation: usize,
     texture: Texture,
     vao: QuadVao,
 }
@@ -27,8 +26,8 @@ impl RenderContext {
     pub fn new(canvas: HtmlCanvasElement) -> Result<RenderContext, JsValue> {
         // Desync buffer, see: https://developers.google.com/web/updates/2019/05/desynchronized
         let options = js_sys::Object::new();
-        js_sys::Reflect::set(&options, &"desynchronized".into(), &JsValue::TRUE)?;
-        js_sys::Reflect::set(&options, &"preserveDrawingBuffer".into(), &JsValue::TRUE)?;
+        // js_sys::Reflect::set(&options, &"desynchronized".into(), &JsValue::TRUE)?;
+        // js_sys::Reflect::set(&options, &"preserveDrawingBuffer".into(), &JsValue::TRUE)?;
 
         let gl = canvas
             .get_context_with_context_options("webgl2", &options)?
@@ -36,11 +35,13 @@ impl RenderContext {
             .dyn_into::<WebGl2RenderingContext>()?;
 
         let program = CellProgram::compile(&gl)?;
+        let empty_texture = Texture::new_chunk_texture(&gl)?;
 
         Ok(Self {
             program,
             render_chunks: HashMap::new(),
             gl,
+            empty_texture,
         })
     }
 
@@ -71,26 +72,22 @@ impl RenderContext {
             } else {
                 let vao = QuadVao::new(&self.gl, &self.program, &chunk_coord)?;
                 let texture = Texture::new_chunk_texture(&self.gl)?;
-                self.render_chunks.insert(
-                    chunk_coord.clone(),
-                    RenderChunk {
-                        buffer_generation: usize::MAX,
-                        texture,
-                        vao,
-                    },
-                );
+                self.render_chunks
+                    .insert(chunk_coord.clone(), RenderChunk { texture, vao });
                 self.render_chunks.get_mut(&chunk_coord).unwrap()
             };
 
             // Draw the RenderChunk...
             if let Some(buffer_chunk) = session.active_buffer.get_chunk(chunk_coord) {
-                if render_chunk.buffer_generation != buffer_chunk.generation {
-                    render_chunk.buffer_generation = buffer_chunk.generation;
-                    render_chunk.texture.set_pixels(&buffer_chunk.cells[..])?;
-                }
+                render_chunk.texture.set_pixels(&buffer_chunk.cells[..])?;
+
+                // Bind the render chunk's texture as it's non-empty.
+                render_chunk.texture.bind();
+            } else {
+                // Bind the empty texture.
+                self.empty_texture.bind();
             }
 
-            render_chunk.texture.bind();
             render_chunk.vao.bind();
             self.gl.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
         }

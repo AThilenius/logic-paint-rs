@@ -1,3 +1,5 @@
+use crate::substrate::Placement;
+
 pub const UPC_BYTE_LEN: usize = 4;
 pub const LOG_UPC_BYTE_LEN: usize = 2;
 
@@ -14,6 +16,28 @@ impl UPC {
         let mut bytes = [0_u8; UPC_BYTE_LEN];
         bytes.copy_from_slice(slice);
         Self(bytes)
+    }
+
+    #[inline(always)]
+    pub fn get_bit(&self, bit: Bit) -> bool {
+        Bit::get(*self, bit)
+    }
+
+    #[inline(always)]
+    pub fn set_bit(&mut self, bit: Bit) {
+        Bit::set(self, bit, true);
+    }
+
+    #[inline(always)]
+    pub fn clear_bit(&mut self, bit: Bit) {
+        Bit::set(self, bit, false);
+    }
+
+    pub fn is_mosfet(&self) -> bool {
+        self.get_bit(Bit::GATE_DIR_UP)
+            | self.get_bit(Bit::GATE_DIR_RIGHT)
+            | self.get_bit(Bit::GATE_DIR_DOWN)
+            | self.get_bit(Bit::GATE_DIR_LEFT)
     }
 }
 
@@ -110,72 +134,161 @@ impl Bit {
     }
 }
 
+/// NormalizedCell exists purely as a programming convenience, especially for painting. When editing
+/// cells it's easier to deal with the cell as a single struct, instead of as a collection of [0, 4]
+/// Atoms. NormalizedCells should be treated as transient and not stored anywhere.
 #[derive(Clone, Copy, Default, Debug, Eq, PartialEq)]
-pub struct UnpackedCell {
-    pub si_n: bool,
-    pub si_p: bool,
-    pub si_dir_up: bool,
-    pub si_dir_right: bool,
-    pub si_dir_down: bool,
-    pub si_dir_left: bool,
-    pub gate_dir_up: bool,
-    pub gate_dir_right: bool,
-    pub gate_dir_down: bool,
-    pub gate_dir_left: bool,
-    pub metal: bool,
-    pub metal_dir_up: bool,
-    pub metal_dir_right: bool,
-    pub metal_dir_down: bool,
-    pub metal_dir_left: bool,
-    pub via: bool,
-    pub io: bool,
+pub struct NormalizedCell {
+    pub metal: Metal,
+    pub si: Silicon,
 }
 
-impl From<UPC> for UnpackedCell {
-    fn from(upc: UPC) -> Self {
-        Self {
-            si_n: Bit::get(upc, Bit::SI_N),
-            si_p: Bit::get(upc, Bit::SI_P),
-            si_dir_up: Bit::get(upc, Bit::SI_DIR_UP),
-            si_dir_right: Bit::get(upc, Bit::SI_DIR_RIGHT),
-            si_dir_down: Bit::get(upc, Bit::SI_DIR_DOWN),
-            si_dir_left: Bit::get(upc, Bit::SI_DIR_LEFT),
-            gate_dir_up: Bit::get(upc, Bit::GATE_DIR_UP),
-            gate_dir_right: Bit::get(upc, Bit::GATE_DIR_RIGHT),
-            gate_dir_down: Bit::get(upc, Bit::GATE_DIR_DOWN),
-            gate_dir_left: Bit::get(upc, Bit::GATE_DIR_LEFT),
-            metal: Bit::get(upc, Bit::METAL),
-            metal_dir_up: Bit::get(upc, Bit::METAL_DIR_UP),
-            metal_dir_right: Bit::get(upc, Bit::METAL_DIR_RIGHT),
-            metal_dir_down: Bit::get(upc, Bit::METAL_DIR_DOWN),
-            metal_dir_left: Bit::get(upc, Bit::METAL_DIR_LEFT),
-            via: Bit::get(upc, Bit::VIA),
-            io: Bit::get(upc, Bit::IO),
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Metal {
+    None,
+    Trace { has_via: bool, placement: Placement },
+}
+
+impl Default for Metal {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Silicon {
+    None,
+    NP {
+        is_n: bool,
+        placement: Placement,
+    },
+    Mosfet {
+        is_npn: bool,
+        gate_placement: Placement,
+        ec_placement: Placement,
+    },
+}
+
+impl Default for Silicon {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl Silicon {
+    pub fn matches_n(&self, n: bool) -> bool {
+        match self {
+            Silicon::NP { is_n, .. } if *is_n == n => true,
+            Silicon::Mosfet { is_npn, .. } if *is_npn == n => true,
+            _ => false,
         }
     }
 }
 
-impl Into<UPC> for UnpackedCell {
-    fn into(self) -> UPC {
-        let mut upc = Default::default();
+impl From<UPC> for NormalizedCell {
+    fn from(upc: UPC) -> Self {
+        let mut cell = NormalizedCell::default();
 
-        Bit::set(&mut upc, Bit::SI_N, self.si_n);
-        Bit::set(&mut upc, Bit::SI_P, self.si_p);
-        Bit::set(&mut upc, Bit::SI_DIR_UP, self.si_dir_up);
-        Bit::set(&mut upc, Bit::SI_DIR_RIGHT, self.si_dir_right);
-        Bit::set(&mut upc, Bit::SI_DIR_DOWN, self.si_dir_down);
-        Bit::set(&mut upc, Bit::SI_DIR_LEFT, self.si_dir_left);
-        Bit::set(&mut upc, Bit::GATE_DIR_UP, self.gate_dir_up);
-        Bit::set(&mut upc, Bit::GATE_DIR_RIGHT, self.gate_dir_right);
-        Bit::set(&mut upc, Bit::GATE_DIR_DOWN, self.gate_dir_down);
-        Bit::set(&mut upc, Bit::GATE_DIR_LEFT, self.gate_dir_left);
-        Bit::set(&mut upc, Bit::METAL, self.metal);
-        Bit::set(&mut upc, Bit::METAL_DIR_UP, self.metal_dir_up);
-        Bit::set(&mut upc, Bit::METAL_DIR_RIGHT, self.metal_dir_right);
-        Bit::set(&mut upc, Bit::METAL_DIR_DOWN, self.metal_dir_down);
-        Bit::set(&mut upc, Bit::METAL_DIR_LEFT, self.metal_dir_left);
-        Bit::set(&mut upc, Bit::VIA, self.via);
-        Bit::set(&mut upc, Bit::IO, self.io);
+        // Metal
+        if upc.get_bit(Bit::METAL) {
+            cell.metal = Metal::Trace {
+                has_via: upc.get_bit(Bit::VIA),
+                placement: Placement {
+                    center: true,
+                    up: upc.get_bit(Bit::METAL_DIR_UP),
+                    right: upc.get_bit(Bit::METAL_DIR_RIGHT),
+                    down: upc.get_bit(Bit::METAL_DIR_DOWN),
+                    left: upc.get_bit(Bit::METAL_DIR_LEFT),
+                },
+            }
+        }
+
+        if upc.is_mosfet() {
+            // MOSFET
+            cell.si = Silicon::Mosfet {
+                is_npn: upc.get_bit(Bit::SI_N),
+                gate_placement: Placement {
+                    center: true,
+                    up: upc.get_bit(Bit::GATE_DIR_UP),
+                    right: upc.get_bit(Bit::GATE_DIR_RIGHT),
+                    down: upc.get_bit(Bit::GATE_DIR_DOWN),
+                    left: upc.get_bit(Bit::GATE_DIR_LEFT),
+                },
+                ec_placement: Placement {
+                    center: false,
+                    up: upc.get_bit(Bit::SI_DIR_UP),
+                    right: upc.get_bit(Bit::SI_DIR_RIGHT),
+                    down: upc.get_bit(Bit::SI_DIR_DOWN),
+                    left: upc.get_bit(Bit::SI_DIR_LEFT),
+                },
+            };
+        } else if upc.get_bit(Bit::SI_N) || upc.get_bit(Bit::SI_P) {
+            // Si trace only (non-mosfet)
+            cell.si = Silicon::NP {
+                is_n: upc.get_bit(Bit::SI_N),
+                placement: Placement {
+                    center: true,
+                    up: upc.get_bit(Bit::SI_DIR_UP),
+                    right: upc.get_bit(Bit::SI_DIR_RIGHT),
+                    down: upc.get_bit(Bit::SI_DIR_DOWN),
+                    left: upc.get_bit(Bit::SI_DIR_LEFT),
+                },
+            };
+        }
+
+        cell
+    }
+}
+
+impl From<NormalizedCell> for UPC {
+    fn from(cell: NormalizedCell) -> Self {
+        let mut upc = Self::default();
+
+        if let Metal::Trace { has_via, placement } = cell.metal {
+            upc.set_bit(Bit::METAL);
+            Bit::set(&mut upc, Bit::VIA, has_via);
+            Bit::set(&mut upc, Bit::METAL_DIR_UP, placement.up);
+            Bit::set(&mut upc, Bit::METAL_DIR_RIGHT, placement.right);
+            Bit::set(&mut upc, Bit::METAL_DIR_DOWN, placement.down);
+            Bit::set(&mut upc, Bit::METAL_DIR_LEFT, placement.left);
+        }
+
+        match cell.si {
+            Silicon::NP { is_n, placement } => {
+                if is_n {
+                    upc.set_bit(Bit::SI_N);
+                } else {
+                    upc.set_bit(Bit::SI_P);
+                }
+
+                Bit::set(&mut upc, Bit::SI_DIR_UP, placement.up);
+                Bit::set(&mut upc, Bit::SI_DIR_RIGHT, placement.right);
+                Bit::set(&mut upc, Bit::SI_DIR_DOWN, placement.down);
+                Bit::set(&mut upc, Bit::SI_DIR_LEFT, placement.left);
+            }
+            Silicon::Mosfet {
+                is_npn,
+                gate_placement,
+                ec_placement,
+            } => {
+                if is_npn {
+                    upc.set_bit(Bit::SI_N);
+                } else {
+                    upc.set_bit(Bit::SI_P);
+                }
+
+                Bit::set(&mut upc, Bit::GATE_DIR_UP, gate_placement.up);
+                Bit::set(&mut upc, Bit::GATE_DIR_RIGHT, gate_placement.right);
+                Bit::set(&mut upc, Bit::GATE_DIR_DOWN, gate_placement.down);
+                Bit::set(&mut upc, Bit::GATE_DIR_LEFT, gate_placement.left);
+
+                Bit::set(&mut upc, Bit::SI_DIR_UP, ec_placement.up);
+                Bit::set(&mut upc, Bit::SI_DIR_RIGHT, ec_placement.right);
+                Bit::set(&mut upc, Bit::SI_DIR_DOWN, ec_placement.down);
+                Bit::set(&mut upc, Bit::SI_DIR_LEFT, ec_placement.left);
+            }
+            Silicon::None => {}
+        }
 
         upc
     }

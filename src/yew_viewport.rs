@@ -65,7 +65,14 @@ impl Component for YewViewport {
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::RawInput(raw_input) => self.session.camera.handle_mouse_event(raw_input),
+            Msg::RawInput(raw_input) => {
+                self.session.camera.handle_input_event(&raw_input);
+                self.session.brush.handle_input_event(
+                    &mut self.session.active_buffer,
+                    &self.session.camera,
+                    &raw_input,
+                );
+            }
             Msg::Render(time) => self.draw(time),
             Msg::SetSession(session) => self.session = session,
         };
@@ -96,6 +103,7 @@ impl Component for YewViewport {
                     {onwheel}
                     {onkeypress}
                     ref={self.canvas.clone()}
+                    tabindex={0}
                 ></canvas>
             </div>
         }
