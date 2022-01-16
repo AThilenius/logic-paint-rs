@@ -3,6 +3,7 @@
     "affinitize",
     "arrayvec",
     "bitor",
+    "Bitstream",
     "blittable",
     "blitting",
     "crossorigin",

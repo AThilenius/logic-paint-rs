@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use crate::{
     buffer::{Buffer, BufferChunk},
-    coords::{CellCoord, ChunkCoord, LocalCoord},
+    coords::{CellCoord, ChunkCoord},
     module::Module,
-    upc::{LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
+    upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
 };
-use glam::UVec2;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -18,7 +18,7 @@ pub struct Blueprint {
 struct CellChunk {
     chunk_coord: ChunkCoord,
     cells: Vec<Cell>,
-    modules: HashMap<CellCoord, Module>,
+    // modules: HashMap<CellCoord, Module>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -56,7 +56,7 @@ impl From<&Buffer> for Blueprint {
             chunks.push(CellChunk {
                 chunk_coord: *chunk_coord,
                 cells,
-                modules: chunk.modules.clone(),
+                // modules: chunk.modules.clone(),
             });
         }
 
@@ -72,7 +72,7 @@ impl From<&Blueprint> for Buffer {
         for chunk in blueprint.chunks.iter() {
             let mut buffer_chunk = BufferChunk::default();
             buffer_chunk.cell_count = chunk.cells.len();
-            buffer_chunk.modules = chunk.modules.clone();
+            // buffer_chunk.modules = chunk.modules.clone();
 
             for cell in chunk.cells.iter() {
                 let mut upc_bytes = vec![0u8; UPC_BYTE_LEN];

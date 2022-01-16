@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coords::CHUNK_SIZE,
-    log,
-    module::Module,
     range::Range,
     upc::{LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
 };
@@ -28,9 +26,8 @@ pub struct BufferChunk {
 
     /// How many cells are non-default.
     pub cell_count: usize,
-
-    /// Modules, by module root-node coords.
-    pub modules: HashMap<CellCoord, Module>,
+    // Modules, by module root-node coords.
+    // pub modules: HashMap<CellCoord, Module>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -84,7 +81,9 @@ impl Buffer {
 
         self.transact = false;
         for (coord, chunk) in self.transact_chunks.drain() {
-            if chunk.cell_count == 0 && chunk.modules.len() == 0 {
+            // TODO:
+            // if chunk.cell_count == 0 && chunk.modules.len() == 0 {
+            if chunk.cell_count == 0 {
                 self.chunks.remove(&coord);
             } else {
                 self.chunks.insert(coord, chunk);
@@ -204,7 +203,7 @@ impl Default for BufferChunk {
         Self {
             cells: vec![Default::default(); UPC_BYTE_LEN * CHUNK_SIZE * CHUNK_SIZE],
             cell_count: 0,
-            modules: Default::default(),
+            // modules: Default::default(),
         }
     }
 }

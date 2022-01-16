@@ -1,9 +1,15 @@
-use glam::Vec2;
+use glam::{IVec2, Vec2};
 use wasm_bindgen::prelude::*;
 use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
 
-use crate::{dom::DomIntervalHooks, session::Session, wgl2::RenderContext};
+use crate::{
+    coords::CellCoord,
+    dom::DomIntervalHooks,
+    module::{ModuleAlignment, ModuleMount},
+    session::Session,
+    wgl2::RenderContext,
+};
 
 pub struct YewViewport {
     pub session: Session,
@@ -72,12 +78,17 @@ impl Component for YewViewport {
                     &self.session.camera,
                     &raw_input,
                 );
+                false
             }
-            Msg::Render(time) => self.draw(time),
-            Msg::SetSession(session) => self.session = session,
-        };
-
-        false
+            Msg::SetSession(session) => {
+                self.session = session;
+                false
+            }
+            Msg::Render(time) => {
+                self.draw(time);
+                true
+            }
+        }
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
@@ -94,8 +105,40 @@ impl Component for YewViewport {
         let onkeypress = ctx
             .link()
             .callback(|e| Msg::RawInput(RawInput::KeyPressed(e)));
+
+        let modules = self
+            .session
+            .modules
+            .iter()
+            .map(|m| {
+                let align = match m.align {
+                    ModuleAlignment::UpperLeft => {
+                        let offset = self.session.camera.project_cell_coord_to_screen_point(
+                            CellCoord(IVec2::new(m.root.0.x, m.root.0.y + 1)),
+                            false,
+                        );
+                        format!("left:{}px;top:{}px;", offset.x, offset.y)
+                    }
+                    ModuleAlignment::UpperRight => {
+                        let offset = self.session.camera.project_cell_coord_to_screen_point(
+                            CellCoord(IVec2::new(m.root.0.x + 1, m.root.0.y + 1)),
+                            true,
+                        );
+                        format!("right:{}px;top:{}px;", offset.x, offset.y)
+                    }
+                };
+
+                html! {
+                    <div class="lp-module-container" style={align}>
+                        <ModuleMount root={CellCoord(IVec2::ZERO)} module={m.module.clone()} />
+                    </div>
+                }
+            })
+            .collect::<Html>();
+
         html! {
-            <div class="logic-paint-viewport">
+            <div class="lp-viewport">
+                <div class="lp-viewport-root">{ modules }</div>
                 <canvas
                     {onmousedown}
                     {onmouseup}
@@ -104,7 +147,7 @@ impl Component for YewViewport {
                     {onkeypress}
                     ref={self.canvas.clone()}
                     tabindex={0}
-                ></canvas>
+                />
             </div>
         }
     }

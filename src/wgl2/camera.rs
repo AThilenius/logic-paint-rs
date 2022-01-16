@@ -91,7 +91,7 @@ impl Camera {
 
     /// Project a screen x,y point into the world. Z axis is ignored because I don't need it.
     pub fn project_screen_point_to_world(&self, position: Vec2) -> Vec2 {
-        let camera_position = self.get_view_matrix();
+        let view_matrix = self.get_view_matrix();
 
         // Normalized device coordinate cursor position from (-1, -1, -1) to (1, 1, 1). The Y axis
         // is flipped (in HTML Y=0 is the top).
@@ -101,7 +101,7 @@ impl Camera {
         let cursor_pos_ndc_far: Vec3 = cursor_ndc.extend(1.0);
 
         // Use near and far ndc points to generate a ray in world space
-        let ndc_to_world: Mat4 = camera_position * self.proj_matrix.inverse();
+        let ndc_to_world: Mat4 = view_matrix * self.proj_matrix.inverse();
         let cursor_pos_near: Vec3 = ndc_to_world.project_point3(cursor_pos_ndc_near);
         let cursor_pos_far: Vec3 = ndc_to_world.project_point3(cursor_pos_ndc_far);
         let ray_direction = cursor_pos_far - cursor_pos_near;
@@ -122,6 +122,20 @@ impl Camera {
         // in it. Aka, there are CHUNK_SIZE cells per world-space unit. This makes the math pretty
         // easy from world-space then.
         CellCoord((world_point * CHUNK_SIZE as f32).floor().as_ivec2())
+    }
+
+    pub fn project_cell_coord_to_screen_point(
+        &self,
+        coord: CellCoord,
+        justify_right: bool,
+    ) -> Vec2 {
+        let vec = coord.0.as_vec2() / CHUNK_SIZE as f32;
+        let p = self
+            .get_view_proj_matrix()
+            .project_point3(Vec3::new(vec.x, vec.y, 0.0));
+        let half_size = self.size / 2.0;
+        let x = if justify_right { -p.x } else { p.x };
+        (Vec2::new(x, -p.y) * half_size) + half_size
     }
 
     /// Returns a list of all currently-visible substrate chunks to this camera.

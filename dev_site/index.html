@@ -15,18 +15,34 @@
         height: 100vh;
       }
 
-      .logic-paint-viewport {
+      .lp-viewport {
         position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .lp-viewport * {
+        font-family: Lucida Console, Lucida Sans Typewriter, monaco,
+          Bitstream Vera Sans Mono, monospace;
+        font-weight: lighter;
+      }
+
+      .lp-viewport canvas {
         width: 100%;
         height: 100%;
       }
 
-      .logic-paint-viewport canvas,
-      div {
-        width: 100%;
-        height: 100%;
+      .lp-viewport-root {
+        position: relative;
+      }
+
+      .lp-module-container {
         position: absolute;
-        overflow: hidden;
+        pointer-events: none;
+        /* min-width: 100vw;
+        min-height: 100vh; */
+        color: white;
       }
     </style>
   </head>
