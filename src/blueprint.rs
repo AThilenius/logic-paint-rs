@@ -1,9 +1,6 @@
-use std::collections::HashMap;
-
 use crate::{
     buffer::{Buffer, BufferChunk},
-    coords::{CellCoord, ChunkCoord},
-    module::Module,
+    coords::ChunkCoord,
     upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
 };
 

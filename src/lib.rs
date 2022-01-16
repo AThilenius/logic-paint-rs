@@ -7,7 +7,7 @@ mod compiler;
 mod coords;
 mod dom;
 mod logic_paint;
-mod module;
+mod modules;
 mod range;
 mod session;
 mod substrate;

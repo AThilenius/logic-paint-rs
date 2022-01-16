@@ -1,15 +1,9 @@
-use glam::{IVec2, Vec2};
+use glam::Vec2;
 use wasm_bindgen::prelude::*;
 use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
 
-use crate::{
-    coords::CellCoord,
-    dom::DomIntervalHooks,
-    module::{ModuleAlignment, ModuleMount},
-    session::Session,
-    wgl2::RenderContext,
-};
+use crate::{dom::DomIntervalHooks, modules::ModuleMount, session::Session, wgl2::RenderContext};
 
 pub struct YewViewport {
     pub session: Session,
@@ -111,27 +105,8 @@ impl Component for YewViewport {
             .modules
             .iter()
             .map(|m| {
-                let align = match m.align {
-                    ModuleAlignment::UpperLeft => {
-                        let offset = self.session.camera.project_cell_coord_to_screen_point(
-                            CellCoord(IVec2::new(m.root.0.x, m.root.0.y + 1)),
-                            false,
-                        );
-                        format!("left:{}px;top:{}px;", offset.x, offset.y)
-                    }
-                    ModuleAlignment::UpperRight => {
-                        let offset = self.session.camera.project_cell_coord_to_screen_point(
-                            CellCoord(IVec2::new(m.root.0.x + 1, m.root.0.y + 1)),
-                            true,
-                        );
-                        format!("right:{}px;top:{}px;", offset.x, offset.y)
-                    }
-                };
-
                 html! {
-                    <div class="lp-module-container" style={align}>
-                        <ModuleMount root={CellCoord(IVec2::ZERO)} module={m.module.clone()} />
-                    </div>
+                    <ModuleMount camera={self.session.camera.clone()} module={m.clone_dyn()} />
                 }
             })
             .collect::<Html>();

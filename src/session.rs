@@ -6,7 +6,7 @@ use crate::{
     brush::Brush,
     buffer::Buffer,
     coords::CellCoord,
-    module::{Module, ModuleAlignment, ModuleMount},
+    modules::{Alignment, Anchor, Module, TestOne, TestTwo},
     wgl2::Camera,
 };
 
@@ -14,29 +14,24 @@ pub struct Session {
     pub active_buffer: Buffer,
     pub camera: Camera,
     pub brush: Brush,
-    pub modules: Vec<ModuleMount>,
+    pub modules: Vec<Box<dyn Module>>,
 }
 
 impl Session {
     pub fn new() -> Self {
-        let fake_modules: Vec<ModuleMount> = vec![
-            (
-                CellCoord(IVec2::new(0, 0)),
-                ModuleAlignment::UpperRight,
-                Module::One {
-                    string: "Hello, string".to_string(),
+        let fake_modules: Vec<Box<dyn Module>> = vec![
+            Box::new(TestOne {
+                anchor: Anchor {
+                    root: CellCoord(IVec2::new(0, 0)),
+                    align: Alignment::UpperRight,
                 },
-            )
-                .into(),
-            (
-                CellCoord(IVec2::new(10, 10)),
-                ModuleAlignment::UpperLeft,
-                Module::Two {
-                    number: 42,
-                    vec: vec![1, 2, 3, 4],
+            }),
+            Box::new(TestTwo {
+                anchor: Anchor {
+                    root: CellCoord(IVec2::new(10, 10)),
+                    align: Alignment::UpperLeft,
                 },
-            )
-                .into(),
+            }),
         ];
 
         Self {
