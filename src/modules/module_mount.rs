@@ -7,23 +7,15 @@ use crate::{
     wgl2::Camera,
 };
 
-use super::Anchor;
-
 pub struct ModuleMount;
 
-#[derive(Properties)]
+#[derive(Properties, PartialEq)]
 pub struct ModuleProps {
     #[prop_or(Camera::new())]
     pub camera: Camera,
 
-    #[prop_or(Box::new(NullModule))]
-    pub module: Box<dyn Module>,
-}
-
-impl PartialEq for ModuleProps {
-    fn eq(&self, _other: &Self) -> bool {
-        false
-    }
+    #[prop_or(None)]
+    pub module: Option<Module>,
 }
 
 impl Component for ModuleMount {
@@ -39,7 +31,8 @@ impl Component for ModuleMount {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let anchor = ctx.props().module.get_anchor();
+        let module = ctx.props().module.as_ref().unwrap();
+        let anchor = module.get_anchor();
 
         match anchor.align {
             Alignment::UpperLeft => {
@@ -50,7 +43,7 @@ impl Component for ModuleMount {
                 let css = format!("left:{}px;top:{}px;", offset.x, offset.y);
                 html! {
                     <div class="lp-module-container" style={css}>
-                        {ctx.props().module.view()}
+                        {module.view()}
                     </div>
                 }
             }
@@ -62,32 +55,10 @@ impl Component for ModuleMount {
                 let css = format!("right:{}px;top:{}px;", offset.x, offset.y);
                 html! {
                     <div class="lp-module-container" style={css}>
-                        {ctx.props().module.view()}
+                        {module.view()}
                     </div>
                 }
             }
         }
-    }
-}
-
-/// Only needed because Yew requires a default value for props.
-struct NullModule;
-
-impl Module for NullModule {
-    fn reset(&mut self) {}
-
-    fn get_anchor(&self) -> Anchor {
-        Anchor {
-            root: CellCoord(IVec2::ZERO),
-            align: Alignment::UpperLeft,
-        }
-    }
-
-    fn view(&self) -> Html {
-        html!()
-    }
-
-    fn clone_dyn(&self) -> Box<dyn Module> {
-        Box::new(NullModule)
     }
 }

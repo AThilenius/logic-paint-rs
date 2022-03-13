@@ -8,7 +8,7 @@ use crate::{
     RawInput,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Camera {
     pub translation: Vec2,
     pub scale: f32,

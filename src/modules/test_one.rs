@@ -1,26 +1,23 @@
-use super::{Anchor, Module};
+use super::Anchor;
 
+use serde::{Deserialize, Serialize};
 use yew::prelude::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct TestOne {
     pub anchor: Anchor,
 }
 
-impl Module for TestOne {
-    fn reset(&mut self) {}
+impl TestOne {
+    pub fn reset(&mut self) {}
 
-    fn get_anchor(&self) -> Anchor {
+    pub fn get_anchor(&self) -> Anchor {
         self.anchor
     }
 
-    fn view(&self) -> yew::Html {
+    pub fn view(&self) -> yew::Html {
         html! {
             <div>{"Module Test One"}</div>
         }
-    }
-
-    fn clone_dyn(&self) -> Box<dyn Module> {
-        Box::new(self.clone())
     }
 }

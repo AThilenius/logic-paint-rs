@@ -106,7 +106,7 @@ impl Component for YewViewport {
             .iter()
             .map(|m| {
                 html! {
-                    <ModuleMount camera={self.session.camera.clone()} module={m.clone_dyn()} />
+                    <ModuleMount camera={self.session.camera.clone()} module={m.clone()} />
                 }
             })
             .collect::<Html>();

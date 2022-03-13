@@ -11,11 +11,38 @@ use yew::prelude::*;
 
 use crate::coords::CellCoord;
 
-pub trait Module {
-    fn reset(&mut self);
-    fn get_anchor(&self) -> Anchor;
-    fn view(&self) -> Html;
-    fn clone_dyn(&self) -> Box<dyn Module>;
+/// Represents a single module mounted to an `Anchor` within a `Buffer`.
+///
+/// An enum is used instead of a trait object for several reasons: the interaction with Yew code,
+/// fast module access with the critical path in the sim loo, to support frequent copying, and
+/// serialization.
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
+pub enum Module {
+    TestOne(TestOne),
+    TestTwo(TestTwo),
+}
+
+impl Module {
+    fn reset(&mut self) {
+        match self {
+            Module::TestOne(m) => m.reset(),
+            Module::TestTwo(m) => m.reset(),
+        }
+    }
+
+    fn get_anchor(&self) -> Anchor {
+        match self {
+            Module::TestOne(m) => m.get_anchor(),
+            Module::TestTwo(m) => m.get_anchor(),
+        }
+    }
+
+    fn view(&self) -> Html {
+        match self {
+            Module::TestOne(m) => m.view(),
+            Module::TestTwo(m) => m.view(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

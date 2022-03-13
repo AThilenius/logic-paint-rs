@@ -14,19 +14,19 @@ pub struct Session {
     pub active_buffer: Buffer,
     pub camera: Camera,
     pub brush: Brush,
-    pub modules: Vec<Box<dyn Module>>,
+    pub modules: Vec<Module>,
 }
 
 impl Session {
     pub fn new() -> Self {
-        let fake_modules: Vec<Box<dyn Module>> = vec![
-            Box::new(TestOne {
+        let fake_modules: Vec<Module> = vec![
+            Module::TestOne(TestOne {
                 anchor: Anchor {
                     root: CellCoord(IVec2::new(0, 0)),
                     align: Alignment::UpperRight,
                 },
             }),
-            Box::new(TestTwo {
+            Module::TestTwo(TestTwo {
                 anchor: Anchor {
                     root: CellCoord(IVec2::new(10, 10)),
                     align: Alignment::UpperLeft,
