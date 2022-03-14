@@ -3,7 +3,11 @@ use wasm_bindgen::prelude::*;
 use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
 
-use crate::{dom::DomIntervalHooks, modules::ModuleMount, session::Session, wgl2::RenderContext};
+use crate::{
+    dom::{DomIntervalHooks, ModuleMount, RawInput},
+    session::Session,
+    wgl2::RenderContext,
+};
 
 pub struct YewViewport {
     pub session: Session,
@@ -17,14 +21,6 @@ pub enum Msg {
     SetSession(Session),
     RawInput(RawInput),
     Render(f64),
-}
-
-pub enum RawInput {
-    MouseDown(MouseEvent),
-    MouseMove(MouseEvent),
-    MouseUp(MouseEvent),
-    MouseWheelEvent(WheelEvent),
-    KeyPressed(KeyboardEvent),
 }
 
 impl YewViewport {
@@ -106,7 +102,7 @@ impl Component for YewViewport {
             .link()
             .callback(|e| Msg::RawInput(RawInput::KeyPressed(e)));
 
-        let modules = &self.session.modules;
+        let modules = &self.session.active_buffer.get_modules();
 
         let modules_html = modules
             .iter()

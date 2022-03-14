@@ -3,11 +3,11 @@ use glam::{IVec2, Vec2};
 use crate::{
     buffer::Buffer,
     coords::CellCoord,
+    dom::RawInput,
     substrate::Placement,
     upc::{Metal, NormalizedCell, Silicon},
     utils::range_iter,
     wgl2::Camera,
-    RawInput,
 };
 
 pub struct Brush {

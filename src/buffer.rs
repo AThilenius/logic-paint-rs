@@ -1,11 +1,12 @@
-use std::{collections::HashMap, iter::FromIterator};
+use std::{cell::RefCell, collections::HashMap, iter::FromIterator, rc::Rc};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     coords::CHUNK_SIZE,
+    modules::Module,
     range::Range,
-    upc::{LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
+    upc::{Bit, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
 };
 
 use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
@@ -14,6 +15,8 @@ use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
 pub struct Buffer {
     chunks: HashMap<ChunkCoord, BufferChunk>,
     transact_chunks: HashMap<ChunkCoord, BufferChunk>,
+    modules: HashMap<CellCoord, Rc<RefCell<Module>>>,
+    transact_modules: HashMap<CellCoord, Option<Rc<RefCell<Module>>>>,
     transact: bool,
     undo_stack: Vec<BufferSnapshot>,
     redo_stack: Vec<BufferSnapshot>,
@@ -26,13 +29,12 @@ pub struct BufferChunk {
 
     /// How many cells are non-default.
     pub cell_count: usize,
-    // Modules, by module root-node coords.
-    // pub modules: HashMap<CellCoord, Module>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct BufferSnapshot {
     pub chunks: HashMap<ChunkCoord, Option<BufferChunk>>,
+    pub modules: HashMap<CellCoord, Option<Rc<RefCell<Module>>>>,
 }
 
 impl Buffer {
@@ -46,9 +48,41 @@ impl Buffer {
             .or_else(|| self.chunks.get(&coord))
     }
 
+    pub fn get_module<T>(&self, c: T) -> Option<Rc<RefCell<Module>>>
+    where
+        T: Into<CellCoord>,
+    {
+        let cell_coord: CellCoord = c.into();
+        if let Some(transact_module) = self.transact_modules.get(&cell_coord) {
+            transact_module.clone()
+        } else {
+            self.modules.get(&cell_coord).cloned()
+        }
+    }
+
+    pub fn get_modules(&self) -> Vec<Rc<RefCell<Module>>> {
+        // Return all module from transact_modules that aren't None, and return all modules from
+        // `modules` that aren't in transact_module.
+        self.transact_modules
+            .values()
+            .filter(|m| m.is_some())
+            .map(|m| m.clone().unwrap())
+            .chain(
+                self.modules
+                    .iter()
+                    .filter(|(c, _)| !self.transact_modules.contains_key(c))
+                    .map(|(_, m)| m.clone()),
+            )
+            .collect()
+    }
+
     /// Returns an iterator for only committed chunk data (ignoring any pending transactions).
     pub fn get_base_chunks(&self) -> impl Iterator<Item = (&ChunkCoord, &BufferChunk)> {
         self.chunks.iter()
+    }
+
+    pub fn get_base_modules(&self) -> impl Iterator<Item = &Rc<RefCell<Module>>> {
+        self.modules.values()
     }
 
     pub fn get_cell<T>(&self, c: T) -> UPC
@@ -73,20 +107,27 @@ impl Buffer {
     }
 
     pub fn transaction_commit(&mut self, push_undo_stack: bool) {
-        if push_undo_stack && self.transact_chunks.len() > 0 {
+        if push_undo_stack && (self.transact_chunks.len() > 0 || self.transact_modules.len() > 0) {
             self.undo_stack
-                .push(self.snapshot_chunks(self.transact_chunks.keys()));
+                .push(self.snapshot(self.transact_chunks.keys(), self.transact_modules.keys()));
             self.redo_stack.clear();
         }
 
         self.transact = false;
+
         for (coord, chunk) in self.transact_chunks.drain() {
-            // TODO:
-            // if chunk.cell_count == 0 && chunk.modules.len() == 0 {
             if chunk.cell_count == 0 {
                 self.chunks.remove(&coord);
             } else {
                 self.chunks.insert(coord, chunk);
+            }
+        }
+
+        for (coord, module) in self.transact_modules.drain() {
+            if let Some(module) = module {
+                self.modules.insert(coord, module);
+            } else {
+                self.modules.remove(&coord);
             }
         }
     }
@@ -94,7 +135,7 @@ impl Buffer {
     pub fn transaction_undo(&mut self) {
         if let Some(snapshot) = self.undo_stack.pop() {
             self.redo_stack
-                .push(self.snapshot_chunks(snapshot.chunks.keys()));
+                .push(self.snapshot(snapshot.chunks.keys(), snapshot.modules.keys()));
             self.snapshot_apply(snapshot);
         }
     }
@@ -102,7 +143,7 @@ impl Buffer {
     pub fn transaction_redo(&mut self) {
         if let Some(snapshot) = self.redo_stack.pop() {
             self.undo_stack
-                .push(self.snapshot_chunks(snapshot.chunks.keys()));
+                .push(self.snapshot(snapshot.chunks.keys(), snapshot.modules.keys()));
             self.snapshot_apply(snapshot);
         }
     }
@@ -132,7 +173,42 @@ impl Buffer {
         self.transact_chunks.insert(chunk_coord, chunk);
     }
 
-    pub fn clone_range(&self, range: Range) -> Buffer {
+    /// Set the module and updates associated cells when the module places an IO pin.
+    pub fn transact_set_module(&mut self, module: Rc<RefCell<Module>>) {
+        let cell_coord = module.borrow().get_anchor().root;
+
+        // Remove the previous module first (clears out the IO pins).
+        self.transact_remove_module(cell_coord);
+
+        // Set the pins for the new module.
+        for pin in module.borrow().get_pins() {
+            let mut upc = self.get_cell(pin);
+            upc.set_bit(Bit::IO);
+            self.transact_set_cell(pin, upc);
+        }
+
+        // Finally add the module.
+        self.transact_modules.insert(cell_coord, Some(module));
+    }
+
+    pub fn transact_remove_module<T>(&mut self, c: T)
+    where
+        T: Into<CellCoord>,
+    {
+        let cell_coord: CellCoord = c.into();
+
+        if let Some(pins) = self.get_module(cell_coord).map(|m| m.borrow().get_pins()) {
+            for pin in pins {
+                let mut upc = self.get_cell(pin);
+                upc.clear_bit(Bit::IO);
+                self.transact_set_cell(pin, upc);
+            }
+        }
+
+        self.transact_modules.insert(cell_coord, None);
+    }
+
+    pub fn clone_cells_range(&self, range: Range) -> Buffer {
         // TODO: This can be made much more efficient (broken iter over effected chunks), but I
         // probably don't care. It's only executed in human-time. -shrug-
         let mut buf = Buffer::default();
@@ -144,13 +220,17 @@ impl Buffer {
         buf
     }
 
-    fn snapshot_chunks<'a, T>(&'a self, chunks: T) -> BufferSnapshot
+    fn snapshot<'a, TChunk, TCell>(&'a self, chunks: TChunk, modules: TCell) -> BufferSnapshot
     where
-        T: Iterator<Item = &'a ChunkCoord>,
+        TChunk: Iterator<Item = &'a ChunkCoord>,
+        TCell: Iterator<Item = &'a CellCoord>,
     {
         BufferSnapshot {
             chunks: HashMap::from_iter(
                 chunks.map(|coord| (*coord, self.chunks.get(coord).cloned())),
+            ),
+            modules: HashMap::from_iter(
+                modules.map(|coord| (*coord, self.modules.get(coord).cloned())),
             ),
         }
     }
@@ -161,6 +241,14 @@ impl Buffer {
                 self.chunks.insert(coord, chunk);
             } else {
                 self.chunks.remove(&coord);
+            }
+        }
+
+        for (coord, module) in snapshot.modules {
+            if let Some(module) = module {
+                self.modules.insert(coord, module);
+            } else {
+                self.modules.remove(&coord);
             }
         }
     }
@@ -202,8 +290,7 @@ impl Default for BufferChunk {
     fn default() -> Self {
         Self {
             cells: vec![Default::default(); UPC_BYTE_LEN * CHUNK_SIZE * CHUNK_SIZE],
-            cell_count: 0,
-            // modules: Default::default(),
+            cell_count: Default::default(),
         }
     }
 }

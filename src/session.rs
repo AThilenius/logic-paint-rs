@@ -12,15 +12,18 @@ use crate::{
     wgl2::Camera,
 };
 
-/// Represents a single editing/run session, which can be stored and reloaded later. This the
-/// outermost object that is serialized and stored in Logic Paint. Session can be associated with an
-/// editing thread (a human has edited the same session over the course of N days) or they can be
-/// ephemeral when used to simply run a Blueprint.
+/// The software analogy would be a git repo + working directory.
+///
+/// The outermost serializable Logic Paint object, represents a history of human work into a design.
+/// However, this history might be ephemeral if a session is being used to load a Blueprint.
+///
+/// Additionally, a Session object stores (but does not serialize) data associated with the current
+/// editing session (equivalent of a git working directory). This includes data like the copy-paste
+/// buffers.
 pub struct Session {
     pub active_buffer: Buffer,
     pub camera: Camera,
     pub brush: Brush,
-    pub modules: Vec<Rc<RefCell<Module>>>,
 }
 
 impl Session {
@@ -63,18 +66,24 @@ impl Session {
             }))),
         ];
 
+        let mut active_buffer = Buffer::default();
+        active_buffer.transaction_begin();
+        for module in fake_modules.into_iter() {
+            active_buffer.transact_set_module(module);
+        }
+        active_buffer.transaction_commit(false);
+
         Self {
-            active_buffer: Default::default(),
+            active_buffer,
             camera: Camera::new(),
             brush: Brush::new(),
-            modules: fake_modules,
         }
     }
 
     /// Called once per frame regardless of execution state.
     /// TODO: This probably shouldn't exist?
     pub fn update(&mut self, time: f64) {
-        for module in self.modules.iter() {
+        for module in self.active_buffer.get_modules() {
             module.borrow_mut().update(time);
         }
     }
@@ -101,8 +110,6 @@ impl From<&SerdeSession> for Session {
             active_buffer: (&serde_session.active_buffer_blueprint).into(),
             camera: serde_session.camera.clone(),
             brush: Brush::new(),
-            // TODO:
-            modules: vec![],
         }
     }
 }

@@ -4,6 +4,7 @@
     "arrayvec",
     "bitor",
     "Bitstream",
+    "blit",
     "blittable",
     "blitting",
     "crossorigin",
@@ -48,6 +49,7 @@
     "submap",
     "tabindex",
     "texel",
+    "upserted",
     "webgl"
   ]
 }

@@ -11,14 +11,6 @@ use crate::{
 
 /// The Yew wrapper around a Module's DOM node (what it's `view` function spits out) to correctly
 /// position and scale the module.
-///
-/// Notes on positioning:
-/// Each module is self-positioned within the viewport using a compound css `transform`.
-/// TODO: ...
-/// Also the cell chosen to transform into viewport space (css pixel offset from 'fixed') changes
-/// depending on the module's alignment. For example, a top-right aligned module actually needs to
-/// align itself with the cell one up and to the right, because the infinitely small points between
-/// cells are what that computed value actually means.
 pub struct ModuleMount;
 
 #[derive(Properties)]

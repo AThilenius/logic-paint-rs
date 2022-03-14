@@ -14,9 +14,6 @@ mod substrate;
 mod upc;
 mod utils;
 mod wgl2;
-mod yew_viewport;
-
-pub use yew_viewport::*;
 
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -27,28 +24,26 @@ pub fn main() {
 // Another new idea:
 
 // Terms/concepts:
-//  - Blueprint: Serialized cell chunks which include modules who's root resides in that chunk, as
+//  X Blueprint: Serialized cell chunks which include modules who's root resides in that chunk, as
 //    well data blobs referenced by modules (ex. RAM data or JS source). Cells are packed into dense
 //    lists of u32: [c_x: u8, c_y: u8, flags: u16]. Modules are bincode serialized. Blob data is
 //    serialized in any format. All blueprints are stored as binary data that is gziped, then base64
 //    UTF-8 encoded, with the preamble "LPBPV1:".
-//  - Buffer: Unpacked Blueprint, in UPC format with an optional undo stack.
-//    - Chunks (for cells) are blittable to the GPU and can be quickly serialized to Blueprints.
+//  x Buffer: Unpacked Blueprint, in UPC format with an optional undo stack.
+//    x Chunks (for cells) are blittable to the GPU and can be quickly serialized to Blueprints.
 //      Modules are custom rendered, thus will never be blittable.
-//    - Supports beginning, canceling, and committing a mutation transaction:
-//      - Start of a transaction conceptually marks the 'before state' for an undo Blueprint.
-//      - Mutating during a transaction is done by cloning the effected Chunk, and mutating the
+//    x Supports beginning, canceling, and committing a mutation transaction:
+//      x Start of a transaction conceptually marks the 'before state' for an undo Blueprint.
+//      x Mutating during a transaction is done by cloning the effected Chunk, and mutating the
 //        clone in-place.
-//        - A chunk is considered mutated when any bit in the UPC cells changes, or a bit in the
+//        x A chunk is considered mutated when any bit in the UPC cells changes, or a bit in the
 //          serialized module data changes (again, does not include the contents of blob refs).
-//      - Cancelling a transaction effectively throws away all cloned chunks / modules.
-//      - Committing first takes a snapshot of mutated chunks and modules in their starting state
+//      x Cancelling a transaction effectively throws away all cloned chunks / modules.
+//      x Committing first takes a snapshot of mutated chunks and modules in their starting state
 //        (if the undo stack is enabled) before replacing the base chunks with the mutated ones.
-//    - Keeps a generation counter (usize) for each chunk, which allows rendering code to quickly
-//      check for mutation. The counter is rolled back when a transaction is canceled.
-//    - Supports undo by keeping a stack of Blueprints, each representing a subset of buffer chunks
+//    x Supports undo by keeping a stack of Blueprints, each representing a subset of buffer chunks
 //      and modules from BEFORE a change was made. Overwrites each chunk in the undo frame.
-//  - UPC format: Universal Packed Cell format stores each cell as a bit packed [u8; 4], ready for
+//  x UPC format: Universal Packed Cell format stores each cell as a bit packed [u8; 4], ready for
 //    direct blitting to a GPU RGBu8 texture. Stored as [u8; 4] instead of u32 for endian
 //    agnosticism. Does not encode ActiveMask data. Modules are rendered separately from cells,
 //    allowing each module to render itself differently.
@@ -64,7 +59,7 @@ pub fn main() {
 //    However, the UPC format encodes pin presence, and that must always line up one-for-one with
 //    the module provided pins; pin generation must be deterministic and idempotent. Finally,
 //    modules are not frustum culled (they are always rendered)
-//  - Range: An abstract "selection" of cell / modules which can be applied to a Buffer to get or
+//  x Range: An abstract "selection" of cell / modules which can be applied to a Buffer to get or
 //    set a range of cells at once.
 //  - AST: An analogy to an abstract syntax tree; stores a "compiled" buffer without execution
 //    state. Stores atoms, traces and gates. Used by both the execution engine (along with an

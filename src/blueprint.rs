@@ -1,6 +1,9 @@
+use std::{cell::RefCell, collections::HashMap, iter::FromIterator, rc::Rc};
+
 use crate::{
     buffer::{Buffer, BufferChunk},
-    coords::ChunkCoord,
+    coords::{ChunkCoord, LocalCoord},
+    modules::Module,
     upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
 };
 
@@ -9,13 +12,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct Blueprint {
     chunks: Vec<CellChunk>,
+    modules: Vec<Module>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct CellChunk {
     chunk_coord: ChunkCoord,
     cells: Vec<Cell>,
-    // modules: HashMap<CellCoord, Module>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -53,11 +56,16 @@ impl From<&Buffer> for Blueprint {
             chunks.push(CellChunk {
                 chunk_coord: *chunk_coord,
                 cells,
-                // modules: chunk.modules.clone(),
             });
         }
 
-        Self { chunks }
+        Self {
+            chunks,
+            modules: buffer
+                .get_base_modules()
+                .map(|m| m.borrow().clone())
+                .collect(),
+        }
     }
 }
 
@@ -82,6 +90,11 @@ impl From<&Blueprint> for Buffer {
             }
 
             buffer.transact_set_chunk(chunk.chunk_coord, buffer_chunk);
+        }
+
+        // Technically we could just blit these in (because the pins are already set) but I'm lazy.
+        for module in blueprint.modules.iter() {
+            buffer.transact_set_module(Rc::new(RefCell::new(module.clone())));
         }
 
         buffer.transaction_commit(false);

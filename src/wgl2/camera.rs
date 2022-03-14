@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
-    RawInput,
+    dom::RawInput,
 };
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]

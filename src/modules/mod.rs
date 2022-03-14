@@ -1,8 +1,6 @@
-mod module_mount;
 mod test_one;
 mod test_two;
 
-pub use module_mount::*;
 pub use test_one::*;
 pub use test_two::*;
 
@@ -23,21 +21,28 @@ pub enum Module {
 }
 
 impl Module {
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         match self {
             Module::TestOne(m) => m.reset(),
             Module::TestTwo(m) => m.reset(),
         }
     }
 
-    fn get_anchor(&self) -> Anchor {
+    pub fn get_anchor(&self) -> Anchor {
         match self {
             Module::TestOne(m) => m.get_anchor(),
             Module::TestTwo(m) => m.get_anchor(),
         }
     }
 
-    fn view(&self) -> Html {
+    pub fn get_pins(&self) -> Vec<CellCoord> {
+        match self {
+            Module::TestOne(m) => vec![m.get_anchor().root],
+            Module::TestTwo(m) => vec![m.get_anchor().root],
+        }
+    }
+
+    pub fn view(&self) -> Html {
         match self {
             Module::TestOne(m) => m.view(),
             Module::TestTwo(m) => m.view(),

@@ -3,7 +3,10 @@ use wasm_bindgen::{prelude::wasm_bindgen, UnwrapThrowExt};
 use web_sys::Element;
 use yew::prelude::*;
 
-use crate::{session::SerdeSession, Msg, YewViewport};
+use crate::{
+    dom::{Msg, YewViewport},
+    session::SerdeSession,
+};
 
 #[wasm_bindgen]
 pub struct LogicPaint {
@@ -20,7 +23,7 @@ impl LogicPaint {
     }
 
     pub fn set_session_from_string(&mut self, data: &str) -> Option<String> {
-        if !data.starts_with("LP-S-V1:") {
+        if !data.starts_with("LPS1:") {
             return Some("String is not valid LogicPaint Session Version 1 data.".to_string());
         }
 
@@ -64,7 +67,7 @@ impl LogicPaint {
         if let Some(component) = self.handle.get_component() {
             let bytes = bincode::serialize(&SerdeSession::from(&component.session)).unwrap_throw();
             let compressed_bytes = compress_to_vec(&bytes, 6);
-            format!("LP-S-V1:{}", base64::encode(compressed_bytes))
+            format!("LPS1:{}", base64::encode(compressed_bytes))
         } else {
             "".into()
         }
