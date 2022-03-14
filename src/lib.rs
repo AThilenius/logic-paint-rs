@@ -79,10 +79,10 @@ pub fn main() {
 //    generation counter on chunks.
 //  - Painter: Paints on a Buffer; the primary way a user draws things. Painter can selectively be
 //    fed input events to enable or disable it.
-//  - Context: The outer most object that owns the memory of everything visible in a given viewport,
-//    for a given user session; owns the primary buffer, several ActiveMasks, any user edit state, a
-//    compiled AST and ExecutionState (if executing) as well as the RenderContext, Camera and
-//    Painter.
+//  - Context (Renamed to YewViewport): The outer most object that owns the memory of everything
+//    visible in a given viewport, for a given user session; owns the primary buffer, several
+//    ActiveMasks, any user edit state, a compiled AST and ExecutionState (if executing) as well as
+//    the RenderContext, Camera and Painter.
 
 // Idk about the rest of this yet...
 

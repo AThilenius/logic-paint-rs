@@ -124,18 +124,13 @@ impl Camera {
         CellCoord((world_point * CHUNK_SIZE as f32).floor().as_ivec2())
     }
 
-    pub fn project_cell_coord_to_screen_point(
-        &self,
-        coord: CellCoord,
-        justify_right: bool,
-    ) -> Vec2 {
+    pub fn project_cell_coord_to_screen_point(&self, coord: CellCoord) -> Vec2 {
         let vec = coord.0.as_vec2() / CHUNK_SIZE as f32;
         let p = self
             .get_view_proj_matrix()
             .project_point3(Vec3::new(vec.x, vec.y, 0.0));
         let half_size = self.size / 2.0;
-        let x = if justify_right { -p.x } else { p.x };
-        (Vec2::new(x, -p.y) * half_size) + half_size
+        (Vec2::new(p.x, -p.y) * half_size) + half_size
     }
 
     /// Returns a list of all currently-visible substrate chunks to this camera.

@@ -7,6 +7,7 @@ use crate::{dom::DomIntervalHooks, modules::ModuleMount, session::Session, wgl2:
 
 pub struct YewViewport {
     pub session: Session,
+    pub time: f64,
     canvas: NodeRef,
     render_context: Option<RenderContext>,
     dom_events: Option<DomIntervalHooks>,
@@ -28,6 +29,7 @@ pub enum RawInput {
 
 impl YewViewport {
     fn draw(&mut self, time: f64) {
+        self.time = time;
         let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
 
         // Maintain HTML Canvas size and context viewport.
@@ -57,6 +59,7 @@ impl Component for YewViewport {
     fn create(_ctx: &Context<Self>) -> Self {
         Self {
             session: Session::new(),
+            time: 0.0,
             canvas: NodeRef::default(),
             render_context: None,
             dom_events: None,
@@ -79,6 +82,9 @@ impl Component for YewViewport {
                 false
             }
             Msg::Render(time) => {
+                // TODO: Run sim-loop for a while in the render callback? Hmm.
+                self.session.update(time);
+
                 self.draw(time);
                 true
             }
@@ -100,9 +106,9 @@ impl Component for YewViewport {
             .link()
             .callback(|e| Msg::RawInput(RawInput::KeyPressed(e)));
 
-        let modules = self
-            .session
-            .modules
+        let modules = &self.session.modules;
+
+        let modules_html = modules
             .iter()
             .map(|m| {
                 html! {
@@ -113,7 +119,7 @@ impl Component for YewViewport {
 
         html! {
             <div class="lp-viewport">
-                <div class="lp-viewport-root">{ modules }</div>
+                <span>{ modules_html }</span>
                 <canvas
                     {onmousedown}
                     {onmouseup}

@@ -6,6 +6,7 @@ use yew::prelude::*;
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct TestTwo {
     pub anchor: Anchor,
+    pub text: String,
 }
 
 impl TestTwo {
@@ -17,7 +18,7 @@ impl TestTwo {
 
     pub fn view(&self) -> yew::Html {
         html! {
-            <div>{"Module Test Two"}</div>
+            <div>{&self.text}</div>
         }
     }
 }

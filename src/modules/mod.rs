@@ -43,6 +43,13 @@ impl Module {
             Module::TestTwo(m) => m.view(),
         }
     }
+
+    pub fn update(&mut self, time: f64) {
+        match self {
+            Module::TestOne(m) => m.update(time),
+            default => {}
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,6 +60,8 @@ pub struct Anchor {
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Alignment {
-    UpperLeft,
-    UpperRight,
+    TopLeft,
+    TopRight,
+    BottomRight,
+    BottomLeft,
 }
