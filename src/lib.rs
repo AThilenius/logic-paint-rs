@@ -3,6 +3,7 @@ use wasm_bindgen::prelude::*;
 mod blueprint;
 mod brush;
 mod buffer;
+mod buffer_mask;
 mod compiler;
 mod coords;
 mod dom;
@@ -45,12 +46,12 @@ pub fn main() {
 //      and modules from BEFORE a change was made. Overwrites each chunk in the undo frame.
 //  x UPC format: Universal Packed Cell format stores each cell as a bit packed [u8; 4], ready for
 //    direct blitting to a GPU RGBu8 texture. Stored as [u8; 4] instead of u32 for endian
-//    agnosticism. Does not encode ActiveMask data. Modules are rendered separately from cells,
+//    agnosticism. Does not encode BufferMask data. Modules are rendered separately from cells,
 //    allowing each module to render itself differently.
-//  - ActiveMask: a mask over a specific buffer to activate atoms, and/or highlight cells. Like
+//  - BufferMask: a mask over a specific buffer to activate atoms, and/or highlight cells. Like
 //    Buffer, it's stored in chunks that are blittable directly to the GPU. They represent the
 //    second texture sampled per-fragment while rendering cells. It is used for both editing and
-//    simulation state presentation. ActiveMask does not itself contain any logic for drawing to the
+//    simulation state presentation. BufferMask does not itself contain any logic for drawing to the
 //    mask.
 //  - Module: An overlay (with N number of I/O pins) that sits "on" an integrated circuit. All
 //    modules belong to exactly one chunk, and are keyed on their "root" location. This location
@@ -63,20 +64,20 @@ pub fn main() {
 //    set a range of cells at once.
 //  - AST: An analogy to an abstract syntax tree; stores a "compiled" buffer without execution
 //    state. Stores atoms, traces and gates. Used by both the execution engine (along with an
-//    ExecutionState) and for presentation when updating an ActiveMask from an AST and
+//    ExecutionState) and for presentation when updating an BufferMask from an AST and
 //    ExecutionState. ASTs are invalidated when a buffer changes.
 //  - ExecutionState: State associated with an execution of a specific AST (notable gate state).
 //    Invalidated when the corresponding AST is flushed.
-//  - RenderContext: Stores all state associated with painting Buffers and ActiveMasks to the
+//  - RenderContext: Stores all state associated with painting Buffers and BufferMasks to the
 //    screen. Does not however own the Camera, which is owned by the Context object. Includes GL
 //    context, GL render target, shader programs, VBOs, VAOs, and textures associated with a
-//    BufferChunk or ActiveMaskChunk. Chuck dirty tracking (re-upload to GPU) is done with the
+//    BufferChunk or BufferMaskChunk. Chuck dirty tracking (re-upload to GPU) is done with the
 //    generation counter on chunks.
 //  - Painter: Paints on a Buffer; the primary way a user draws things. Painter can selectively be
 //    fed input events to enable or disable it.
 //  - Context (Renamed to YewViewport): The outer most object that owns the memory of everything
 //    visible in a given viewport, for a given user session; owns the primary buffer, several
-//    ActiveMasks, any user edit state, a compiled AST and ExecutionState (if executing) as well as
+//    BufferMasks, any user edit state, a compiled AST and ExecutionState (if executing) as well as
 //    the RenderContext, Camera and Painter.
 
 // Idk about the rest of this yet...

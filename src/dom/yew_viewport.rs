@@ -135,7 +135,7 @@ impl Component for YewViewport {
         }
 
         let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
-        self.render_context = Some(RenderContext::new(canvas).unwrap_throw());
+        self.render_context = Some(RenderContext::new(canvas).unwrap());
 
         let link = ctx.link().clone();
         self.dom_events = Some(

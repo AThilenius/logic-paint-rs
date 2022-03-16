@@ -7,6 +7,19 @@ in vec2 v_uv;
 
 uniform float time;
 uniform usampler2D cells_texture_sampler;
+uniform usampler2D mask_texture_sampler;
+
+// Style uniforms
+uniform vec4 n_color;
+uniform vec4 p_color;
+uniform vec3 metal_color;
+uniform vec3 io_color;
+uniform vec3 active_color;
+uniform vec3 grid_color;
+uniform vec3 background_color;
+uniform vec2 grid_res;
+uniform float grid_blend_strength;
+uniform float metal_over_si_blend;
 
 out vec4 out_color;
 
@@ -51,11 +64,6 @@ bool connection_gate(vec2 texel_uv, bool up, bool right, bool down, bool left) {
 }
 
 void main() {
-    // Configure
-    vec2 grid_res = vec2(32.0, 32.0);
-    vec4 n_color = vec4(0.98, 0, 0.77, 1);
-    vec4 p_color = vec4(0, 0.87, 1, 1);
-
     uvec2 texel = uvec2(floor(v_uv * grid_res));
 
     // This math was taken from:
@@ -66,6 +74,7 @@ void main() {
     tile_uv = tile_uv * 126.0 / 128.0 + 1.0 / 128.0;
 
     uvec4 cells = texelFetch(cells_texture_sampler, ivec2(texel), 0);
+    uvec4 mask = texelFetch(mask_texture_sampler, ivec2(texel), 0);
 
     // Mirrors the format in upc.rs
     bool si_n = (cells.r & (1u << 7u)) > 0u;
@@ -130,17 +139,8 @@ void main() {
         mod(stripe_uv.x + stripe_uv.y + time, 2.0) * 0.5
     );
 
-    // Configure
-    vec3 background_color = vec3(0.0);
-    // Configure
-    vec3 active_color = vec3(0.0);
-
     bool grid_1 = (((texel.x % 2u) + (texel.y % 2u)) % 2u) == 0u;
     bool grid_8 = ((((texel.x >> 3) % 2u) + ((texel.y >> 3) % 2u)) % 2u) == 0u;
-    // Configure
-    vec3 grid_color = vec3(1.0);
-    // Configure
-    float grid_blend_strength = 0.03;
     float grid_blend =
           (grid_8 ? grid_blend_strength * 0.6 : 0.0)
         + (grid_1 ? grid_blend_strength : 0.0);
@@ -165,20 +165,14 @@ void main() {
     );
     float gate_blend = gate_connection ? 1.0 : 0.0;
 
-    // Configure
-    vec3 metal_color = vec3(0.2);
-    metal_color = mix(
+    vec3 blended_metal_color = mix(
         metal_color,
         active_color,
         metal_active ? stripe_blend * 0.5 : 0.0
     );
-    // Configure
-    float metal_over_si_blend = 0.6;
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 
-    // Configure (possibly per-cell...)
-    vec3 io_color = vec3(0.3);
-    io_color = mix(
+    vec3 blended_io_color = mix(
         io_color,
         active_color,
         metal_active ? stripe_blend * 0.5 : 0.0
@@ -205,14 +199,14 @@ void main() {
     // Metal is only blended if there is si.
     vec3 with_metal_color = mix(
         base_color,
-        metal_color,
+        blended_metal_color,
         si_blend > 0.5 ? metal_blend * metal_over_si_blend : metal_blend
     );
 
     // And I/O overrides all of it and fills the entire cell.
     vec3 with_io_color = mix(
         with_metal_color,
-        io_color,
+        blended_io_color,
         is_io ? 1.0 : 0.0
     );
 

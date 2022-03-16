@@ -1,0 +1,36 @@
+use std::collections::HashMap;
+
+use crate::coords::{ChunkCoord, CHUNK_SIZE};
+
+pub const MASK_BYTE_LEN: usize = 4;
+
+/// Much like a Buffer, except lacking any undo or transaction support. Designed to 'overlay' a
+/// buffer, activating various atoms. Any active atom that does not overlay a cell is considered
+/// undefined behavior.
+#[derive(Default)]
+pub struct BufferMask {
+    chunks: HashMap<ChunkCoord, BufferMaskChunk>,
+}
+
+impl BufferMask {
+    pub fn get_chunk<T>(&self, c: T) -> Option<&BufferMaskChunk>
+    where
+        T: Into<ChunkCoord>,
+    {
+        let coord: ChunkCoord = c.into();
+        self.chunks.get(&coord)
+    }
+}
+
+pub struct BufferMaskChunk {
+    /// 4-byte cells, in row-major order. Ready for blitting to the GPU.
+    pub cells: Vec<u8>,
+}
+
+impl Default for BufferMaskChunk {
+    fn default() -> Self {
+        Self {
+            cells: vec![Default::default(); MASK_BYTE_LEN * CHUNK_SIZE * CHUNK_SIZE],
+        }
+    }
+}

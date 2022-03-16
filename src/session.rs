@@ -7,6 +7,7 @@ use crate::{
     blueprint::Blueprint,
     brush::Brush,
     buffer::Buffer,
+    buffer_mask::BufferMask,
     coords::CellCoord,
     modules::{Alignment, Anchor, Module, TestOne, TestTwo},
     wgl2::Camera,
@@ -19,9 +20,10 @@ use crate::{
 ///
 /// Additionally, a Session object stores (but does not serialize) data associated with the current
 /// editing session (equivalent of a git working directory). This includes data like the copy-paste
-/// buffers.
+/// buffers and active masks.
 pub struct Session {
     pub active_buffer: Buffer,
+    pub active_mask: BufferMask,
     pub camera: Camera,
     pub brush: Brush,
 }
@@ -75,6 +77,7 @@ impl Session {
 
         Self {
             active_buffer,
+            active_mask: BufferMask::default(),
             camera: Camera::new(),
             brush: Brush::new(),
         }
@@ -108,6 +111,7 @@ impl From<&SerdeSession> for Session {
     fn from(serde_session: &SerdeSession) -> Self {
         Self {
             active_buffer: (&serde_session.active_buffer_blueprint).into(),
+            active_mask: BufferMask::default(),
             camera: serde_session.camera.clone(),
             brush: Brush::new(),
         }

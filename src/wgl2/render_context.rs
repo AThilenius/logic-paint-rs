@@ -18,16 +18,14 @@ pub struct RenderContext {
 }
 
 struct RenderChunk {
-    texture: Texture,
+    cell_texture: Texture,
+    mask_texture: Texture,
     vao: QuadVao,
 }
 
 impl RenderContext {
     pub fn new(canvas: HtmlCanvasElement) -> Result<RenderContext, JsValue> {
-        // Desync buffer, see: https://developers.google.com/web/updates/2019/05/desynchronized
         let options = js_sys::Object::new();
-        // js_sys::Reflect::set(&options, &"desynchronized".into(), &JsValue::TRUE)?;
-        // js_sys::Reflect::set(&options, &"preserveDrawingBuffer".into(), &JsValue::TRUE)?;
 
         let gl = canvas
             .get_context_with_context_options("webgl2", &options)?
@@ -35,6 +33,7 @@ impl RenderContext {
             .dyn_into::<WebGl2RenderingContext>()?;
 
         let program = CellProgram::compile(&gl)?;
+
         let empty_texture = Texture::new_chunk_texture(&gl)?;
 
         Ok(Self {
@@ -71,20 +70,46 @@ impl RenderContext {
                 crc
             } else {
                 let vao = QuadVao::new(&self.gl, &self.program, &chunk_coord)?;
-                let texture = Texture::new_chunk_texture(&self.gl)?;
-                self.render_chunks
-                    .insert(chunk_coord.clone(), RenderChunk { texture, vao });
+                let cell_texture = Texture::new_chunk_texture(&self.gl)?;
+                let mask_texture = Texture::new_chunk_texture(&self.gl)?;
+                self.render_chunks.insert(
+                    chunk_coord.clone(),
+                    RenderChunk {
+                        cell_texture,
+                        mask_texture,
+                        vao,
+                    },
+                );
                 self.render_chunks.get_mut(&chunk_coord).unwrap()
             };
 
-            // Draw the RenderChunk...
+            // Update and bind the cell texture.
             if let Some(buffer_chunk) = session.active_buffer.get_chunk(chunk_coord) {
-                render_chunk.texture.set_pixels(&buffer_chunk.cells[..])?;
+                render_chunk
+                    .cell_texture
+                    .set_pixels(&buffer_chunk.cells[..])?;
 
                 // Bind the render chunk's texture as it's non-empty.
-                render_chunk.texture.bind();
+                self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
+                render_chunk.cell_texture.bind();
             } else {
                 // Bind the empty texture.
+                self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
+                self.empty_texture.bind();
+            }
+
+            // Update and bind the mask texture.
+            if let Some(mask_chunk) = session.active_mask.get_chunk(chunk_coord) {
+                render_chunk
+                    .mask_texture
+                    .set_pixels(&mask_chunk.cells[..])?;
+
+                // Bind the mask chunk's texture as it's non-empty.
+                self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
+                render_chunk.mask_texture.bind();
+            } else {
+                // Bind the empty texture.
+                self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
                 self.empty_texture.bind();
             }
 
