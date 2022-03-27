@@ -4,6 +4,7 @@ use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
 
 use crate::{
+    compiler::CompilerResults,
     dom::{DomIntervalHooks, ModuleMount, RawInput},
     session::Session,
     wgl2::RenderContext,
@@ -71,6 +72,16 @@ impl Component for YewViewport {
                     &self.session.camera,
                     &raw_input,
                 );
+                // DEV
+                match &raw_input {
+                    RawInput::KeyPressed(event) => match event.code().as_ref() {
+                        "KeyC" => {
+                            CompilerResults::from_buffer(&self.session.active_buffer);
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
                 false
             }
             Msg::SetSession(session) => {

@@ -184,6 +184,7 @@ impl Buffer {
         for pin in module.borrow().get_pins() {
             let mut upc = self.get_cell(pin);
             upc.set_bit(Bit::IO);
+            upc.set_bit(Bit::METAL);
             self.transact_set_cell(pin, upc);
         }
 
@@ -201,6 +202,7 @@ impl Buffer {
             for pin in pins {
                 let mut upc = self.get_cell(pin);
                 upc.clear_bit(Bit::IO);
+                upc.clear_bit(Bit::METAL);
                 self.transact_set_cell(pin, upc);
             }
         }
@@ -266,7 +268,7 @@ impl BufferChunk {
     }
 
     #[inline(always)]
-    pub fn set_cell<T>(&mut self, c: T, cell: UPC)
+    pub fn set_cell<T>(&mut self, c: T, mut cell: UPC)
     where
         T: Into<LocalCoord>,
     {
@@ -274,6 +276,11 @@ impl BufferChunk {
         let idx = (((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize) << LOG_UPC_BYTE_LEN;
         let slice = &mut self.cells[idx..idx + UPC_BYTE_LEN];
         let existing = UPC::from_slice(slice);
+
+        // IO pins cannot be replaced with this call, so set IO bit if existing cell has an IO.
+        if existing.get_bit(Bit::IO) {
+            cell.set_bit(Bit::IO);
+        }
 
         // Track cell count as well.
         if existing == Default::default() && cell != Default::default() {

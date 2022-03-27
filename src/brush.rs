@@ -4,8 +4,7 @@ use crate::{
     buffer::Buffer,
     coords::CellCoord,
     dom::RawInput,
-    substrate::Placement,
-    upc::{Metal, NormalizedCell, Silicon},
+    upc::{Metal, NormalizedCell, Placement, Silicon},
     utils::range_iter,
     wgl2::Camera,
 };
