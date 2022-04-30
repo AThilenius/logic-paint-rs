@@ -7,6 +7,7 @@ mod buffer_mask;
 mod compiler;
 mod coords;
 mod dom;
+mod execution_context;
 mod logic_paint;
 mod modules;
 mod range;
@@ -20,6 +21,8 @@ mod wgl2;
 pub fn main() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
+
+    log!("Hello from wasm main()");
 }
 
 // Another new idea:

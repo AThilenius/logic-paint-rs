@@ -7,7 +7,11 @@ const distPath = path.resolve(__dirname, 'dist');
 
 module.exports = {
   mode: 'development',
-  entry: './src/index.ts',
+  entry: './src/main.ts',
+  // entry: {
+  //   bundle: './src/main.ts',
+  //   worker: './src/worker.ts',
+  // },
   devtool: 'source-map',
   output: {
     path: distPath,
