@@ -5,15 +5,16 @@ use std::{
 
 use crate::{
     buffer::Buffer,
-    coords::CellCoord,
+    coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
     log,
     upc::{Bit, Metal, NormalizedCell, Silicon},
 };
 
 pub struct CompilerResults {
-    traces: Vec<Vec<Atom>>,
-    trace_lookup_by_atom: HashMap<Atom, usize>,
-    gates: Vec<Gate>,
+    pub traces: Vec<Vec<Atom>>,
+    pub trace_lookup_by_atom: HashMap<Atom, usize>,
+    pub gates: Vec<Gate>,
+    pub trace_to_cell_part_index_by_chunk: HashMap<ChunkCoord, Vec<CellPartToTrace>>,
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -39,6 +40,15 @@ pub enum CellPart {
     EcDownRight = 3,
 }
 
+#[derive(Copy, Clone)]
+pub struct CellPartToTrace {
+    pub cell_index_in_chunk: usize,
+    pub metal_trace: usize,
+    pub si_trace: usize,
+    pub left_ec_trace: usize,
+    pub right_ec_trace: usize,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Gate {
     pub is_npn: bool,
@@ -54,6 +64,7 @@ impl CompilerResults {
             traces: vec![vec![]],
             trace_lookup_by_atom: HashMap::new(),
             gates: vec![],
+            trace_to_cell_part_index_by_chunk: HashMap::new(),
         };
 
         // Traces (and thus gates) have to be explored breadth-first off I/O pins. Reason being,
@@ -68,7 +79,7 @@ impl CompilerResults {
             .iter()
             .flat_map(|m| m.get_pins())
             .map(|c| Atom {
-                coord: c.clone(),
+                coord: c.coord.clone(),
                 part: CellPart::Metal,
             })
             .collect();
@@ -121,7 +132,7 @@ impl CompilerResults {
                     (
                         CellPart::Si,
                         NormalizedCell {
-                            si: Silicon::NP { is_n, placement },
+                            si: Silicon::NP { placement, .. },
                             metal,
                         },
                     ) => {
@@ -142,12 +153,7 @@ impl CompilerResults {
                     (
                         CellPart::Si,
                         NormalizedCell {
-                            si:
-                                Silicon::Mosfet {
-                                    is_npn,
-                                    gate_placement,
-                                    ec_placement,
-                                },
+                            si: Silicon::Mosfet { gate_placement, .. },
                             metal,
                         },
                     ) => {
@@ -245,7 +251,6 @@ impl CompilerResults {
         // trace index on their EC atoms.
         for atom in base_atoms {
             let cell = buffer.get_cell(atom.coord);
-            let norm: NormalizedCell = cell.into();
             let gate = Gate {
                 is_npn: cell.get_bit(Bit::SI_N),
                 base_trace: *res.trace_lookup_by_atom.get(&atom).unwrap(),
@@ -266,6 +271,66 @@ impl CompilerResults {
             };
 
             res.gates.push(gate);
+        }
+
+        // Create an index for quickly copying trace states over to a BufferMask.
+        for (chunk_coord, chunk) in buffer.get_base_chunks() {
+            let mut trace_indexes = vec![];
+
+            // TODO: This can be made a lot more efficient if compilation times ever become a
+            // problem.
+            let mut i = 0;
+            for y in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    let coord = CellCoord::from_offset_into_chunk(&chunk_coord, x, y);
+
+                    // Skip empty cells.
+                    if chunk.get_cell(coord.clone()) == Default::default() {
+                        continue;
+                    }
+
+                    trace_indexes.push(CellPartToTrace {
+                        cell_index_in_chunk: i,
+                        metal_trace: res
+                            .trace_lookup_by_atom
+                            .get(&Atom {
+                                coord: coord.clone(),
+                                part: CellPart::Metal,
+                            })
+                            .cloned()
+                            .unwrap_or_default(),
+                        si_trace: res
+                            .trace_lookup_by_atom
+                            .get(&Atom {
+                                coord: coord.clone(),
+                                part: CellPart::Si,
+                            })
+                            .cloned()
+                            .unwrap_or_default(),
+                        left_ec_trace: res
+                            .trace_lookup_by_atom
+                            .get(&Atom {
+                                coord: coord.clone(),
+                                part: CellPart::EcUpLeft,
+                            })
+                            .cloned()
+                            .unwrap_or_default(),
+                        right_ec_trace: res
+                            .trace_lookup_by_atom
+                            .get(&Atom {
+                                coord: coord.clone(),
+                                part: CellPart::EcDownRight,
+                            })
+                            .cloned()
+                            .unwrap_or_default(),
+                    });
+
+                    i += 1;
+                }
+            }
+
+            res.trace_to_cell_part_index_by_chunk
+                .insert(*chunk_coord, trace_indexes);
         }
 
         log!(

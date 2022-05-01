@@ -1,4 +1,7 @@
+use std::{cell::RefCell, rc::Rc};
+
 use glam::{IVec2, Vec2};
+use yew::prelude::*;
 
 use crate::{
     buffer::Buffer,
@@ -10,7 +13,7 @@ use crate::{
 };
 
 pub struct Brush {
-    active_tool: ToolType,
+    pub active_tool: ToolType,
     draw_start: Option<IVec2>,
     last_event_cell: Option<IVec2>,
     initial_impulse_vertical: Option<bool>,

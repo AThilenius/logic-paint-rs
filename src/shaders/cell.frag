@@ -97,16 +97,10 @@ void main() {
 
     bool is_io = (cells.b & (1u << 7u)) > 0u;
 
-    // TODO:
-    // bool gate_active = (cells.b & (1u << 7u)) > 0u;
-    // bool metal_active = (cells.a & (1u << 7u)) > 0u;
-    // bool si_ul_active = (cells.r & (1u << 7u)) > 0u;
-    // bool si_dr_active = (cells.g & (1u << 7u)) > 0u;
-
-    bool gate_active = false;
-    bool metal_active = false;
-    bool si_ul_active = false;
-    bool si_dr_active = false;
+    bool metal_active = (mask.r & (1u << 0u)) > 0u;
+    bool gate_active = (mask.g & (1u << 0u)) > 0u;
+    bool si_ul_active = (mask.b & (1u << 0u)) > 0u;
+    bool si_dr_active = (mask.a & (1u << 0u)) > 0u;
 
     bool metal_connection = connection(
         tile_uv,

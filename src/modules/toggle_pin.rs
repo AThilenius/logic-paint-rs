@@ -2,13 +2,15 @@ use super::Anchor;
 
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
+use wasm_bindgen::UnwrapThrowExt;
 use yew::prelude::*;
 
-use crate::coords::CellCoord;
+use crate::modules::Pin;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TogglePinData {
     pub anchor: Anchor,
+    pub pin: Pin,
     pub active: bool,
 }
 
@@ -19,8 +21,12 @@ impl TogglePinData {
         self.anchor
     }
 
-    pub fn get_pins(&self) -> Vec<CellCoord> {
-        vec![self.anchor.root]
+    pub fn get_pins(&self) -> Vec<Pin> {
+        vec![self.pin.clone()]
+    }
+
+    pub fn set_input_pins(&mut self, states: &Vec<bool>) {
+        self.pin.input_high = *states.first().unwrap_throw();
     }
 }
 
@@ -32,7 +38,7 @@ pub struct TogglePinProps {
 }
 
 impl PartialEq for TogglePinProps {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         false
     }
 }
@@ -45,7 +51,7 @@ impl Component for TogglePinComponent {
     type Message = Msg;
     type Properties = TogglePinProps;
 
-    fn create(ctx: &Context<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {}
     }
 

@@ -4,13 +4,13 @@ use web_sys::Element;
 use yew::prelude::*;
 
 use crate::{
-    dom::{Msg, YewViewport},
+    logic_paint_context::{LogicPaintContext, Msg as YewViewportMsg},
     session::SerdeSession,
 };
 
 #[wasm_bindgen]
 pub struct LogicPaint {
-    handle: AppHandle<YewViewport>,
+    handle: AppHandle<LogicPaintContext>,
 }
 
 #[wasm_bindgen]
@@ -18,7 +18,7 @@ impl LogicPaint {
     #[wasm_bindgen(constructor)]
     pub fn new(root: Element) -> LogicPaint {
         LogicPaint {
-            handle: yew::start_app_in_element::<YewViewport>(root),
+            handle: yew::start_app_in_element::<LogicPaintContext>(root),
         }
     }
 
@@ -58,7 +58,8 @@ impl LogicPaint {
             res.unwrap()
         };
 
-        self.handle.send_message(Msg::SetSession((&session).into()));
+        self.handle
+            .send_message(YewViewportMsg::SetSession((&session).into()));
 
         None
     }

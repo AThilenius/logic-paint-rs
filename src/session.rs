@@ -5,11 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     blueprint::Blueprint,
-    brush::Brush,
     buffer::Buffer,
     buffer_mask::BufferMask,
     coords::CellCoord,
-    modules::{Alignment, Anchor, ModuleData, TogglePinData},
+    execution_context::ExecutionContext,
+    modules::{Alignment, Anchor, ModuleData, Pin, TogglePinData},
     wgl2::Camera,
 };
 
@@ -25,7 +25,7 @@ pub struct Session {
     pub active_buffer: Buffer,
     pub active_mask: BufferMask,
     pub camera: Camera,
-    pub brush: Brush,
+    pub execution_context: Option<ExecutionContext>,
 }
 
 impl Session {
@@ -35,6 +35,11 @@ impl Session {
                 anchor: Anchor {
                     root: CellCoord(IVec2::new(0, 4)),
                     align: Alignment::BottomLeft,
+                },
+                pin: Pin {
+                    coord: CellCoord(IVec2::new(0, 4)),
+                    input_high: false,
+                    output_high: false,
                 },
                 active: false,
             }))),
@@ -86,15 +91,20 @@ impl Session {
             active_buffer,
             active_mask: BufferMask::default(),
             camera: Camera::new(),
-            brush: Brush::new(),
+            execution_context: None,
         }
     }
 
-    /// Called once per frame regardless of execution state.
-    /// TODO: This probably shouldn't exist?
     pub fn update(&mut self, time: f64) {
+        // Update modules.
         for module in self.active_buffer.get_modules().iter_mut() {
             module.update(time);
+        }
+
+        // Run the sim loop once.
+        if let Some(execution_context) = &mut self.execution_context {
+            execution_context.step();
+            execution_context.update_buffer_mask(&mut self.active_mask);
         }
     }
 }
@@ -120,7 +130,7 @@ impl From<&SerdeSession> for Session {
             active_buffer: (&serde_session.active_buffer_blueprint).into(),
             active_mask: BufferMask::default(),
             camera: serde_session.camera.clone(),
-            brush: Brush::new(),
+            execution_context: None,
         }
     }
 }

@@ -1,10 +1,10 @@
-use std::{cell::RefCell, collections::HashMap, iter::FromIterator, rc::Rc};
+use std::{collections::HashMap, iter::FromIterator};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     coords::CHUNK_SIZE,
-    modules::ModuleData,
+    modules::{ModuleData, Pin},
     range::Range,
     upc::{Bit, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
 };
@@ -181,11 +181,11 @@ impl Buffer {
         self.transact_remove_module(cell_coord);
 
         // Set the pins for the new module.
-        for pin in module.get_pins() {
-            let mut upc = self.get_cell(pin);
+        for Pin { coord, .. } in module.get_pins() {
+            let mut upc = self.get_cell(coord);
             upc.set_bit(Bit::IO);
             upc.set_bit(Bit::METAL);
-            self.transact_set_cell(pin, upc);
+            self.transact_set_cell(coord, upc);
         }
 
         // Finally add the module.
@@ -199,11 +199,11 @@ impl Buffer {
         let cell_coord: CellCoord = c.into();
 
         if let Some(pins) = self.get_module(cell_coord).map(|m| m.get_pins()) {
-            for pin in pins {
-                let mut upc = self.get_cell(pin);
+            for Pin { coord, .. } in pins {
+                let mut upc = self.get_cell(coord);
                 upc.clear_bit(Bit::IO);
                 upc.clear_bit(Bit::METAL);
-                self.transact_set_cell(pin, upc);
+                self.transact_set_cell(coord, upc);
             }
         }
 

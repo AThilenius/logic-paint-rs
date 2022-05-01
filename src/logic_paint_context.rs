@@ -4,15 +4,17 @@ use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
 
 use crate::{
-    compiler::CompilerResults,
+    brush::{Brush, ToolType},
     dom::{DomIntervalHooks, ModuleMount, RawInput},
+    execution_context::ExecutionContext,
     session::Session,
     wgl2::RenderContext,
 };
 
-pub struct YewViewport {
+pub struct LogicPaintContext {
     pub session: Session,
     pub time: f64,
+    brush: Brush,
     canvas: NodeRef,
     render_context: Option<RenderContext>,
     dom_events: Option<DomIntervalHooks>,
@@ -22,9 +24,11 @@ pub enum Msg {
     SetSession(Session),
     RawInput(RawInput),
     Render(f64),
+    SetToolType(ToolType),
+    StartStopSim,
 }
 
-impl YewViewport {
+impl LogicPaintContext {
     fn draw(&mut self, time: f64) {
         self.time = time;
         let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
@@ -49,7 +53,7 @@ impl YewViewport {
     }
 }
 
-impl Component for YewViewport {
+impl Component for LogicPaintContext {
     type Message = Msg;
     type Properties = ();
 
@@ -57,6 +61,7 @@ impl Component for YewViewport {
         Self {
             session: Session::new(),
             time: 0.0,
+            brush: Brush::new(),
             canvas: NodeRef::default(),
             render_context: None,
             dom_events: None,
@@ -67,21 +72,11 @@ impl Component for YewViewport {
         match msg {
             Msg::RawInput(raw_input) => {
                 self.session.camera.handle_input_event(&raw_input);
-                self.session.brush.handle_input_event(
+                self.brush.handle_input_event(
                     &mut self.session.active_buffer,
                     &self.session.camera,
                     &raw_input,
                 );
-                // DEV
-                match &raw_input {
-                    RawInput::KeyPressed(event) => match event.code().as_ref() {
-                        "KeyC" => {
-                            CompilerResults::from_buffer(&self.session.active_buffer);
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                }
                 false
             }
             Msg::SetSession(session) => {
@@ -89,10 +84,23 @@ impl Component for YewViewport {
                 false
             }
             Msg::Render(time) => {
-                // TODO: Run sim-loop for a while in the render callback? Hmm.
                 self.session.update(time);
 
                 self.draw(time);
+                true
+            }
+            Msg::SetToolType(tool_type) => {
+                self.brush.active_tool = tool_type;
+                true
+            }
+            Msg::StartStopSim => {
+                if self.session.execution_context.is_some() {
+                    self.session.execution_context = None;
+                } else {
+                    self.session.execution_context = Some(ExecutionContext::compile_from_buffer(
+                        &self.session.active_buffer,
+                    ));
+                }
                 true
             }
         }
@@ -126,6 +134,70 @@ impl Component for YewViewport {
 
         html! {
             <div class="lp-viewport">
+                <div style={"
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: center;
+                    position: absolute;
+                    bottom: 0;
+                    width: 100%;
+                "}>
+                    <button
+                        style={format!("
+                            height: 40px;
+                            background: {};
+                        ",
+                        if self.session.execution_context.is_none() { "green" } else { "darkred" })}
+                        onclick={ctx.link().callback(|_| Msg::StartStopSim )}
+                    >
+                        { if self.session.execution_context.is_none() { "Start" } else { "Stop "} }
+                    </button>
+
+                    <button
+                        style={format!("
+                            height: 40px;
+                            background: {};
+                        ",
+                        if self.brush.active_tool == ToolType::NType { "magenta" } else { "gray" })}
+                        onclick={ctx.link().callback(|_| Msg::SetToolType(ToolType::NType) )}
+                    >
+                        {"N-Type"}
+                    </button>
+                    <button
+                        style={format!("
+                            height: 40px;
+                            background: {};
+                        ",
+                        if self.brush.active_tool == ToolType::PType { "#00deff" } else { "gray" })}
+                        onclick={ctx.link().callback(|_| Msg::SetToolType(ToolType::PType) )}
+                    >
+                        {"P-Type"}
+                    </button>
+                    <button
+                        style={format!("
+                            height: 40px;
+                            background: {};
+                        ",
+                        if self.brush.active_tool == ToolType::Metal {
+                            "lightgray"
+                        } else {
+                            "gray"
+                        })}
+                        onclick={ctx.link().callback(|_| Msg::SetToolType(ToolType::Metal) )}
+                    >
+                        {"Metal"}
+                    </button>
+                    <button
+                        style={format!("
+                            height: 40px;
+                            background: {};
+                        ",
+                        if self.brush.active_tool == ToolType::Via { "lightgray" } else { "gray" })}
+                        onclick={ctx.link().callback(|_| Msg::SetToolType(ToolType::Via) )}
+                    >
+                        {"Via"}
+                    </button>
+                </div>
                 <span>{ modules_html }</span>
                 <canvas
                     {onmousedown}

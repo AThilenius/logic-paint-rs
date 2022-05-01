@@ -64,6 +64,16 @@ impl From<&CellCoord> for LocalCoord {
     }
 }
 
+impl CellCoord {
+    #[inline(always)]
+    pub fn from_offset_into_chunk(chunk_coord: &ChunkCoord, x: usize, y: usize) -> Self {
+        CellCoord(IVec2::new(
+            (chunk_coord.0.x << LOG_CHUNK_SIZE) + x as i32,
+            (chunk_coord.0.y << LOG_CHUNK_SIZE) + y as i32,
+        ))
+    }
+}
+
 impl ChunkCoord {
     #[inline(always)]
     pub fn first_cell_coord(&self) -> CellCoord {

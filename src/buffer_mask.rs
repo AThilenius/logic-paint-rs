@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 
 use crate::coords::{ChunkCoord, CHUNK_SIZE};
 
@@ -19,6 +19,30 @@ impl BufferMask {
     {
         let coord: ChunkCoord = c.into();
         self.chunks.get(&coord)
+    }
+
+    pub fn get_or_create_chunk<T>(&mut self, c: T) -> &BufferMaskChunk
+    where
+        T: Into<ChunkCoord>,
+    {
+        let coord: ChunkCoord = c.into();
+
+        match self.chunks.entry(coord) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => v.insert(Default::default()),
+        }
+    }
+
+    pub fn get_or_create_chunk_mut<T>(&mut self, c: T) -> &mut BufferMaskChunk
+    where
+        T: Into<ChunkCoord>,
+    {
+        let coord: ChunkCoord = c.into();
+
+        match self.chunks.entry(coord) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => v.insert(Default::default()),
+        }
     }
 }
 

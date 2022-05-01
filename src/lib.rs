@@ -9,6 +9,7 @@ mod coords;
 mod dom;
 mod execution_context;
 mod logic_paint;
+mod logic_paint_context;
 mod modules;
 mod range;
 mod session;
@@ -24,31 +25,6 @@ pub fn main() {
 
     log!("Hello from wasm main()");
 }
-
-// Currently working on: modules. The bane of my existence.
-// Modules need to be broken into...
-// - ModuleData: Represents all the data associated with a module, except for ephemeral data like
-//   current contexts of an input element.
-// - ModuleView: A Yew view for a specific type of ModuleData. This view can have a very limited
-//   amount of data associated with it, nothing that needs to be accessed OR mutated from outside
-//   the context of the view itself.
-//
-// So we have...
-// - ModuleMount: Yew component for mounting a ModuleData. Handles camera positioning and scaling.
-// - ModuleData: An enum of all possible module data types. Stored as an Rc-RefCell. Serializable.
-//   This cannot be passed around as a `dyn` because it needs to be serialized and matched for
-//   rendering components on. The ModuleData also impls `reset`, `get_anchor`, `get_pins` and
-//   `update` functionality,
-//   generally by just calling through to the wrapped type.
-// - TogglePinData: The ModuleData for a toggle-pin module type.
-// - TogglePinComponent: The Yew component that knows how to mount a TogglePinData.
-//
-// Also of note: I can make a custom Rc<RefCell<T>> wrapper that stores a generation counter. Then
-// I can increment that generation counter when the inner T is accessed mut. This will allow
-// PartialEq to at least be able to return false when we are sure nothing has changed, which should
-// save a lot of re-renders.
-
-// Another new idea:
 
 // Terms/concepts:
 //  X Blueprint: Serialized cell chunks which include modules who's root resides in that chunk, as
@@ -79,7 +55,7 @@ pub fn main() {
 //    second texture sampled per-fragment while rendering cells. It is used for both editing and
 //    simulation state presentation. BufferMask does not itself contain any logic for drawing to the
 //    mask.
-//  - Module: An overlay (with N number of I/O pins) that sits "on" an integrated circuit. All
+//  X Module: An overlay (with N number of I/O pins) that sits "on" an integrated circuit. All
 //    modules belong to exactly one chunk, and are keyed on their "root" location. This location
 //    does not need to be coincident a pin however, nor does a module need to have any pins at all
 //    (ex. a label). Pins are not stored themselves, but are provided by the specific module.
@@ -88,23 +64,23 @@ pub fn main() {
 //    modules are not frustum culled (they are always rendered)
 //  x Range: An abstract "selection" of cell / modules which can be applied to a Buffer to get or
 //    set a range of cells at once.
-//  - AST: An analogy to an abstract syntax tree; stores a "compiled" buffer without execution
-//    state. Stores atoms, traces and gates. Used by both the execution engine (along with an
-//    ExecutionState) and for presentation when updating an BufferMask from an AST and
-//    ExecutionState. ASTs are invalidated when a buffer changes.
+//  X CompilerResults: An analogy to an abstract syntax tree; stores a "compiled" buffer without
+//    execution state. Stores atoms, traces and gates. Used by both the execution engine (along with
+//    an ExecutionState) and for presentation when updating an BufferMask from a CompilerResults and
+//    ExecutionState. CompilerResults are invalidated when a buffer changes.
 //  - ExecutionState: State associated with an execution of a specific AST (notable gate state).
 //    Invalidated when the corresponding AST is flushed.
-//  - RenderContext: Stores all state associated with painting Buffers and BufferMasks to the
+//  X RenderContext: Stores all state associated with painting Buffers and BufferMasks to the
 //    screen. Does not however own the Camera, which is owned by the Context object. Includes GL
 //    context, GL render target, shader programs, VBOs, VAOs, and textures associated with a
 //    BufferChunk or BufferMaskChunk. Chuck dirty tracking (re-upload to GPU) is done with the
 //    generation counter on chunks.
-//  - Painter: Paints on a Buffer; the primary way a user draws things. Painter can selectively be
+//  X Painter: Paints on a Buffer; the primary way a user draws things. Painter can selectively be
 //    fed input events to enable or disable it.
-//  - Context (Renamed to YewViewport): The outer most object that owns the memory of everything
-//    visible in a given viewport, for a given user session; owns the primary buffer, several
-//    BufferMasks, any user edit state, a compiled AST and ExecutionState (if executing) as well as
-//    the RenderContext, Camera and Painter.
+//  X LogicPaintContext: The outer most object that owns the memory of everything visible in a given
+//    viewport, for a given user session; owns the primary buffer, several BufferMasks, any user
+//    edit state, a compiled AST and ExecutionState (if executing) as well as the RenderContext,
+//    Camera and Painter.
 
 // Idk about the rest of this yet...
 
