@@ -9,13 +9,13 @@ use crate::{
     buffer::Buffer,
     buffer_mask::BufferMask,
     coords::CellCoord,
-    modules::{Alignment, Anchor, Module, TestOne, TestTwo},
+    modules::{Alignment, Anchor, ModuleData, TogglePinData},
     wgl2::Camera,
 };
 
 /// The software analogy would be a git repo + working directory.
 ///
-/// The outermost serializable Logic Paint object, represents a history of human work into a design.
+/// The outermost serializable Logic Paint object, represents a history of human work on a design.
 /// However, this history might be ephemeral if a session is being used to load a Blueprint.
 ///
 /// Additionally, a Session object stores (but does not serialize) data associated with the current
@@ -31,41 +31,48 @@ pub struct Session {
 impl Session {
     pub fn new() -> Self {
         let fake_modules = vec![
-            Rc::new(RefCell::new(Module::TestOne(TestOne {
+            ModuleData::TogglePin(Rc::new(RefCell::new(TogglePinData {
                 anchor: Anchor {
-                    root: CellCoord(IVec2::new(20, 4)),
-                    align: Alignment::TopLeft,
-                },
-                time: 0.0,
-            }))),
-            Rc::new(RefCell::new(Module::TestTwo(TestTwo {
-                anchor: Anchor {
-                    root: CellCoord(IVec2::new(0, -1)),
-                    align: Alignment::TopLeft,
-                },
-                text: "Top Left".to_string(),
-            }))),
-            Rc::new(RefCell::new(Module::TestTwo(TestTwo {
-                anchor: Anchor {
-                    root: CellCoord(IVec2::new(-1, -1)),
-                    align: Alignment::TopRight,
-                },
-                text: "Top Right".to_string(),
-            }))),
-            Rc::new(RefCell::new(Module::TestTwo(TestTwo {
-                anchor: Anchor {
-                    root: CellCoord(IVec2::new(0, 0)),
+                    root: CellCoord(IVec2::new(0, 4)),
                     align: Alignment::BottomLeft,
                 },
-                text: "Bottom Left".to_string(),
+                active: false,
             }))),
-            Rc::new(RefCell::new(Module::TestTwo(TestTwo {
-                anchor: Anchor {
-                    root: CellCoord(IVec2::new(-1, 0)),
-                    align: Alignment::BottomRight,
-                },
-                text: "Bottom Right".to_string(),
-            }))),
+            // Rc::new(RefCell::new(Module::TestOne(TestOne {
+            //     anchor: Anchor {
+            //         root: CellCoord(IVec2::new(20, 4)),
+            //         align: Alignment::TopLeft,
+            //     },
+            //     time: 0.0,
+            // }))),
+            // Rc::new(RefCell::new(Module::TestTwo(TestTwo {
+            //     anchor: Anchor {
+            //         root: CellCoord(IVec2::new(0, -1)),
+            //         align: Alignment::TopLeft,
+            //     },
+            //     text: "Top Left".to_string(),
+            // }))),
+            // Rc::new(RefCell::new(Module::TestTwo(TestTwo {
+            //     anchor: Anchor {
+            //         root: CellCoord(IVec2::new(-1, -1)),
+            //         align: Alignment::TopRight,
+            //     },
+            //     text: "Top Right".to_string(),
+            // }))),
+            // Rc::new(RefCell::new(Module::TestTwo(TestTwo {
+            //     anchor: Anchor {
+            //         root: CellCoord(IVec2::new(0, 0)),
+            //         align: Alignment::BottomLeft,
+            //     },
+            //     text: "Bottom Left".to_string(),
+            // }))),
+            // Rc::new(RefCell::new(Module::TestTwo(TestTwo {
+            //     anchor: Anchor {
+            //         root: CellCoord(IVec2::new(-1, 0)),
+            //         align: Alignment::BottomRight,
+            //     },
+            //     text: "Bottom Right".to_string(),
+            // }))),
         ];
 
         let mut active_buffer = Buffer::default();
@@ -86,8 +93,8 @@ impl Session {
     /// Called once per frame regardless of execution state.
     /// TODO: This probably shouldn't exist?
     pub fn update(&mut self, time: f64) {
-        for module in self.active_buffer.get_modules() {
-            module.borrow_mut().update(time);
+        for module in self.active_buffer.get_modules().iter_mut() {
+            module.update(time);
         }
     }
 }

@@ -25,6 +25,29 @@ pub fn main() {
     log!("Hello from wasm main()");
 }
 
+// Currently working on: modules. The bane of my existence.
+// Modules need to be broken into...
+// - ModuleData: Represents all the data associated with a module, except for ephemeral data like
+//   current contexts of an input element.
+// - ModuleView: A Yew view for a specific type of ModuleData. This view can have a very limited
+//   amount of data associated with it, nothing that needs to be accessed OR mutated from outside
+//   the context of the view itself.
+//
+// So we have...
+// - ModuleMount: Yew component for mounting a ModuleData. Handles camera positioning and scaling.
+// - ModuleData: An enum of all possible module data types. Stored as an Rc-RefCell. Serializable.
+//   This cannot be passed around as a `dyn` because it needs to be serialized and matched for
+//   rendering components on. The ModuleData also impls `reset`, `get_anchor`, `get_pins` and
+//   `update` functionality,
+//   generally by just calling through to the wrapped type.
+// - TogglePinData: The ModuleData for a toggle-pin module type.
+// - TogglePinComponent: The Yew component that knows how to mount a TogglePinData.
+//
+// Also of note: I can make a custom Rc<RefCell<T>> wrapper that stores a generation counter. Then
+// I can increment that generation counter when the inner T is accessed mut. This will allow
+// PartialEq to at least be able to return false when we are sure nothing has changed, which should
+// save a lot of re-renders.
+
 // Another new idea:
 
 // Terms/concepts:

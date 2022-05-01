@@ -1,9 +1,7 @@
-use std::{cell::RefCell, collections::HashMap, iter::FromIterator, rc::Rc};
-
 use crate::{
     buffer::{Buffer, BufferChunk},
-    coords::{ChunkCoord, LocalCoord},
-    modules::Module,
+    coords::ChunkCoord,
+    modules::ModuleData,
     upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
 };
 
@@ -12,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct Blueprint {
     chunks: Vec<CellChunk>,
-    modules: Vec<Module>,
+    modules: Vec<ModuleData>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -61,10 +59,7 @@ impl From<&Buffer> for Blueprint {
 
         Self {
             chunks,
-            modules: buffer
-                .get_base_modules()
-                .map(|m| m.borrow().clone())
-                .collect(),
+            modules: buffer.get_base_modules().map(|m| m.clone()).collect(),
         }
     }
 }
@@ -94,7 +89,7 @@ impl From<&Blueprint> for Buffer {
 
         // Technically we could just blit these in (because the pins are already set) but I'm lazy.
         for module in blueprint.modules.iter() {
-            buffer.transact_set_module(Rc::new(RefCell::new(module.clone())));
+            buffer.transact_set_module(module.clone());
         }
 
         buffer.transaction_commit(false);

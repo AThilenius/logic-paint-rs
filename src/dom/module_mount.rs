@@ -1,11 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
-
 use glam::IVec2;
 use yew::prelude::*;
 
 use crate::{
     coords::CellCoord,
-    modules::{Alignment, Module},
+    modules::{Alignment, ModuleData, TogglePinComponent},
     wgl2::Camera,
 };
 
@@ -18,8 +16,9 @@ pub struct ModuleProps {
     #[prop_or(Camera::new())]
     pub camera: Camera,
 
-    #[prop_or(None)]
-    pub module: Option<Rc<RefCell<Module>>>,
+    pub module: ModuleData,
+    // I forgot why this needed to be an option?
+    // pub module: Option<Rc<RefCell<ModuleData>>>,
 }
 
 /// Force the mount to fully re-render every single frame.
@@ -43,8 +42,7 @@ impl Component for ModuleMount {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let module = ctx.props().module.as_ref().unwrap().borrow();
-        let anchor = module.get_anchor();
+        let anchor = ctx.props().module.get_anchor();
 
         // The cell we chose to align to changed depending on alignment (because in this context the
         // cells is the infinitely small crosshair where cells join up). Right we are alight right,
@@ -81,6 +79,13 @@ impl Component for ModuleMount {
             if align_right { "right" } else { "left" }
         );
 
+        // Select the correct Yew component.
+        let module_component = match &ctx.props().module {
+            ModuleData::TogglePin(data_rc) => {
+                html! { <TogglePinComponent data={data_rc.clone()} /> }
+            }
+        };
+
         html! {
             <div style={
                 format!("
@@ -88,7 +93,6 @@ impl Component for ModuleMount {
                     transform-origin: {};
                     transform: translate({:.2}px, {:.2}px) {} scale({});
                     border: 1px solid red;
-                    pointer-events: none;
                     color: white;
                 ",
                 transform_origin,
@@ -96,7 +100,7 @@ impl Component for ModuleMount {
                 pixel_offset.y,
                 local_translation,
                 1.0 / ctx.props().camera.scale)}>
-                {module.view()}
+                {module_component}
             </div>
         }
     }

@@ -15,6 +15,7 @@
     "evals",
     "Gloo",
     "Gziped",
+    "impls",
     "ivec",
     "keydown",
     "lookaside",

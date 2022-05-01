@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coords::CHUNK_SIZE,
-    modules::Module,
+    modules::ModuleData,
     range::Range,
     upc::{Bit, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
 };
@@ -15,8 +15,8 @@ use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
 pub struct Buffer {
     chunks: HashMap<ChunkCoord, BufferChunk>,
     transact_chunks: HashMap<ChunkCoord, BufferChunk>,
-    modules: HashMap<CellCoord, Rc<RefCell<Module>>>,
-    transact_modules: HashMap<CellCoord, Option<Rc<RefCell<Module>>>>,
+    modules: HashMap<CellCoord, ModuleData>,
+    transact_modules: HashMap<CellCoord, Option<ModuleData>>,
     transact: bool,
     undo_stack: Vec<BufferSnapshot>,
     redo_stack: Vec<BufferSnapshot>,
@@ -34,7 +34,7 @@ pub struct BufferChunk {
 #[derive(Serialize, Deserialize)]
 struct BufferSnapshot {
     pub chunks: HashMap<ChunkCoord, Option<BufferChunk>>,
-    pub modules: HashMap<CellCoord, Option<Rc<RefCell<Module>>>>,
+    pub modules: HashMap<CellCoord, Option<ModuleData>>,
 }
 
 impl Buffer {
@@ -48,7 +48,7 @@ impl Buffer {
             .or_else(|| self.chunks.get(&coord))
     }
 
-    pub fn get_module<T>(&self, c: T) -> Option<Rc<RefCell<Module>>>
+    pub fn get_module<T>(&self, c: T) -> Option<ModuleData>
     where
         T: Into<CellCoord>,
     {
@@ -60,7 +60,7 @@ impl Buffer {
         }
     }
 
-    pub fn get_modules(&self) -> Vec<Rc<RefCell<Module>>> {
+    pub fn get_modules(&self) -> Vec<ModuleData> {
         // Return all module from transact_modules that aren't None, and return all modules from
         // `modules` that aren't in transact_module.
         self.transact_modules
@@ -81,7 +81,7 @@ impl Buffer {
         self.chunks.iter()
     }
 
-    pub fn get_base_modules(&self) -> impl Iterator<Item = &Rc<RefCell<Module>>> {
+    pub fn get_base_modules(&self) -> impl Iterator<Item = &ModuleData> {
         self.modules.values()
     }
 
@@ -174,14 +174,14 @@ impl Buffer {
     }
 
     /// Set the module and updates associated cells when the module places an IO pin.
-    pub fn transact_set_module(&mut self, module: Rc<RefCell<Module>>) {
-        let cell_coord = module.borrow().get_anchor().root;
+    pub fn transact_set_module(&mut self, module: ModuleData) {
+        let cell_coord = module.get_anchor().root;
 
         // Remove the previous module first (clears out the IO pins).
         self.transact_remove_module(cell_coord);
 
         // Set the pins for the new module.
-        for pin in module.borrow().get_pins() {
+        for pin in module.get_pins() {
             let mut upc = self.get_cell(pin);
             upc.set_bit(Bit::IO);
             upc.set_bit(Bit::METAL);
@@ -198,7 +198,7 @@ impl Buffer {
     {
         let cell_coord: CellCoord = c.into();
 
-        if let Some(pins) = self.get_module(cell_coord).map(|m| m.borrow().get_pins()) {
+        if let Some(pins) = self.get_module(cell_coord).map(|m| m.get_pins()) {
             for pin in pins {
                 let mut upc = self.get_cell(pin);
                 upc.clear_bit(Bit::IO);

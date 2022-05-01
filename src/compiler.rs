@@ -66,7 +66,7 @@ impl CompilerResults {
         let mut edge_set: VecDeque<Atom> = buffer
             .get_modules()
             .iter()
-            .flat_map(|m| m.borrow().get_pins())
+            .flat_map(|m| m.get_pins())
             .map(|c| Atom {
                 coord: c.clone(),
                 part: CellPart::Metal,
