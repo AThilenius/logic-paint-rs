@@ -17,6 +17,9 @@ pub struct LogicPaint {
 impl LogicPaint {
     #[wasm_bindgen(constructor)]
     pub fn new(root: Element) -> LogicPaint {
+        #[cfg(feature = "console_error_panic_hook")]
+        console_error_panic_hook::set_once();
+
         LogicPaint {
             handle: yew::start_app_in_element::<LogicPaintContext>(root),
         }

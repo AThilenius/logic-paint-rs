@@ -50,7 +50,7 @@ pub fn main() {
 //    direct blitting to a GPU RGBu8 texture. Stored as [u8; 4] instead of u32 for endian
 //    agnosticism. Does not encode BufferMask data. Modules are rendered separately from cells,
 //    allowing each module to render itself differently.
-//  - BufferMask: a mask over a specific buffer to activate atoms, and/or highlight cells. Like
+//  X BufferMask: a mask over a specific buffer to activate atoms, and/or highlight cells. Like
 //    Buffer, it's stored in chunks that are blittable directly to the GPU. They represent the
 //    second texture sampled per-fragment while rendering cells. It is used for both editing and
 //    simulation state presentation. BufferMask does not itself contain any logic for drawing to the
@@ -68,7 +68,7 @@ pub fn main() {
 //    execution state. Stores atoms, traces and gates. Used by both the execution engine (along with
 //    an ExecutionState) and for presentation when updating an BufferMask from a CompilerResults and
 //    ExecutionState. CompilerResults are invalidated when a buffer changes.
-//  - ExecutionState: State associated with an execution of a specific AST (notable gate state).
+//  X ExecutionState: State associated with an execution of a specific AST (notable gate state).
 //    Invalidated when the corresponding AST is flushed.
 //  X RenderContext: Stores all state associated with painting Buffers and BufferMasks to the
 //    screen. Does not however own the Camera, which is owned by the Context object. Includes GL

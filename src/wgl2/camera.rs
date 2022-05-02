@@ -158,7 +158,10 @@ impl Camera {
     fn update_proj_matrix(&mut self) {
         // Use a DPI-like scaling, so that the scale doesn't change with screen size, only the
         // amount visible.
-        let scale = 720.0 * 2.0 * self.pixel_ratio;
+
+        // TODO: Something is wrong with this scaling logic. Disabling it fixed the alignment issues
+        // with module DOM Nodes though.
+        let scale = 720.0 * 2.0; // * self.pixel_ratio;
         let w = self.size.x / scale;
         let h = self.size.y / scale;
         self.proj_matrix = Mat4::orthographic_rh(-w, w, -h, h, 0.0, 1.0);
