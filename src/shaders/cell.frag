@@ -97,10 +97,16 @@ void main() {
 
     bool is_io = (cells.b & (1u << 7u)) > 0u;
 
+    bool is_mosfet =
+        gate_dir_up ||
+        gate_dir_right ||
+        gate_dir_down ||
+        gate_dir_left;
+
     bool metal_active = (mask.r & (1u << 0u)) > 0u;
     bool gate_active = (mask.g & (1u << 0u)) > 0u;
-    bool si_ul_active = (mask.b & (1u << 0u)) > 0u;
-    bool si_dr_active = (mask.a & (1u << 0u)) > 0u;
+    bool si_ul_active = (mask.b & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
+    bool si_dr_active = (mask.a & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
 
     bool metal_connection = connection(
         tile_uv,
