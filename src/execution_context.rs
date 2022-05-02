@@ -4,6 +4,7 @@ use crate::{
     buffer::Buffer,
     buffer_mask::{BufferMask, MASK_BYTE_LEN},
     compiler::{Atom, CellPart, CompilerResults},
+    log,
     modules::{ModuleData, Pin},
 };
 
@@ -129,7 +130,6 @@ impl ExecutionContext {
             .trace_to_cell_part_index_by_chunk
             .iter()
         {
-            // Stub
             let chunk = buffer_mask.get_or_create_chunk_mut(*chunk_coord);
             for index in cell_part_to_traces {
                 let i = index.cell_index_in_chunk * MASK_BYTE_LEN;

@@ -57,7 +57,7 @@ impl CellProgram {
         p_color.set(&ctx, Vec4::new(0.0, 0.87, 1.0, 1.0));
         metal_color.set(&ctx, Vec3::new(0.2, 0.2, 0.2));
         io_color.set(&ctx, Vec3::new(0.3, 0.3, 0.3));
-        active_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
+        active_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         grid_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         background_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
         grid_res.set(&ctx, Vec2::new(32.0, 32.0));

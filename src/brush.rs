@@ -1,7 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
-
 use glam::{IVec2, Vec2};
-use yew::prelude::*;
 
 use crate::{
     buffer::Buffer,
@@ -203,16 +200,18 @@ impl Brush {
             let dir = to.0 - from.0;
             let tan_dir = IVec2::new(dir.y, dir.x);
 
-            // To draw a MOSFET, we need 3 checks:
+            // To draw a MOSFET, we need 4 checks, but one of those checks is implicit in the
+            // match statement below (that the to-be MOSFET isn't already a MOSFET).
             // - The cell we are drawing from is the same Si type (to cell will be the Gate)
             let from_cell_matches_n = from_cell.si.matches_n(paint_n);
-            // - The 3 tangential cells are the opposite type
-            let tangent_cells_match_opposite_n =
-                [to.0 + tan_dir, to.0, to.0 - tan_dir].iter().all(|p| {
-                    NormalizedCell::from(buffer.get_cell(CellCoord(*p)))
-                        .si
-                        .matches_n(!paint_n)
-                });
+            // - There is a line of 3 silicon of the opposite type of us (or gates there of)
+            //   tangential to th gate.
+            let dirs = [to.0 + tan_dir, to.0, to.0 - tan_dir];
+            let tangent_cells_match_opposite_n = dirs.iter().all(|p| {
+                NormalizedCell::from(buffer.get_cell(CellCoord(*p)))
+                    .si
+                    .matches_n(!paint_n)
+            });
             // - The Si under the to-be Gate doesn't connect in the direction we are going.
             let to_cell_does_not_connect_in_dir = {
                 if let Silicon::NP { placement, .. } = to_cell.si {
@@ -299,6 +298,41 @@ impl Brush {
                         ec_placement: *tc_pl,
                     };
                 }
+                // You can draw from an NP onto a MOSFET's gate.
+                (
+                    Silicon::NP {
+                        is_n, placement, ..
+                    },
+                    Silicon::Mosfet {
+                        is_npn,
+                        gate_placement,
+                        ..
+                    },
+                ) if *is_n == paint_n && is_n != is_npn && gate_placement.has_cardinal(dir) => {
+                    placement.set_cardinal(dir);
+                    gate_placement.set_cardinal(-dir);
+                }
+                // Or from an MOSFET gate onto another MOSFET's gate.
+                (
+                    Silicon::Mosfet {
+                        is_npn: fc_npn,
+                        gate_placement: fc_gp,
+                        ..
+                    },
+                    Silicon::Mosfet {
+                        is_npn: tc_npn,
+                        gate_placement: tc_gp,
+                        ..
+                    },
+                ) if *fc_npn != paint_n
+                    && fc_npn == tc_npn
+                    && fc_gp.has_cardinal(dir)
+                    && tc_gp.has_cardinal(-dir) =>
+                {
+                    tc_gp.set_cardinal(dir);
+                    fc_gp.set_cardinal(-dir);
+                }
+
                 _ => {}
             }
         }

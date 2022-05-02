@@ -29,6 +29,14 @@ pub trait SetUniformType<T> {
     fn set(&self, ctx: &WebGl2RenderingContext, v: T);
 }
 
+impl SetUniformType<u32> for Uniform<u32> {
+    fn set(&self, ctx: &WebGl2RenderingContext, v: u32) {
+        if let Some(location) = &self.location {
+            ctx.uniform1ui(Some(&location), v);
+        }
+    }
+}
+
 impl SetUniformType<i32> for Uniform<i32> {
     fn set(&self, ctx: &WebGl2RenderingContext, v: i32) {
         if let Some(location) = &self.location {

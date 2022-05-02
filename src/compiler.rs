@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     buffer::Buffer,
-    coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
+    coords::{CellCoord, ChunkCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
     log,
     upc::{Bit, Metal, NormalizedCell, Silicon},
 };
@@ -40,7 +40,7 @@ pub enum CellPart {
     EcDownRight = 3,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct CellPartToTrace {
     pub cell_index_in_chunk: usize,
     pub metal_trace: usize,
@@ -136,10 +136,32 @@ impl CompilerResults {
                             metal,
                         },
                     ) => {
-                        // Follow conductive Si trace
-                        trace_edge_set.extend(placement.cardinal_vectors().iter().map(|v| Atom {
-                            coord: CellCoord(atom.coord.0 + *v),
-                            part: CellPart::Si,
+                        // Follow conductive Si trace. Could go into another trace, or into a MOSFET
+                        trace_edge_set.extend(placement.cardinal_vectors().iter().map(|v| {
+                            let coord = CellCoord(atom.coord.0 + *v);
+                            let neighbor: NormalizedCell = buffer.get_cell(coord.clone()).into();
+
+                            match neighbor.si {
+                                // ECs are always up+down OR left+right, so we can just check the
+                                // cardinal match of the EC to tell if we are running into the
+                                // neighbor's gate or an EC.
+                                Silicon::Mosfet { ec_placement, .. }
+                                    if ec_placement.has_cardinal(-*v) =>
+                                {
+                                    Atom {
+                                        coord,
+                                        part: if (*v).x < 0 || (*v).y > 0 {
+                                            CellPart::EcDownRight
+                                        } else {
+                                            CellPart::EcUpLeft
+                                        },
+                                    }
+                                }
+                                _ => Atom {
+                                    coord,
+                                    part: CellPart::Si,
+                                },
+                            }
                         }));
 
                         // Follow Via
@@ -163,9 +185,29 @@ impl CompilerResults {
 
                         // Follow conductive Si trace off the Gate
                         trace_edge_set.extend(gate_placement.cardinal_vectors().iter().map(|v| {
-                            Atom {
-                                coord: CellCoord(atom.coord.0 + *v),
-                                part: CellPart::Si,
+                            let coord = CellCoord(atom.coord.0 + *v);
+                            let neighbor: NormalizedCell = buffer.get_cell(coord.clone()).into();
+
+                            match neighbor.si {
+                                // ECs are always up+down OR left+right, so we can just check the
+                                // cardinal match of the EC to tell if we are running into the
+                                // neighbor's gate or an EC.
+                                Silicon::Mosfet { ec_placement, .. }
+                                    if ec_placement.has_cardinal(-*v) =>
+                                {
+                                    Atom {
+                                        coord,
+                                        part: if (*v).x < 0 || (*v).y > 0 {
+                                            CellPart::EcDownRight
+                                        } else {
+                                            CellPart::EcUpLeft
+                                        },
+                                    }
+                                }
+                                _ => Atom {
+                                    coord,
+                                    part: CellPart::Si,
+                                },
                             }
                         }));
 
@@ -178,7 +220,9 @@ impl CompilerResults {
                         }
 
                         // Add EC atoms to the OUTER edge set (they aren't conductively connected to
-                        // this trace).
+                        // this trace). We aren't walking to the neighbor's cell yet, so we don't
+                        // care if the ECs are connected to Si, a Gate, or another EC. That's done
+                        // below.
                         edge_set.extend([
                             Atom {
                                 coord: atom.coord.clone(),
@@ -198,13 +242,27 @@ impl CompilerResults {
                         },
                     ) => {
                         // Add the conductively connected Si
-                        trace_edge_set.push_back(Atom {
-                            coord: if ec_placement.left {
-                                (atom.coord.0.x - 1, atom.coord.0.y).into()
-                            } else {
-                                (atom.coord.0.x, atom.coord.0.y + 1).into()
+                        let neighbor_coord: CellCoord = if ec_placement.left {
+                            (atom.coord.0.x - 1, atom.coord.0.y).into()
+                        } else {
+                            (atom.coord.0.x, atom.coord.0.y + 1).into()
+                        };
+                        let neighbor: NormalizedCell =
+                            buffer.get_cell(neighbor_coord.clone()).into();
+
+                        trace_edge_set.push_back(match neighbor.si {
+                            Silicon::Mosfet { ec_placement, .. }
+                                if ec_placement.has_cardinal(neighbor_coord.0 - atom.coord.0) =>
+                            {
+                                Atom {
+                                    coord: neighbor_coord,
+                                    part: CellPart::EcDownRight,
+                                }
+                            }
+                            _ => Atom {
+                                coord: neighbor_coord,
+                                part: CellPart::Si,
                             },
-                            part: CellPart::Si,
                         });
 
                         // Add the Gate Si to the OUTER edge set (they aren't conductively connected
@@ -222,13 +280,27 @@ impl CompilerResults {
                         },
                     ) => {
                         // Add the conductively connected Si
-                        trace_edge_set.push_back(Atom {
-                            coord: if ec_placement.right {
-                                (atom.coord.0.x + 1, atom.coord.0.y).into()
-                            } else {
-                                (atom.coord.0.x, atom.coord.0.y - 1).into()
+                        let neighbor_coord: CellCoord = if ec_placement.right {
+                            (atom.coord.0.x + 1, atom.coord.0.y).into()
+                        } else {
+                            (atom.coord.0.x, atom.coord.0.y - 1).into()
+                        };
+                        let neighbor: NormalizedCell =
+                            buffer.get_cell(neighbor_coord.clone()).into();
+
+                        trace_edge_set.push_back(match neighbor.si {
+                            Silicon::Mosfet { ec_placement, .. }
+                                if ec_placement.has_cardinal(neighbor_coord.0 - atom.coord.0) =>
+                            {
+                                Atom {
+                                    coord: neighbor_coord,
+                                    part: CellPart::EcUpLeft,
+                                }
+                            }
+                            _ => Atom {
+                                coord: neighbor_coord,
+                                part: CellPart::Si,
                             },
-                            part: CellPart::Si,
                         });
 
                         // Add the Gate Si to the OUTER edge set (they aren't conductively connected
@@ -246,6 +318,8 @@ impl CompilerResults {
 
             res.traces.push(trace);
         }
+
+        log!("Traces: {:#?}", res.traces);
 
         // Now that we have all traces built up, we can create the Gates with back-references to
         // trace index on their EC atoms.
@@ -279,7 +353,6 @@ impl CompilerResults {
 
             // TODO: This can be made a lot more efficient if compilation times ever become a
             // problem.
-            let mut i = 0;
             for y in 0..CHUNK_SIZE {
                 for x in 0..CHUNK_SIZE {
                     let coord = CellCoord::from_offset_into_chunk(&chunk_coord, x, y);
@@ -288,6 +361,8 @@ impl CompilerResults {
                     if chunk.get_cell(coord.clone()) == Default::default() {
                         continue;
                     }
+
+                    let i = (y << LOG_CHUNK_SIZE) + x;
 
                     trace_indexes.push(CellPartToTrace {
                         cell_index_in_chunk: i,
@@ -324,8 +399,6 @@ impl CompilerResults {
                             .cloned()
                             .unwrap_or_default(),
                     });
-
-                    i += 1;
                 }
             }
 
@@ -333,11 +406,7 @@ impl CompilerResults {
                 .insert(*chunk_coord, trace_indexes);
         }
 
-        log!(
-            "Traces: {}, Gates: {}",
-            res.traces.len() - 1,
-            res.gates.len()
-        );
+        log!("{:#?}", res.trace_lookup_by_atom);
 
         res
     }

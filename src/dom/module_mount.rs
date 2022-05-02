@@ -92,7 +92,6 @@ impl Component for ModuleMount {
                     position: fixed;
                     transform-origin: {};
                     transform: translate({:.2}px, {:.2}px) {} scale({});
-                    border: 1px solid red;
                     color: white;
                 ",
                 transform_origin,

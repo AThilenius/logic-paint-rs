@@ -84,32 +84,32 @@ impl RenderContext {
             };
 
             // Update and bind the cell texture.
+            self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
+
             if let Some(buffer_chunk) = session.active_buffer.get_chunk(chunk_coord) {
                 render_chunk
                     .cell_texture
                     .set_pixels(&buffer_chunk.cells[..])?;
 
                 // Bind the render chunk's texture as it's non-empty.
-                self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
                 render_chunk.cell_texture.bind();
             } else {
                 // Bind the empty texture.
-                self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
                 self.empty_texture.bind();
             }
 
             // Update and bind the mask texture.
+            self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
+
             if let Some(mask_chunk) = session.active_mask.get_chunk(chunk_coord) {
                 render_chunk
                     .mask_texture
                     .set_pixels(&mask_chunk.cells[..])?;
 
                 // Bind the mask chunk's texture as it's non-empty.
-                self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
                 render_chunk.mask_texture.bind();
             } else {
                 // Bind the empty texture.
-                self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
                 self.empty_texture.bind();
             }
 

@@ -33,15 +33,25 @@ impl Session {
         let fake_modules = vec![
             ModuleData::TogglePin(Rc::new(RefCell::new(TogglePinData {
                 anchor: Anchor {
+                    root: CellCoord(IVec2::new(0, 2)),
+                    align: Alignment::BottomLeft,
+                },
+                pin: Pin {
+                    coord: CellCoord(IVec2::new(0, 2)),
+                    input_high: false,
+                    output_high: false,
+                },
+            }))),
+            ModuleData::TogglePin(Rc::new(RefCell::new(TogglePinData {
+                anchor: Anchor {
                     root: CellCoord(IVec2::new(0, 4)),
                     align: Alignment::BottomLeft,
                 },
                 pin: Pin {
                     coord: CellCoord(IVec2::new(0, 4)),
                     input_high: false,
-                    output_high: false,
+                    output_high: true,
                 },
-                active: false,
             }))),
             // Rc::new(RefCell::new(Module::TestOne(TestOne {
             //     anchor: Anchor {

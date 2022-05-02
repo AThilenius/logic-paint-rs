@@ -11,7 +11,6 @@ use crate::modules::Pin;
 pub struct TogglePinData {
     pub anchor: Anchor,
     pub pin: Pin,
-    pub active: bool,
 }
 
 impl TogglePinData {
@@ -58,24 +57,26 @@ impl Component for TogglePinComponent {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Clicked => {
-                let mut pin = ctx.props().data.borrow_mut();
-                pin.active = !pin.active;
+                let mut data = ctx.props().data.borrow_mut();
+                data.pin.output_high = !data.pin.output_high;
                 true
             }
         }
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let pin = ctx.props().data.borrow();
+        let data = ctx.props().data.borrow();
         html! {
             <div
                 style={
                     format!("
-                            height: 20px;
-                            width: 20px;
+                            margin-left: 4px;
+                            margin-bottom: 4px;
+                            height: 14px;
+                            width: 14px;
                             background: {}
                         ",
-                        if pin.active { "red" } else { "blue" }
+                        if data.pin.output_high { "red" } else { "blue" }
                     )
                 }
                 onclick={ctx.link().callback(|_| Msg::Clicked)}
