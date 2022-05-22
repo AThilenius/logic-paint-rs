@@ -9,7 +9,7 @@ use crate::{
     buffer_mask::BufferMask,
     coords::CellCoord,
     execution_context::ExecutionContext,
-    modules::{Alignment, Anchor, ModuleData, Pin, TogglePinData},
+    modules::{Alignment, Anchor, ModuleData, Pin, RegisterData, TogglePinData},
     wgl2::Camera,
 };
 
@@ -38,7 +38,6 @@ impl Session {
                 },
                 pin: Pin {
                     coord: CellCoord(IVec2::new(0, 2)),
-                    input_high: false,
                     output_high: false,
                 },
             }))),
@@ -49,45 +48,13 @@ impl Session {
                 },
                 pin: Pin {
                     coord: CellCoord(IVec2::new(0, 4)),
-                    input_high: false,
                     output_high: true,
                 },
             }))),
-            // Rc::new(RefCell::new(Module::TestOne(TestOne {
-            //     anchor: Anchor {
-            //         root: CellCoord(IVec2::new(20, 4)),
-            //         align: Alignment::TopLeft,
-            //     },
-            //     time: 0.0,
-            // }))),
-            // Rc::new(RefCell::new(Module::TestTwo(TestTwo {
-            //     anchor: Anchor {
-            //         root: CellCoord(IVec2::new(0, -1)),
-            //         align: Alignment::TopLeft,
-            //     },
-            //     text: "Top Left".to_string(),
-            // }))),
-            // Rc::new(RefCell::new(Module::TestTwo(TestTwo {
-            //     anchor: Anchor {
-            //         root: CellCoord(IVec2::new(-1, -1)),
-            //         align: Alignment::TopRight,
-            //     },
-            //     text: "Top Right".to_string(),
-            // }))),
-            // Rc::new(RefCell::new(Module::TestTwo(TestTwo {
-            //     anchor: Anchor {
-            //         root: CellCoord(IVec2::new(0, 0)),
-            //         align: Alignment::BottomLeft,
-            //     },
-            //     text: "Bottom Left".to_string(),
-            // }))),
-            // Rc::new(RefCell::new(Module::TestTwo(TestTwo {
-            //     anchor: Anchor {
-            //         root: CellCoord(IVec2::new(-1, 0)),
-            //         align: Alignment::BottomRight,
-            //     },
-            //     text: "Bottom Right".to_string(),
-            // }))),
+            ModuleData::Register(Rc::new(RefCell::new(RegisterData::new(
+                IVec2::new(8, -8),
+                8,
+            )))),
         ];
 
         let mut active_buffer = Buffer::default();

@@ -4,7 +4,6 @@ use crate::{
     buffer::Buffer,
     buffer_mask::{BufferMask, MASK_BYTE_LEN},
     compiler::{Atom, CellPart, CompilerResults},
-    log,
     modules::{ModuleData, Pin},
 };
 

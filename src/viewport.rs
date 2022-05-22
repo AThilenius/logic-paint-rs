@@ -11,7 +11,7 @@ use crate::{
     wgl2::RenderContext,
 };
 
-pub struct LogicPaintContext {
+pub struct Viewport {
     pub session: Session,
     pub time: f64,
     brush: Brush,
@@ -28,7 +28,7 @@ pub enum Msg {
     StartStopSim,
 }
 
-impl LogicPaintContext {
+impl Viewport {
     fn draw(&mut self, time: f64) {
         self.time = time;
         let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
@@ -53,7 +53,7 @@ impl LogicPaintContext {
     }
 }
 
-impl Component for LogicPaintContext {
+impl Component for Viewport {
     type Message = Msg;
     type Properties = ();
 

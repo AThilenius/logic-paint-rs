@@ -3,7 +3,7 @@ use yew::prelude::*;
 
 use crate::{
     coords::CellCoord,
-    modules::{Alignment, ModuleData, TogglePinComponent},
+    modules::{Alignment, MemoryComponent, ModuleData, RegisterComponent, TogglePinComponent},
     wgl2::Camera,
 };
 
@@ -17,8 +17,6 @@ pub struct ModuleProps {
     pub camera: Camera,
 
     pub module: ModuleData,
-    // I forgot why this needed to be an option?
-    // pub module: Option<Rc<RefCell<ModuleData>>>,
 }
 
 /// Force the mount to fully re-render every single frame.
@@ -81,6 +79,12 @@ impl Component for ModuleMount {
 
         // Select the correct Yew component.
         let module_component = match &ctx.props().module {
+            ModuleData::Memory(data_rc) => {
+                html! { <MemoryComponent data={data_rc.clone()} /> }
+            }
+            ModuleData::Register(data_rc) => {
+                html! { <RegisterComponent data={data_rc.clone()} /> }
+            }
             ModuleData::TogglePin(data_rc) => {
                 html! { <TogglePinComponent data={data_rc.clone()} /> }
             }

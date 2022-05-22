@@ -2,7 +2,6 @@ use super::Anchor;
 
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
-use wasm_bindgen::UnwrapThrowExt;
 use yew::prelude::*;
 
 use crate::modules::Pin;
@@ -25,7 +24,8 @@ impl TogglePinData {
     }
 
     pub fn set_input_pins(&mut self, states: &Vec<bool>) {
-        self.pin.input_high = *states.first().unwrap_throw();
+        // Toggle pins are exclusively driven, so we don't care what the ExecutionContext sets the
+        // value to.
     }
 }
 

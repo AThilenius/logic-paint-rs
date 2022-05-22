@@ -9,13 +9,13 @@ mod coords;
 mod dom;
 mod execution_context;
 mod logic_paint;
-mod logic_paint_context;
 mod modules;
 mod range;
 mod session;
 mod substrate;
 mod upc;
 mod utils;
+mod viewport;
 mod wgl2;
 
 #[wasm_bindgen(start)]
@@ -25,6 +25,58 @@ pub fn main() {
 
     log!("Hello from wasm main()");
 }
+
+// Micro-tasks
+// - Fix drawing 'under' HTML. This can be done by both setting ignore-events on the DOM, and by
+//   registering a global mouse handler when the substrate is clicked. That will handle dragging the
+// - Find this God Forsaken visual bug causing discontinuities in traces... (╯°□°）╯︵ ┻━┻
+//   mouse under an interact-able HTML node.
+// - Find a good file extension: .lp .lpbp .si .lpsi
+// - Embed the current version of LogicPaint into VSCode, with a text-based customer editor,
+//   associated with `.lp` files.
+// - Wire tool-change keyboards events through VSCode. Either...
+//   - Test if the WebView can bind global keybinds, then keep the Yew impl
+//   - Move the tool selection to UI to React, bind keys in VSCode
+// - Store Blueprints as JSON (all blueprints will be implicitly 'runnable' even if they do
+//   nothing). At least initially, they are complete and non-referential (ie a `.lp` file is all you
+//   need to run a circuit).
+// - Each edit should cause a write-back to the TextDocument
+// - Edits to the TextDocument should (without infinite loops) cause the viewport to update
+// - Shoot for saving then restoring a simple Blueprint
+// - Mark true on allowing multiple editors per TextDocument, see if split-view works
+// - Modules for the start, keep it super simple...
+//   - Create a module 'paint' tool. It places a 'null' module root on a cell.
+//   - The paint tool can (right click, place-new, left-click, select/move).
+//   - You can left-click on any module to open a JSON editor for the module contents. All modules
+//   - are the same object (a `ModuleData` instance). Won't be pretty in JSON though.
+// - See how hard it is to hook the build/play/stop buttons in VSCode.
+// - Add module running.
+
+// Other ideas:
+// - Explore compiling a substrate to Rust, then running that through rustc along with the
+//   LogicPaint source so it's a single WASM executable.
+
+// Desired keybinds
+// - No modifier:
+//   - Left: select region, poke, DOM (module) interaction. Also how modules are moved.
+//   - Right: normal DOM (module) manipulation
+//   - Escape: clear selection
+//   - Ctrl+C/Ctrl+V: copy selection/paste selection (follows mouse till click, rooted at hovered
+//     cell when Ctrl+C was pressed)
+// - Space held:
+//   - Left: camera pan
+//   - Right: zoom?
+// - Q held:
+//   - Left: draw N silicon
+//   - Right: draw P silicon
+// - W held:
+//   - Left: draw metal
+//   - Right: place via
+// - R help:
+//   - Left: place new module root
+// - D held:
+//   - Left: remove si
+//   - Right: remove metal
 
 // Terms/concepts:
 //  X Blueprint: Serialized cell chunks which include modules who's root resides in that chunk, as

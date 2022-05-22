@@ -319,8 +319,6 @@ impl CompilerResults {
             res.traces.push(trace);
         }
 
-        log!("Traces: {:#?}", res.traces);
-
         // Now that we have all traces built up, we can create the Gates with back-references to
         // trace index on their EC atoms.
         for atom in base_atoms {
@@ -405,8 +403,6 @@ impl CompilerResults {
             res.trace_to_cell_part_index_by_chunk
                 .insert(*chunk_coord, trace_indexes);
         }
-
-        log!("{:#?}", res.trace_lookup_by_atom);
 
         res
     }
