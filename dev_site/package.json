@@ -1,21 +1,16 @@
 {
   "author": "Alec Thilenius <alec@thilenius.com>",
-  "name": "logic-paint-dev-server",
+  "name": "@athilenius/logic-paint-dev-server",
   "version": "0.1.0",
   "scripts": {
-    "build": "rimraf dist pkg && webpack --mode production",
-    "start": "rimraf dist pkg && webpack serve --mode development"
+    "wasm": "wasm-pack build ../crate --target web --dev",
+    "dev": "yarn wasm && vite",
+    "build": "wasm-pack build ../crate --target web && vite build"
   },
   "devDependencies": {
-    "@wasm-tool/wasm-pack-plugin": "^1.1.0",
-    "copy-webpack-plugin": "^5.0.3",
-    "html-webpack-plugin": "^5.5.0",
-    "rimraf": "^3.0.0",
-    "ts-loader": "^9.2.6",
-    "typescript": "^4.5.2",
-    "webpack": "^5.51.1",
-    "webpack-bundle-analyzer": "^4.4.2",
-    "webpack-cli": "^4.8.0",
-    "webpack-dev-server": "^4.0.0"
+    "tslib": "^2.4.0",
+    "typescript": "^4.5.5",
+    "vite": "^2.9.9",
+    "vite-plugin-wasm-pack": "^0.1.12"
   }
 }

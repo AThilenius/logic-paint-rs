@@ -1,0 +1,35 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: #080808;
+}
+
+.sample-mount {
+  width: 100vw;
+  height: 100vh;
+}
+
+.lp-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.lp-viewport * {
+  font-family: Lucida Console, Lucida Sans Typewriter, monaco,
+    Bitstream Vera Sans Mono, monospace;
+  font-weight: lighter;
+}
+
+.lp-viewport canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.lp-lower-tools {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  bottom: 0;
+}

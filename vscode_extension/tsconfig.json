@@ -1,27 +1,23 @@
 {
   "compilerOptions": {
-    "allowJs": true,
     "allowSyntheticDefaultImports": true,
-    "baseUrl": ".",
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "lib": ["dom", "dom.iterable", "esnext", "webworker"],
-    "module": "esnext",
-    "moduleResolution": "node",
+    "lib": ["es2020", "DOM"],
+    "module": "commonjs",
     "noEmit": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": true,
-    "paths": { "~/*": ["src/*"], "assets/": ["assets/*"] },
+    "outDir": "out",
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
-    "target": "es5"
+    "target": "es2020"
   },
-  "include": ["./src/**/*"],
-  "exclude": ["./node_modules/**/*"]
+  "exclude": ["node_modules", ".vscode-test"]
 }

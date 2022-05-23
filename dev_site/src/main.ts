@@ -1,8 +1,14 @@
-import { LogicPaint } from '../../pkg/index.js';
+import init, { LogicPaint } from 'crate';
 
-const logicPaint = new LogicPaint(
-  document.getElementById('root') as HTMLCanvasElement
-);
+async function main() {
+  await init();
 
-// DEV
-(window as any).logicPaint = logicPaint;
+  const logicPaint = new LogicPaint(
+    document.getElementById('root') as HTMLCanvasElement
+  );
+
+  // DEV
+  (window as any).logicPaint = logicPaint;
+}
+
+void main();
