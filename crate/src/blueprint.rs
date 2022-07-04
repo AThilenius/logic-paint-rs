@@ -1,7 +1,7 @@
 use crate::{
     buffer::{Buffer, BufferChunk},
     coords::ChunkCoord,
-    modules::ModuleData,
+    modules::ModuleSerde,
     upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
 };
 
@@ -11,7 +11,7 @@ use wasm_bindgen::UnwrapThrowExt;
 #[derive(Serialize, Deserialize)]
 pub struct Blueprint {
     chunks: Option<Vec<CellChunk>>,
-    modules: Option<Vec<ModuleData>>,
+    modules: Option<Vec<ModuleSerde>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -73,11 +73,11 @@ impl Blueprint {
             }
         }
 
-        // Set this modules this will also (re)set the module IO pins.
+        // Set the modules. This will also (re)set the module IO pins.
         if let Some(modules) = &self.modules {
-            buffer.set_modules(modules);
+            buffer.set_modules(modules.iter().map(|s| s.instantiate()));
         } else {
-            buffer.set_modules(existing_buffer.modules.values());
+            buffer.set_modules(existing_buffer.anchored_modules.values().cloned());
         }
 
         Some(buffer)
@@ -119,7 +119,13 @@ impl From<&Buffer> for Blueprint {
 
         Self {
             chunks: Some(chunks),
-            modules: Some(buffer.modules.values().cloned().collect()),
+            modules: Some(
+                buffer
+                    .anchored_modules
+                    .values()
+                    .map(|a| a.module_serde.clone())
+                    .collect(),
+            ),
         }
     }
 }

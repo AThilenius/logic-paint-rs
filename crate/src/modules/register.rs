@@ -1,11 +1,7 @@
-use glam::IVec2;
-use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
 use yew::prelude::*;
 
-use crate::{coords::CellCoord, modules::Pin};
-
-use super::{Alignment, Anchor};
+use crate::modules::{Module, Pin};
 
 // Register module pinout
 // [0]     Enable (active high, tri-state output)
@@ -36,75 +32,85 @@ use super::{Alignment, Anchor};
 // be driven with the memory cell's value. Data is also atomic, there is no way to read an erroneous
 // value from a cell because of a race condition.
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct RegisterData {
-    pub anchor: Anchor,
-
-    // Pins
+pub struct PinMap {
     pub en: Pin,
     pub write: Pin,
     pub clk: Pin,
     pub bus: Vec<Pin>,
-
-    // State
-    pub data: Vec<bool>,
-    pub prev_clk: bool,
 }
 
-impl RegisterData {
-    pub fn new(root: IVec2, bus_width: usize) -> Self {
+impl From<&Vec<Pin>> for PinMap {
+    fn from(vec: &Vec<Pin>) -> Self {
         Self {
-            anchor: Anchor {
-                root: CellCoord(root),
-                align: Alignment::BottomLeft,
-            },
-            en: Pin::new(root + IVec2::new(0, 0)),
-            write: Pin::new(root + IVec2::new(0, 2)),
-            clk: Pin::new(root + IVec2::new(0, 4)),
-            bus: Pin::new_repeating(root + IVec2::new(2, 0), IVec2::new(0, 1), bus_width),
-            data: vec![false; bus_width],
-            prev_clk: false,
+            en: vec[0],
+            write: vec[1],
+            clk: vec[2],
+            bus: vec[3..].to_owned(),
         }
     }
+}
 
-    pub fn get_anchor(&self) -> Anchor {
-        self.anchor
-    }
-
-    pub fn get_pins(&self) -> Vec<Pin> {
+impl Into<Vec<Pin>> for &PinMap {
+    fn into(self) -> Vec<Pin> {
         let mut pins = vec![self.en.clone(), self.write.clone(), self.clk.clone()];
         pins.extend(self.bus.iter().cloned());
         pins
     }
+}
 
-    pub fn set_input_pins(&mut self, states: &Vec<bool>) {
-        let en = states[0];
-        let write = states[1];
-        let clk = states[2];
+pub struct Register {
+    pub pins: PinMap,
+    pub data: Vec<bool>,
+}
+
+impl Register {
+    pub fn new(bus_width: usize) -> Self {
+        Self {
+            pins: PinMap {
+                en: Pin::new(0, 0, false),
+                write: Pin::new(0, 1, false),
+                clk: Pin::new(0, 2, false),
+                bus: Pin::new_repeating((2, 0).into(), (0, 1).into(), bus_width),
+            },
+            data: vec![false; bus_width],
+        }
+    }
+}
+
+impl Module for Register {
+    fn get_pins(&self) -> Vec<Pin> {
+        (&self.pins).into()
+    }
+
+    fn set_pins(&mut self, pins: &Vec<Pin>) {
+        let mut pins: PinMap = pins.into();
 
         // If En is low, then clear the bus and ignore everything else.
-        if !en {
-            for pin in self.bus.iter_mut() {
+        if !pins.en.input_high {
+            for pin in pins.bus.iter_mut() {
                 pin.output_high = false;
             }
 
+            self.pins = pins;
             return;
         }
 
-        // If write is low (reading) then we can ignore the clk and immediately write value to the
-        // bus.
-        if !write {
-            for (pin, val) in self.bus.iter_mut().zip(self.data.iter()) {
+        // If write is low (reading) then we can ignore the clk and immediately write the value to
+        // the bus.
+        if !pins.write.input_high {
+            for (pin, val) in pins.bus.iter_mut().zip(self.data.iter()) {
                 pin.output_high = *val;
             }
 
+            self.pins = pins;
             return;
         }
 
         // For writes, trigger on rising edge.
-        if !self.prev_clk && clk {
-            self.data.copy_from_slice(&states[3..3 + self.bus.len()]);
+        if !self.pins.clk.input_high && pins.clk.input_high {
+            self.data = pins.bus.iter().map(|p| p.input_high).collect();
 
+            self.pins = pins;
             return;
         }
     }
@@ -114,7 +120,7 @@ pub struct RegisterComponent;
 
 #[derive(Properties)]
 pub struct RegisterProps {
-    pub data: Rc<RefCell<RegisterData>>,
+    pub data: Rc<RefCell<Register>>,
 }
 
 impl PartialEq for RegisterProps {

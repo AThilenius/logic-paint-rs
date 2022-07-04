@@ -1,22 +1,20 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
     coords::CHUNK_SIZE,
-    modules::{ModuleData, Pin},
+    modules::{AnchoredModule, Pin},
     upc::{Bit, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
 };
 
 use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
 
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Clone)]
 pub struct Buffer {
     pub chunks: HashMap<ChunkCoord, BufferChunk>,
-    pub modules: HashMap<CellCoord, ModuleData>,
+    pub anchored_modules: HashMap<CellCoord, AnchoredModule>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct BufferChunk {
     /// 4-byte cells, in row-major order. Ready for blitting to the GPU.
     pub cells: Vec<u8>,
@@ -52,20 +50,22 @@ impl Buffer {
             .set_cell(coord, cell);
     }
 
-    pub fn set_modules<'a, T>(&mut self, modules: T)
+    pub fn set_modules<'a, T>(&mut self, anchored_modules: T)
     where
-        T: IntoIterator<Item = &'a ModuleData>,
+        T: IntoIterator<Item = AnchoredModule>,
     {
-        for module in modules.into_iter() {
-            let cell_coord = module.get_anchor().root;
+        for anchored_module in anchored_modules.into_iter() {
+            let anchor_coord = anchored_module.anchor.root;
 
-            for Pin { coord, .. } in module.get_pins() {
-                let mut upc = self.get_cell(coord);
+            for Pin { coord_offset, .. } in anchored_module.module.borrow().get_pins() {
+                let pin_coord = coord_offset.to_cell_coord(anchor_coord);
+                let mut upc = self.get_cell(pin_coord);
                 upc.set_bit(Bit::IO);
-                self.set_cell(coord, upc);
+                self.set_cell(pin_coord, upc);
             }
 
-            self.modules.insert(cell_coord, module.clone());
+            self.anchored_modules
+                .insert(anchor_coord, anchored_module.clone());
         }
     }
 }

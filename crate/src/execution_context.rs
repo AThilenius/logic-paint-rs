@@ -4,12 +4,12 @@ use crate::{
     buffer::Buffer,
     buffer_mask::{BufferMask, MASK_BYTE_LEN},
     compiler::{Atom, CellPart, CompilerResults},
-    modules::{ModuleData, Pin},
+    modules::{AnchoredModule, Pin},
 };
 
 pub struct ExecutionContext {
     compiler_results: CompilerResults,
-    modules: Vec<ModuleData>,
+    anchored_modules: Vec<AnchoredModule>,
     state: SimState,
 }
 
@@ -27,11 +27,11 @@ impl ExecutionContext {
         let compiler_results = CompilerResults::from_buffer(&buffer);
         let gate_states = vec![false; compiler_results.gates.len()];
         let trace_states = vec![false; compiler_results.traces.len()];
-        let modules = buffer.modules.values().cloned().collect();
+        let modules = buffer.anchored_modules.values().cloned().collect();
 
         Self {
             compiler_results,
-            modules,
+            anchored_modules: modules,
             state: SimState {
                 step_count: 0,
                 gate_states,
@@ -48,13 +48,14 @@ impl ExecutionContext {
 
         // Pull modules for OUTPUT state (input state is updates at the end of a tick) and write
         // their value to the corresponding trace.
-        for module_data in self.modules.iter() {
-            for pin in module_data.get_pins() {
+        for anchored_module in self.anchored_modules.iter() {
+            for pin in anchored_module.module.borrow().get_pins() {
+                let pin_coord = pin.coord_offset.to_cell_coord(anchored_module.anchor.root);
                 let trace = *self
                     .compiler_results
                     .trace_lookup_by_atom
                     .get(&Atom {
-                        coord: pin.coord,
+                        coord: pin_coord,
                         part: CellPart::Metal,
                     })
                     .unwrap_throw();
@@ -93,18 +94,21 @@ impl ExecutionContext {
 
         // Update module inputs. First immutably collect their values.
         let module_pin_states = self
-            .modules
+            .anchored_modules
             .iter()
-            .map(|module_data| {
-                module_data
+            .map(|anchored_module| {
+                anchored_module
+                    .module
+                    .borrow()
                     .get_pins()
                     .iter()
-                    .map(|Pin { coord, .. }| {
+                    .map(|Pin { coord_offset, .. }| {
+                        let pin_coord = coord_offset.to_cell_coord(anchored_module.anchor.root);
                         let trace = *self
                             .compiler_results
                             .trace_lookup_by_atom
                             .get(&Atom {
-                                coord: *coord,
+                                coord: pin_coord,
                                 part: CellPart::Metal,
                             })
                             .unwrap_throw();
@@ -116,8 +120,8 @@ impl ExecutionContext {
             .collect::<Vec<_>>();
 
         // Then write them to modules
-        for (i, module_data) in self.modules.iter_mut().enumerate() {
-            module_data.set_input_pins(&module_pin_states[i]);
+        for (i, anchored_module) in self.anchored_modules.iter_mut().enumerate() {
+            anchored_module.set_pin_states(&module_pin_states[i]);
         }
 
         self.state.step_count += 1;

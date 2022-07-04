@@ -17,6 +17,9 @@ pub struct ChunkCoord(pub IVec2);
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct LocalCoord(pub UVec2);
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct CellCoordOffset(pub IVec2);
+
 #[derive(Serialize, Deserialize)]
 pub enum Coord {
     Cell(IVec2),
@@ -25,6 +28,12 @@ pub enum Coord {
 }
 
 impl From<(i32, i32)> for CellCoord {
+    fn from(v: (i32, i32)) -> Self {
+        Self(IVec2::new(v.0, v.1))
+    }
+}
+
+impl From<(i32, i32)> for CellCoordOffset {
     fn from(v: (i32, i32)) -> Self {
         Self(IVec2::new(v.0, v.1))
     }
@@ -104,5 +113,11 @@ impl LocalCoord {
     #[inline(always)]
     pub fn to_upc_idx(&self) -> usize {
         (((self.0.y as usize) << LOG_CHUNK_SIZE) | self.0.x as usize) << LOG_UPC_BYTE_LEN
+    }
+}
+
+impl CellCoordOffset {
+    pub fn to_cell_coord(&self, anchor: CellCoord) -> CellCoord {
+        CellCoord(anchor.0 + self.0)
     }
 }

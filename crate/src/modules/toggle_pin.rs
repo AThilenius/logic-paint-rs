@@ -1,29 +1,23 @@
-use super::Anchor;
-
-use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
 use yew::prelude::*;
 
-use crate::modules::Pin;
+use crate::modules::{Module, Pin};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct TogglePinData {
-    pub anchor: Anchor,
+pub struct TogglePin {
     pub pin: Pin,
 }
 
-impl TogglePinData {
-    pub fn get_anchor(&self) -> Anchor {
-        self.anchor
+impl TogglePin {
+    pub fn new(initially_high: bool) -> Self {
+        Self {
+            pin: Pin::new(0, 0, initially_high),
+        }
     }
+}
 
-    pub fn get_pins(&self) -> Vec<Pin> {
-        vec![self.pin.clone()]
-    }
-
-    pub fn set_input_pins(&mut self, _states: &Vec<bool>) {
-        // Toggle pins are exclusively driven, so we don't care what the ExecutionContext sets the
-        // value to.
+impl Module for TogglePin {
+    fn get_pins(&self) -> Vec<Pin> {
+        vec![self.pin]
     }
 }
 
@@ -31,7 +25,7 @@ pub struct TogglePinComponent;
 
 #[derive(Properties)]
 pub struct TogglePinProps {
-    pub data: Rc<RefCell<TogglePinData>>,
+    pub data: Rc<RefCell<TogglePin>>,
 }
 
 impl PartialEq for TogglePinProps {

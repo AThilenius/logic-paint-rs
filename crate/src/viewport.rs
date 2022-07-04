@@ -131,8 +131,8 @@ impl Component for Viewport {
             }
             Msg::Render(time) => {
                 // Update modules.
-                for (_, module) in self.active_buffer.modules.iter_mut() {
-                    module.update(time);
+                for (_, anchored_module) in self.active_buffer.anchored_modules.iter_mut() {
+                    anchored_module.module.borrow_mut().tick(time);
                 }
 
                 // Run the sim loop once.
@@ -176,11 +176,11 @@ impl Component for Viewport {
 
         let modules_html = self
             .active_buffer
-            .modules
+            .anchored_modules
             .values()
             .map(|m| {
                 html! {
-                    <ModuleMount camera={self.camera.clone()} module={m.clone()} />
+                    <ModuleMount camera={self.camera.clone()} anchor={m.anchor} module_html={m.html.clone()} />
                 }
             })
             .collect::<Html>();

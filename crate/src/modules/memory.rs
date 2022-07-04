@@ -1,10 +1,7 @@
-use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
 use yew::prelude::*;
 
-use crate::modules::Pin;
-
-use super::Anchor;
+use crate::modules::{Module, Pin};
 
 // Memory module pinout
 // [0]     Enable (active high, tri-state output)
@@ -42,29 +39,29 @@ use super::Anchor;
 // be driven with the memory cell's value. Data is also atomic, there is no way to read an erroneous
 // value from a cell because of a race condition.
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct MemoryData {
-    pub anchor: Anchor,
+pub struct Memory {
     pub pin: Pin,
 }
 
-impl MemoryData {
-    pub fn get_anchor(&self) -> Anchor {
-        self.anchor
+impl Memory {
+    pub fn new() -> Self {
+        Self {
+            pin: Pin::new(0, 0, false),
+        }
     }
+}
 
-    pub fn get_pins(&self) -> Vec<Pin> {
+impl Module for Memory {
+    fn get_pins(&self) -> Vec<Pin> {
         vec![self.pin.clone()]
     }
-
-    pub fn set_input_pins(&mut self, _states: &Vec<bool>) {}
 }
 
 pub struct MemoryComponent;
 
 #[derive(Properties)]
 pub struct MemoryProps {
-    pub data: Rc<RefCell<MemoryData>>,
+    pub data: Rc<RefCell<Memory>>,
 }
 
 impl PartialEq for MemoryProps {

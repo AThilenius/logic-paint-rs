@@ -3,7 +3,7 @@ use yew::prelude::*;
 
 use crate::{
     coords::CellCoord,
-    modules::{Alignment, MemoryComponent, ModuleData, RegisterComponent, TogglePinComponent},
+    modules::{Alignment, Anchor},
     wgl2::Camera,
 };
 
@@ -13,10 +13,10 @@ pub struct ModuleMount;
 
 #[derive(Properties)]
 pub struct ModuleProps {
+    pub anchor: Anchor,
     #[prop_or(Camera::new())]
     pub camera: Camera,
-
-    pub module: ModuleData,
+    pub module_html: Html,
 }
 
 /// Force the mount to fully re-render every single frame.
@@ -40,7 +40,7 @@ impl Component for ModuleMount {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let anchor = ctx.props().module.get_anchor();
+        let anchor = ctx.props().anchor;
 
         // The cell we chose to align to changed depending on alignment (because in this context the
         // cells is the infinitely small crosshair where cells join up). Right we are alight right,
@@ -77,19 +77,6 @@ impl Component for ModuleMount {
             if align_right { "right" } else { "left" }
         );
 
-        // Select the correct Yew component.
-        let module_component = match &ctx.props().module {
-            ModuleData::Memory(data_rc) => {
-                html! { <MemoryComponent data={data_rc.clone()} /> }
-            }
-            ModuleData::Register(data_rc) => {
-                html! { <RegisterComponent data={data_rc.clone()} /> }
-            }
-            ModuleData::TogglePin(data_rc) => {
-                html! { <TogglePinComponent data={data_rc.clone()} /> }
-            }
-        };
-
         html! {
             <div style={
                 format!("
@@ -103,7 +90,7 @@ impl Component for ModuleMount {
                 pixel_offset.y,
                 local_translation,
                 1.0 / ctx.props().camera.scale)}>
-                {module_component}
+                {ctx.props().module_html.clone()}
             </div>
         }
     }
