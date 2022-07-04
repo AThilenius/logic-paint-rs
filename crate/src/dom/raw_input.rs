@@ -5,5 +5,6 @@ pub enum RawInput {
     MouseMove(MouseEvent),
     MouseUp(MouseEvent),
     MouseWheelEvent(WheelEvent),
-    KeyPressed(KeyboardEvent),
+    KeyDown(KeyboardEvent),
+    KeyUp(KeyboardEvent),
 }

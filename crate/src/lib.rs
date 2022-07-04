@@ -10,8 +10,6 @@ mod dom;
 mod execution_context;
 mod logic_paint;
 mod modules;
-mod range;
-mod session;
 mod substrate;
 mod upc;
 mod utils;
@@ -26,58 +24,54 @@ pub fn main() {
     log!("Hello from wasm main()");
 }
 
-// VSCode
-// - Find a good file extension: .lp .lpbp .si .lpsi
-// - Embed the current version of LogicPaint into VSCode, with a text-based customer editor,
-//   associated with `.lp` files.
-// - Wire tool-change keyboards events through VSCode. Either...
-//   - Test if the WebView can bind global keybinds, then keep the Yew impl
-//   - Move the tool selection to UI to React, bind keys in VSCode
-// - Store Blueprints as JSON (all blueprints will be implicitly 'runnable' even if they do
-//   nothing). At least initially, they are complete and non-referential (ie a `.lp` file is all you
-//   need to run a circuit).
-// - Each edit should cause a write-back to the TextDocument
-// - Edits to the TextDocument should (without infinite loops) cause the viewport to update
-// - Shoot for saving then restoring a simple Blueprint
-// - Mark true on allowing multiple editors per TextDocument, see if split-view works
-// - See how hard it is to hook the build/play/stop buttons in VSCode.
+// Simple module handling:
+// - Single lp-modules.json file
+// - Modules are managed almost entirely in LogicPaint, the only thing that VSCode does is inform
+//   LP when the file changes, and handles events from LP like 'open module main-clk'. The modules
+//   file itself stores the module's root, so you can't get orphaned modules. Copy/paste will be
+//   handled in LP itself (module copying).
+// - Module objects are linked with a 'module ID' (UUID). Can use those to jump-to line location
+//   when LP asks to open a module definition too.
+// - I like this more. Simpler.
+// - For now, placing a module can be done by manually editing the JSON file.
+//
+// - Need a cursor-follow buffer accessible from JS, for pasting into. It is None by default.
+//   Ideally it should be serialized such that I can move my mouse from one window split to another
+//   and it follows.
+// - There are at least 2 modes...
+//   - Visual (default starting mode, accessed from any other mode with ESC)
+//     - Denoted by the cell-cursor (Excel style)
+//     - Only mode where module anchors are visible
+//     - Same selection keybinds as Excel. Clicking/Dragging selected a range. Holding Shift adds to
+//       the selection. Holding Ctrl removes from the selection.
+//     - Hovering a trace highlights the conductive path
+//     - Double-clicking a trace selects the conductive path cells
+//     - Modules can be poked. Dragging a module's anchor selects it for moving (moves it into the
+//       cursor-follow buffer). Pasted on mouse-up. Not sure I love that.
+//     - VSCode::OnCopy copies the selected cells and modules, with the root being what ever cell
+//       was last under the mouse at that time.
+//     - VSCode::OnPaste pastes into a 'cursor follow' buffer, next mouse click commits it to active
+//   - Paint mode (via hitting any brush keybind)
+//     - Denoted with a crosshair-cursor while over cells.
+//     - All paint modes: LMB primary, RMB || Shift+LMB secondary, Ctrl+[...] to erase.
+//     - Paint Metallic (keybind: F):
+//       - LMB: paint, RMB || Shift+LMB: Via, Ctrl+... to remove
+//     - Paint Si (keybind: D):
+//       - LMB: paint N, RMB || Shift+LMB paint P, Ctrl+LMB to erase any type
+//     - (Stretch goal) Paint conductive path (keybind: R);
+//       - LMB: paint metal when able, drop down to Si to bridge metal when able.
+//       - RMB: paint Si when able, step up to metal to bridge Si when able.
+//   - In all modes
+//     - MiddleMouse || Space+LMB pans the camera
+//     - Scrollwheel zooms in/out
+//     - Lower H returns to home at same zoom, upper H returns to home at default zoom
 
 // Micro-tasks
-// - Fix drawing 'under' HTML. This can be done by both setting ignore-events on the DOM, and by
-//   registering a global mouse handler when the substrate is clicked. That will handle dragging the
-// - Find this God Forsaken visual bug causing discontinuities in traces... (╯°□°）╯︵ ┻━┻
-//   mouse under an interact-able HTML node.
-// - Modules for the start, keep it super simple...
-//   - Create a module 'paint' tool. It places a 'null' module root on a cell.
-//   - The paint tool can (right click, place-new, left-click, select/move).
-//   - You can left-click on any module to open a JSON editor for the module contents. All modules
-//   - are the same object (a `ModuleData` instance). Won't be pretty in JSON though.
+// - Use a + cursor when interacting with cells (use 'cell' cursor in visual mode)
+// - Figure out how to draw under module HTML
+// - Rendering bug between chunks
 
-// Other ideas:
-// - Explore compiling a substrate to Rust, then running that through rustc along with the
-//   LogicPaint source so it's a single WASM executable.
-
-// Desired keybinds
-// - No modifier:
-//   - Left: select region, poke, DOM (module) interaction. Also how modules are moved.
-//   - Right: normal DOM (module) manipulation
-//   - Escape: clear selection
-//   - Ctrl+C/Ctrl+V: copy selection/paste selection (follows mouse till click, rooted at hovered
-//     cell when Ctrl+C was pressed)
-// - Space held:
-//   - Left: camera pan
-//   - Right: zoom?
-// - Q held:
-//   - Left: draw N silicon
-//   - Right: draw P silicon
-// - W held:
-//   - Left: draw metal
-//   - Right: place via
-// - R help:
-//   - Left: place new module root
-// - D held:
-//   - Left: remove si
-//   - Right: remove metal
+// =================================================================================================
 
 // Terms/concepts:
 //  X Blueprint: Serialized cell chunks which include modules who's root resides in that chunk, as
@@ -134,65 +128,3 @@ pub fn main() {
 //    viewport, for a given user session; owns the primary buffer, several BufferMasks, any user
 //    edit state, a compiled AST and ExecutionState (if executing) as well as the RenderContext,
 //    Camera and Painter.
-
-// Idk about the rest of this yet...
-
-//  - Session: Stores all Buffers, state and ?compiler results? associated with a single editing
-//    session. These include:
-//    - Primary Buffer: The main buffer drawn / simulated. This maintains its own undo stack.
-//    - Register Buffers: Any user assigned registers (`Ctrl+R <key>` or `"<key>`)
-//    - Clipboard Register: The + register.
-//  -
-//  - IR: Intermediate Representation of a compiled Blueprint. This includes Atoms, Traces (each
-//    trace is a vec of Atoms) and Gates.
-//  - VM: Virtual machine for running IR. Manages simulation context (trace and gate state), I/O
-//    module interop, and simulation stepping.
-
-// Buffer - The non-simulation part of an IC today; defines cell layout, modules and any
-//          annotations. It's the part that needs to be serialized. Buffers can be stored in
-//          registers and simulated.
-// LPIR - Logic-paint Intermediate Representation; anything compiled from a source Buffer like
-//        traces and gates. Serializable, but probably always just JIT it.
-// LPVM - Simulates LPIR and LPState.
-// Simulation -
-// IC - A compiled and ready to simulate Blueprint. Aka a Blueprint "instance". Only one exists.
-// Active Buffer - The Blueprint that represents the IC (but not it's simulation state).
-// Register - A place (named or otherwise) where a Blueprint can be stored.
-// Insert-mode - Direct cell mutation on the Active Buffer.
-// Visual-mode - Allows selecting cells, yanking, pasting and so on.
-// Pasting-mode - An offshoot of insert mode, where a ghost of an IC follows the cursor and the user
-//                can paste the blueprint as many times as they want.
-
-// VIM stuff:
-
-// Viewport and IC are exposed to JS. This is used in a few different ways:
-//   - VIM-like scripts that the editor can execute. Ex a script for
-//     generating a hardware ROM from a lookup table. Impl could be:
-//     - Get cursor-follow register
-//     - Programmatically place cells in IC
-//     - User can place generated cells in main buffer
-//   -
-
-// Keybinds are modeled heavily after VIM
-//   - Use cursor (crosshair and cell) to communicate insert vs visual-mode respectively. Can also
-//     use grab and grabbing for moving a selection.
-//   - Register access is done with `"<key>` like VIM.
-//   - The `"=` register is the expression register. Like VIM it can be pasted with `Ctrl+r =` as
-//     well.
-//   - All scripts are JS (TS?), and have access to the current buffer's context. Use Monaco for
-//     this.
-// I/O Modules are all defined in Rust, but one of those modules is JavascriptIo
-//   - JavascriptIo deferrers to JS callbacks for edge triggers and a few misc events like animation
-//     frame.
-//   - This needs to be as fast as possible, marshaling costs will be significant here.
-// Base64 is always used for serialization, with a header for version info: `LPV1`.
-// An entire IC can be yanked into a register, or a selection of it.
-//   - When cells are "pasted", they follow the mouse until placed.
-//   - When cells are "yanked", the point under the mouse is used as an anchor.
-// To start with, selection is done with `v` and it's just rectangular.
-//   - Shift to add to selection
-//   - Ctrl to remove from selection
-// For rendering
-//   - Redefine "active" to be "selected", and how that is rendered is defined in uniforms. Then it
-//     can be reused for things like selection highlighting, errors, and so on.
-//   - Add one more bit for 'entire cell is selected' as is the case for visual-mode.

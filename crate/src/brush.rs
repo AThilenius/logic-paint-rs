@@ -11,6 +11,7 @@ use crate::{
 
 pub struct Brush {
     pub active_tool: ToolType,
+    pub ephemeral_buffer: Option<Buffer>,
     draw_start: Option<IVec2>,
     last_event_cell: Option<IVec2>,
     initial_impulse_vertical: Option<bool>,
@@ -29,6 +30,7 @@ impl Brush {
     pub fn new() -> Self {
         Self {
             active_tool: ToolType::Metal,
+            ephemeral_buffer: None,
             draw_start: None,
             last_event_cell: None,
             initial_impulse_vertical: None,
@@ -38,13 +40,13 @@ impl Brush {
 
     pub fn handle_input_event(
         &mut self,
-        buffer: &mut Buffer,
+        existing_buffer: &Buffer,
         camera: &Camera,
         event: &RawInput,
     ) -> bool {
         // Handle keyboard events first
         match &event {
-            RawInput::KeyPressed(event) => match event.code().as_ref() {
+            RawInput::KeyUp(event) => match event.code().as_ref() {
                 "KeyQ" => self.active_tool = ToolType::NType,
                 "KeyW" => self.active_tool = ToolType::PType,
                 "KeyE" => self.active_tool = ToolType::Metal,
@@ -82,23 +84,21 @@ impl Brush {
 
         // Clicking both buttons cancels drawing.
         if pressed.0 && pressed.1 {
-            buffer.transaction_abort();
+            self.ephemeral_buffer = None;
             return false;
         }
 
         // If neither button is clicked
         if !pressed.0 && !pressed.1 {
             if previous.0 || previous.1 {
-                buffer.transaction_commit();
                 return true;
             }
 
             return false;
         }
 
-        // Clear out the old transaction, we repaint everything each time.
-        buffer.transaction_abort();
-        buffer.transaction_begin();
+        // Painting generates a totally new Buffer (cloned from the passed in one) each time.
+        let mut buffer = existing_buffer.clone();
 
         if just_pressed.0 || just_pressed.1 {
             self.draw_start = Some(end);
@@ -150,14 +150,15 @@ impl Brush {
             };
 
             match (self.active_tool, pressed.0) {
-                (ToolType::NType, true) => self.draw_si(buffer, from, to, true),
-                (ToolType::PType, true) => self.draw_si(buffer, from, to, false),
-                (ToolType::Metal, true) => self.draw_metal(buffer, from, to),
-                (ToolType::Via, true) => self.draw_via(buffer, from, to),
+                (ToolType::NType, true) => self.draw_si(&mut buffer, from, to, true),
+                (ToolType::PType, true) => self.draw_si(&mut buffer, from, to, false),
+                (ToolType::Metal, true) => self.draw_metal(&mut buffer, from, to),
+                (ToolType::Via, true) => self.draw_via(&mut buffer, from, to),
                 _ => todo!(),
             }
         }
 
+        self.ephemeral_buffer = Some(buffer);
         return false;
     }
 
@@ -175,7 +176,7 @@ impl Brush {
             }
         }
 
-        buffer.transact_set_cell(to, to_cell.into());
+        buffer.set_cell(to, to_cell.into());
     }
 
     fn draw_si(
@@ -346,9 +347,9 @@ impl Brush {
         }
 
         if let Some((from, from_cell)) = from {
-            buffer.transact_set_cell(from, from_cell.into());
+            buffer.set_cell(from, from_cell.into());
         }
-        buffer.transact_set_cell(to, to_cell.into());
+        buffer.set_cell(to, to_cell.into());
     }
 
     fn draw_metal(
@@ -379,8 +380,8 @@ impl Brush {
                 }
                 _ => {}
             }
-            buffer.transact_set_cell(from, from_cell.into());
+            buffer.set_cell(from, from_cell.into());
         }
-        buffer.transact_set_cell(to, to_cell.into());
+        buffer.set_cell(to, to_cell.into());
     }
 }

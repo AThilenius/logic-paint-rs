@@ -11,40 +11,50 @@ async function main() {
   const wasmUrl = (window as any).wasmUri;
   await init(wasmUrl);
 
+  const onLpUpdatedBlueprint = (blueprintString: string) => {
+    vscode.postMessage({
+      type: 'SET_BLUEPRINT_STRING',
+      blueprintString,
+    });
+  };
+
   const logicPaint = new LogicPaint(
     document.getElementById('root') as HTMLCanvasElement,
-    (sessionString: string) => {
-      vscode.postMessage({
-        type: 'SET_SESSION_STRING',
-        sessionString,
-      });
-      vscode.setState({ sessionString });
-    }
+    onLpUpdatedBlueprint
   );
 
   // Handle messages sent from the extension to the webview
   window.addEventListener('message', (event) => {
     const message = event.data;
     switch (message.type) {
-      case 'SET_SESSION_STRING':
-        const sessionString = message.sessionString;
-        const err = logicPaint.set_session_from_string(sessionString);
+      case 'SET_BLUEPRINT_STRING': {
+        let blueprintString: string = message.blueprintString;
+
+        if (!blueprintString.trim().length) {
+          blueprintString = '{}';
+        }
+
+        const err =
+          logicPaint.set_partial_blueprint_from_json_string(blueprintString);
+
         if (err) {
           console.log(err);
         }
 
         // Then persist state information.
         // This state is returned in the call to `vscode.getState` below when a webview is reloaded.
-        vscode.setState({ sessionString });
+        // vscode.setState({ blueprintString });
 
         return;
+      }
     }
   });
 
-  const state = vscode.getState();
-  if (state?.sessionString) {
-    logicPaint.set_session_from_string(state.sessionString);
-  }
+  // const state = vscode.getState();
+
+  // if (state?.blueprintString) {
+  //   logicPaint.set_partial_blueprint_from_json_string(state.blueprintString);
+  // }
 
   // DEV
   (window as any).logicPaint = logicPaint;

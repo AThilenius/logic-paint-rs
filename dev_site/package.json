@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "scripts": {
     "wasm": "wasm-pack build ../crate --target web --dev",
-    "dev": "yarn wasm && vite",
     "build": "wasm-pack build ../crate --target web && vite build"
   },
   "devDependencies": {

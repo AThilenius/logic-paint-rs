@@ -4,7 +4,7 @@ use web_sys::Element;
 use yew::prelude::*;
 
 use crate::{
-    session::SerdeSession,
+    blueprint::Blueprint,
     viewport::{Msg as YewViewportMsg, Viewport},
 };
 
@@ -26,11 +26,11 @@ impl LogicPaint {
         LogicPaint { handle }
     }
 
-    pub fn set_session_from_string(&mut self, data: &str) -> Option<String> {
+    pub fn set_blueprint_from_bin_string(&mut self, data: &str) -> Option<String> {
         let trimmed = data.trim();
 
-        if !trimmed.starts_with("LPS1:") {
-            return Some("String is not valid LogicPaint Session Version 1 data.".to_string());
+        if !trimmed.starts_with("LPBP1:") {
+            return Some("String is not valid LogicPaint Blueprint Version 1 data.".to_string());
         }
 
         let compressed_bytes = {
@@ -49,13 +49,13 @@ impl LogicPaint {
                 bytes
             } else {
                 return Some(
-                    "Failed to decompress session data. Das ist nicht so gut...".to_string(),
+                    "Failed to decompress Blueprint data. Das ist nicht so gut...".to_string(),
                 );
             }
         };
 
-        let session = {
-            let res = bincode::deserialize::<SerdeSession>(&bytes);
+        let blueprint = {
+            let res = bincode::deserialize::<Blueprint>(&bytes);
 
             if let Err(err) = res {
                 return Some(err.to_string());
@@ -65,15 +65,30 @@ impl LogicPaint {
         };
 
         self.handle
-            .send_message(YewViewportMsg::SetSession((&session).into()));
+            .send_message(YewViewportMsg::SetBlueprintPartial(blueprint));
 
         None
     }
 
-    pub fn get_session_as_string(&mut self) -> String {
+    pub fn get_blueprint_as_bin_string(&mut self) -> String {
         let component = self.handle.get_component().unwrap_throw();
-        let bytes = bincode::serialize(&SerdeSession::from(&component.session)).unwrap_throw();
+        let bytes = bincode::serialize(&Blueprint::from(&component.active_buffer)).unwrap_throw();
         let compressed_bytes = compress_to_vec(&bytes, 6);
-        format!("LPS1:{}", base64::encode(compressed_bytes))
+        format!("LPBP1:{}", base64::encode(compressed_bytes))
+    }
+
+    pub fn set_partial_blueprint_from_json_string(&mut self, data: &str) -> Option<String> {
+        if let Ok(blueprint) = serde_json::from_str::<Blueprint>(data) {
+            self.handle
+                .send_message(YewViewportMsg::SetBlueprintPartial(blueprint));
+            None
+        } else {
+            Some("Failed to deserialize JSON, or structure is invalid.".to_owned())
+        }
+    }
+
+    pub fn get_blueprint_as_json_string(&mut self) -> String {
+        let component = self.handle.get_component().unwrap_throw();
+        serde_json::to_string_pretty(&Blueprint::from(&component.active_buffer)).unwrap_throw()
     }
 }

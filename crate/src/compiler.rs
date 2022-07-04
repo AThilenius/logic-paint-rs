@@ -75,8 +75,8 @@ impl CompilerResults {
         //
         // Ie. The edge set is a queue (breadth-first) and is seeded with I/O pins.
         let mut edge_set: VecDeque<Atom> = buffer
-            .get_modules()
-            .iter()
+            .modules
+            .values()
             .flat_map(|m| m.get_pins())
             .map(|c| Atom {
                 coord: c.coord.clone(),
@@ -346,7 +346,7 @@ impl CompilerResults {
         }
 
         // Create an index for quickly copying trace states over to a BufferMask.
-        for (chunk_coord, chunk) in buffer.get_base_chunks() {
+        for (chunk_coord, chunk) in &buffer.chunks {
             let mut trace_indexes = vec![];
 
             // TODO: This can be made a lot more efficient if compilation times ever become a

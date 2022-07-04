@@ -27,7 +27,7 @@ impl ExecutionContext {
         let compiler_results = CompilerResults::from_buffer(&buffer);
         let gate_states = vec![false; compiler_results.gates.len()];
         let trace_states = vec![false; compiler_results.traces.len()];
-        let modules = buffer.get_modules();
+        let modules = buffer.modules.values().cloned().collect();
 
         Self {
             compiler_results,
