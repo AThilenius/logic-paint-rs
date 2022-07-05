@@ -1,8 +1,16 @@
 {
   "modules": [
     {
-      "anchor": { "root": [2, 2], "align": "TopLeft" },
-      "data": { "Register": { "bus_width": 4 } }
+      "anchor": { "root": [2, 2] },
+      "module": { "Register": { "bus_width": 4 } }
+    },
+    {
+      "anchor": { "root": [0, 1] },
+      "module": { "TogglePin": { "initially_high": true } }
+    },
+    {
+      "anchor": { "root": [0, 0] },
+      "module": { "TogglePin": {} }
     }
   ]
 }

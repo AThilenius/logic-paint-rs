@@ -3,15 +3,24 @@ use std::{cell::RefCell, rc::Rc};
 use serde::{Deserialize, Serialize};
 use yew::html;
 
-use crate::modules::{
-    Anchor, AnchoredModule, Memory, MemoryComponent, Module, Register, RegisterComponent,
-    TogglePin, TogglePinComponent,
+use crate::{
+    coords::CellCoord,
+    modules::{
+        Alignment, Anchor, AnchoredModule, Memory, MemoryComponent, Module, Register,
+        RegisterComponent, TogglePin, TogglePinComponent,
+    },
 };
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ModuleSerde {
-    pub anchor: Anchor,
-    pub data: ModuleSerdeData,
+    pub anchor: AnchorSerde,
+    pub module: ModuleSerdeData,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct AnchorSerde {
+    pub root: CellCoord,
+    pub align: Option<Alignment>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -36,12 +45,12 @@ pub struct TogglePinSerdeData {
 
 impl ModuleSerde {
     pub fn instantiate(&self) -> AnchoredModule {
-        match self.data {
+        match self.module {
             ModuleSerdeData::Memory(MemorySerdeData {}) => {
                 let module = Rc::new(RefCell::new(Memory::new()));
 
                 AnchoredModule {
-                    anchor: self.anchor,
+                    anchor: (&self.anchor).into(),
                     module: module.clone(),
                     html: html! { <MemoryComponent data={module.clone()} /> },
                     module_serde: self.clone(),
@@ -51,7 +60,7 @@ impl ModuleSerde {
                 let module = Rc::new(RefCell::new(Register::new(bus_width)));
 
                 AnchoredModule {
-                    anchor: self.anchor,
+                    anchor: (&self.anchor).into(),
                     module: module.clone(),
                     html: html! { <RegisterComponent data={module.clone()} /> },
                     module_serde: self.clone(),
@@ -63,7 +72,7 @@ impl ModuleSerde {
                 )));
 
                 AnchoredModule {
-                    anchor: self.anchor,
+                    anchor: (&self.anchor).into(),
                     module: module.clone(),
                     html: html! { <TogglePinComponent data={module.clone()} /> },
                     module_serde: self.clone(),
@@ -76,7 +85,7 @@ impl ModuleSerde {
 // We never go the other direction, so Into is implemented instead of From.
 impl Into<Box<dyn Module>> for ModuleSerde {
     fn into(self) -> Box<dyn Module> {
-        match self.data {
+        match self.module {
             ModuleSerdeData::Memory(MemorySerdeData {}) => Box::new(Memory::new()),
             ModuleSerdeData::Register(RegisterSerdeData { bus_width }) => {
                 Box::new(Register::new(bus_width))
@@ -84,6 +93,15 @@ impl Into<Box<dyn Module>> for ModuleSerde {
             ModuleSerdeData::TogglePin(TogglePinSerdeData { initially_high }) => {
                 Box::new(TogglePin::new(initially_high.unwrap_or_default()))
             }
+        }
+    }
+}
+
+impl From<&AnchorSerde> for Anchor {
+    fn from(anchor_serde: &AnchorSerde) -> Self {
+        Self {
+            root: anchor_serde.root,
+            align: anchor_serde.align.unwrap_or(Alignment::BottomLeft),
         }
     }
 }
