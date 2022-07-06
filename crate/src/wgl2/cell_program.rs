@@ -23,6 +23,7 @@ pub struct CellProgram {
     pub active_color: Uniform<Vec3>,
     pub grid_color: Uniform<Vec3>,
     pub background_color: Uniform<Vec3>,
+    pub cell_select_color: Uniform<Vec3>,
     pub grid_res: Uniform<Vec2>,
     pub grid_blend_strength: Uniform<f32>,
     pub metal_over_si_blend: Uniform<f32>,
@@ -48,6 +49,7 @@ impl CellProgram {
         let active_color = Uniform::new(&ctx, &program, "active_color");
         let grid_color = Uniform::new(&ctx, &program, "grid_color");
         let background_color = Uniform::new(&ctx, &program, "background_color");
+        let cell_select_color = Uniform::new(&ctx, &program, "cell_select_color");
         let grid_res = Uniform::new(&ctx, &program, "grid_res");
         let grid_blend_strength = Uniform::new(&ctx, &program, "grid_blend_strength");
         let metal_over_si_blend = Uniform::new(&ctx, &program, "metal_over_si_blend");
@@ -60,6 +62,7 @@ impl CellProgram {
         active_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         grid_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         background_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
+        cell_select_color.set(&ctx, Vec3::new(0.08, 0.15, 0.2));
         grid_res.set(&ctx, Vec2::new(32.0, 32.0));
         grid_blend_strength.set(&ctx, 0.03);
         metal_over_si_blend.set(&ctx, 0.6);
@@ -83,6 +86,7 @@ impl CellProgram {
             active_color,
             grid_color,
             background_color,
+            cell_select_color,
             grid_res,
             grid_blend_strength,
             metal_over_si_blend,

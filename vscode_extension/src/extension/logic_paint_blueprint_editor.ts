@@ -1,61 +1,101 @@
-import * as vscode from 'vscode';
+import {
+  CancellationToken,
+  CustomTextEditorProvider,
+  Disposable,
+  ExtensionContext,
+  Range,
+  RelativePattern,
+  StatusBarAlignment,
+  TextDocument,
+  ThemeColor,
+  Uri,
+  Webview,
+  WebviewPanel,
+  WorkspaceEdit,
+  commands,
+  env,
+  workspace,
+  window,
+} from 'vscode';
+import path from 'path';
 
 export class LogicPaintBlueprintEditorProvider
-  implements vscode.CustomTextEditorProvider
+  implements CustomTextEditorProvider
 {
   private static readonly viewType = 'logicPaint.logicPaintBlueprint';
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: ExtensionContext) {}
 
   /**
    * Called when our custom editor is opened.
    */
   public async resolveCustomTextEditor(
-    document: vscode.TextDocument,
-    webviewPanel: vscode.WebviewPanel,
-    _token: vscode.CancellationToken
+    document: TextDocument,
+    webviewPanel: WebviewPanel,
+    _token: CancellationToken
   ): Promise<void> {
+    const disposableArray: Disposable[] = [];
+
     webviewPanel.webview.options = { enableScripts: true };
     webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
 
-    const lpModulesPath = vscode.Uri.joinPath(
-      document.uri,
-      '../lp-modules.json'
+    const documentName = path.basename(
+      document.uri.path,
+      path.extname(document.uri.path)
+    );
+    const documentDirectory = path.dirname(document.uri.path);
+    const modulesFileName = `${documentName}.lpm.json`;
+    const modulesFilePath = Uri.file(
+      path.join(documentDirectory, modulesFileName)
     );
 
-    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(
-      (e) => {
+    disposableArray.push(
+      workspace.onDidChangeTextDocument((e) => {
         if (e.document.uri.toString() === document.uri.toString()) {
           webviewPanel.webview.postMessage({
             type: 'SET_BLUEPRINT_STRING',
             blueprintString: document.getText(),
           });
         }
-      }
+      })
     );
 
-    const savedDocumentSubscription = vscode.workspace.onDidSaveTextDocument(
-      (doc) => {
-        if (doc.uri.toString() === lpModulesPath.toString()) {
-          webviewPanel.webview.postMessage({
-            type: 'SET_BLUEPRINT_STRING',
-            blueprintString: doc.getText(),
-          });
-        }
-      }
+    const filesystemWatcher = workspace.createFileSystemWatcher(
+      new RelativePattern(
+        workspace.getWorkspaceFolder(Uri.joinPath(document.uri, '../'))!,
+        `{${documentName}.lpbp,${modulesFileName}}`
+      )
     );
+    disposableArray.push(filesystemWatcher);
+
+    const fsOnChange = async (uri: Uri) => {
+      // Both the *.lpbp and *.lpm.json files will trigger a 'blueprint set' on
+      // the viewport.
+      if (
+        uri.toString() === modulesFilePath.toString() ||
+        uri.toString() === document.uri.toString()
+      ) {
+        const doc = await workspace.openTextDocument(uri);
+        webviewPanel.webview.postMessage({
+          type: 'SET_BLUEPRINT_STRING',
+          blueprintString: doc.getText(),
+        });
+      }
+    };
+
+    filesystemWatcher.onDidChange(fsOnChange);
+    filesystemWatcher.onDidCreate(fsOnChange);
+    filesystemWatcher.onDidDelete(fsOnChange);
 
     // Receive message from the webview.
-    const webviewMessageSubscription = webviewPanel.webview.onDidReceiveMessage(
-      async (e) => {
+    disposableArray.push(
+      webviewPanel.webview.onDidReceiveMessage(async (e) => {
         switch (e.type) {
           case 'READY': {
             // Try to load the lp-modules.json file. Ignore if it doesn't exist.
             try {
-              await vscode.workspace.fs.stat(lpModulesPath);
-              const doc = await vscode.workspace.openTextDocument(
-                lpModulesPath
-              );
+              await workspace.fs.stat(modulesFilePath);
+              const doc = await workspace.openTextDocument(modulesFilePath);
 
               webviewPanel.webview.postMessage({
                 type: 'SET_BLUEPRINT_STRING',
@@ -80,68 +120,105 @@ export class LogicPaintBlueprintEditorProvider
             jsonString = JSON.stringify(blueprint, null, 2);
 
             // Then apply the edit.
-            const edit = new vscode.WorkspaceEdit();
+            const edit = new WorkspaceEdit();
             edit.replace(
               document.uri,
-              new vscode.Range(0, 0, document.lineCount, 0),
+              new Range(0, 0, document.lineCount, 0),
               jsonString
             );
 
-            vscode.workspace.applyEdit(edit);
+            workspace.applyEdit(edit);
+            return;
+          }
+          case 'SET_CLIPBOARD': {
+            const value = e.value;
+            void env.clipboard.writeText(value);
             return;
           }
         }
-      }
+      })
     );
 
-    // const doc = await vscode.workspace.openTextDocument(path);
-    // const pos1 = new vscode.Position(3, 8);
-    // const editor = await vscode.window.showTextDocument(doc, {
-    //   viewColumn: vscode.ViewColumn.Beside,
+    disposableArray.push(
+      commands.registerCommand('editor.action.clipboardCopyAction', () => {
+        webviewPanel.webview.postMessage({ type: 'TRIGGER_COPY' });
+      })
+    );
+
+    // disposableArray.push(
+    //   commands.registerCommand('editor.action.clipboardCutAction', async () => {
+    //     console.log('Cut called. Setting clipboard');
+    //     await env.clipboard.writeText('Hello, Cut!');
+    //   })
+    // );
+
+    disposableArray.push(
+      commands.registerCommand(
+        'editor.action.clipboardPasteAction',
+        async () => {
+          webviewPanel.webview.postMessage({
+            type: 'PASTE',
+            value: await env.clipboard.readText(),
+          });
+        }
+      )
+    );
+
+    const myStatusBarItem = window.createStatusBarItem(
+      StatusBarAlignment.Right,
+      100
+    );
+
+    myStatusBarItem.text = 'Hello, status bar!';
+    myStatusBarItem.color = new ThemeColor('statusBarItem.prominentForeground');
+    myStatusBarItem.show();
+
+    disposableArray.push(myStatusBarItem);
+
+    // const doc = await workspace.openTextDocument(path);
+    // const pos1 = new Position(3, 8);
+    // const editor = await window.showTextDocument(doc, {
+    //   viewColumn: ViewColumn.Beside,
     //   preview: true,
     // });
-    // editor.selections = [new vscode.Selection(pos1, pos1)];
-    // var range = new vscode.Range(pos1, pos1);
+    // editor.selections = [new Selection(pos1, pos1)];
+    // var range = new Range(pos1, pos1);
     // editor.revealRange(range);
 
     // setTimeout(async () => {
-    //   const editor = await vscode.window.showTextDocument(doc, {
-    //     viewColumn: vscode.ViewColumn.Beside,
+    //   const editor = await window.showTextDocument(doc, {
+    //     viewColumn: ViewColumn.Beside,
     //     preview: true,
-    //     selection: new vscode.Range(
-    //       new vscode.Position(3, 1),
-    //       new vscode.Position(3, 10)
+    //     selection: new Range(
+    //       new Position(3, 1),
+    //       new Position(3, 10)
     //     ),
     //   });
-    //   vscode.window.showTextDocument(editor.document);
-    //   editor.selections = [new vscode.Selection(pos1, pos1)];
-    //   var range = new vscode.Range(pos1, pos1);
+    //   window.showTextDocument(editor.document);
+    //   editor.selections = [new Selection(pos1, pos1)];
+    //   var range = new Range(pos1, pos1);
     //   editor.revealRange(range);
     // }, 5_000);
 
     // Make sure we get rid of the listener when our editor is closed.
     webviewPanel.onDidDispose(() => {
-      changeDocumentSubscription.dispose();
-      savedDocumentSubscription.dispose();
-      webviewMessageSubscription.dispose();
+      for (const disposable of disposableArray) {
+        disposable.dispose();
+      }
     });
   }
 
   /**
    * Get the static html used for the editor webviews.
    */
-  private getHtmlForWebview(webview: vscode.Webview): string {
+  private getHtmlForWebview(webview: Webview): string {
     // Local path to script and css for the webview
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.context.extensionUri,
-        'dist',
-        'webview_main.es.js'
-      )
+      Uri.joinPath(this.context.extensionUri, 'dist', 'webview_main.es.js')
     );
 
     const styleMainUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
+      Uri.joinPath(
         this.context.extensionUri,
         'media',
         'logic_paint_blueprint.css'
@@ -149,16 +226,8 @@ export class LogicPaintBlueprintEditorProvider
     );
 
     const wasmUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.context.extensionUri,
-        'dist',
-        'assets',
-        'crate_bg.wasm'
-      )
+      Uri.joinPath(this.context.extensionUri, 'dist', 'assets', 'crate_bg.wasm')
     );
-
-    // <link href="${styleResetUri}" rel="stylesheet" />
-    // <link href="${styleVSCodeUri}" rel="stylesheet" />
 
     return /* html */ `
 			<!DOCTYPE html>
@@ -189,9 +258,9 @@ export class LogicPaintBlueprintEditorProvider
 			</html>`;
   }
 
-  public static register(context: vscode.ExtensionContext): vscode.Disposable {
+  public static register(context: ExtensionContext): Disposable {
     const provider = new LogicPaintBlueprintEditorProvider(context);
-    const providerRegistration = vscode.window.registerCustomEditorProvider(
+    const providerRegistration = window.registerCustomEditorProvider(
       LogicPaintBlueprintEditorProvider.viewType,
       provider
     );

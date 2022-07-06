@@ -47,6 +47,18 @@ async function main() {
 
         return;
       }
+      case 'TRIGGER_COPY': {
+        vscode.postMessage({ type: 'SET_CLIPBOARD', value: logicPaint.copy() });
+        return;
+      }
+      case 'PASTE': {
+        const value = message.value;
+        const err = logicPaint.paste(value);
+        if (err) {
+          console.error(err);
+        }
+        return;
+      }
     }
   });
 
@@ -65,54 +77,3 @@ async function main() {
 }
 
 void main();
-
-// errorContainer.style.display = 'none';
-
-/**
- * Render the document in the webview.
- */
-// function updateContent(text: string) {
-//   let json;
-//   try {
-//     if (!text) {
-//       text = '{}';
-//     }
-//     json = JSON.parse(text);
-//   } catch {
-//     notesContainer.style.display = 'none';
-//     errorContainer.innerText = 'Error: Document is not valid json';
-//     errorContainer.style.display = '';
-//     return;
-//   }
-//   notesContainer.style.display = '';
-//   // errorContainer.style.display = 'none';
-
-//   // Render the scratches
-//   notesContainer.innerHTML = '';
-//   for (const note of json.scratches || []) {
-//     const element = document.createElement('div');
-//     element.className = 'note';
-//     notesContainer.appendChild(element);
-
-//     const text = document.createElement('div');
-//     text.className = 'text';
-//     const textContent = document.createElement('span');
-//     textContent.innerText = note.text;
-//     text.appendChild(textContent);
-//     element.appendChild(text);
-
-//     const created = document.createElement('div');
-//     created.className = 'created';
-//     created.innerText = new Date(note.created).toUTCString();
-//     element.appendChild(created);
-
-//     const deleteButton = document.createElement('button');
-//     deleteButton.className = 'delete-button';
-//     deleteButton.addEventListener('click', () => {
-//       vscode.postMessage({ type: 'delete', id: note.id });
-//     });
-//     element.appendChild(deleteButton);
-//   }
-
-//   notesContainer.appendChild(addButtonContainer);
-// }

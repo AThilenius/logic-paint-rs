@@ -134,6 +134,7 @@ impl CompilerResults {
                         NormalizedCell {
                             si: Silicon::NP { placement, .. },
                             metal,
+                            ..
                         },
                     ) => {
                         // Follow conductive Si trace. Could go into another trace, or into a MOSFET
@@ -177,6 +178,7 @@ impl CompilerResults {
                         NormalizedCell {
                             si: Silicon::Mosfet { gate_placement, .. },
                             metal,
+                            ..
                         },
                     ) => {
                         // This atom is implicitly the gate atom. Store it in the `base_atoms` set

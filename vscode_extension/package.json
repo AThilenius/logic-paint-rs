@@ -1,54 +1,54 @@
 {
-	"name": "logic-paint",
-	"author": {
-		"name": "Alec Thilenius",
-		"email": "alec@thilenius.com"
-	},
-	"displayName": "Logic Paint",
-	"description": "Custom editor for Logic Paint Blueprints",
-	"version": "0.0.1",
-	"private": true,
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://gitlab.com/athilenius/logic-paint-rs"
-	},
-	"scripts": {
-		"build": "yarn build:wasm && yarn build:webview && yarn build:extension",
-		"build:webview": "vite build",
-		"build:extension": "tsup src/extension/extension_main.ts --external vscode",
-		"build:wasm": "wasm-pack build ../crate --target web --dev",
-		"vscode:prepublish": "yarn build"
-	},
-	"engines": {
-		"vscode": "^1.65.0"
-	},
-	"activationEvents": [
-		"onCustomEditor:logicPaint.logicPaintBlueprint"
-	],
-	"main": "./dist/extension_main.js",
-	"contributes": {
-		"customEditors": [
-			{
-				"viewType": "logicPaint.logicPaintBlueprint",
-				"displayName": "Logic Paint",
-				"selector": [
-					{
-						"filenamePattern": "*.lpbp"
-					}
-				]
-			}
-		]
-	},
-	"devDependencies": {
-		"@types/node": "^12.12.0",
-		"@types/vscode": "^1.67.0",
-		"@typescript-eslint/eslint-plugin": "^5.19.0",
-		"@typescript-eslint/parser": "^5.19.0",
-		"eslint": "^8.13.0",
-		"tsup": "^5.12.8",
-		"typescript": "^4.6.3",
-		"vite": "^2.9.9",
-		"vite-plugin-wasm-pack": "^0.1.12"
-	}
+  "name": "logic-paint",
+  "author": {
+    "name": "Alec Thilenius",
+    "email": "alec@thilenius.com"
+  },
+  "displayName": "Logic Paint",
+  "description": "Custom editor for Logic Paint Blueprints",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/athilenius/logic-paint-rs"
+  },
+  "scripts": {
+    "build": "yarn build:wasm && yarn build:webview && yarn build:extension",
+    "build:webview": "vite build",
+    "build:extension": "tsup src/extension/extension_main.ts --external vscode",
+    "build:wasm": "wasm-pack build ../crate --target web --dev",
+    "vscode:prepublish": "yarn build"
+  },
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "activationEvents": [
+    "onCustomEditor:logicPaint.logicPaintBlueprint"
+  ],
+  "main": "./dist/extension_main.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "logicPaint.logicPaintBlueprint",
+        "displayName": "Logic Paint",
+        "selector": [
+          {
+            "filenamePattern": "*.lpbp"
+          }
+        ]
+      }
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^12.12.0",
+    "@types/vscode": "^1.67.0",
+    "@typescript-eslint/eslint-plugin": "^5.19.0",
+    "@typescript-eslint/parser": "^5.19.0",
+    "eslint": "^8.13.0",
+    "tsup": "^5.12.8",
+    "typescript": "^4.6.3",
+    "vite": "^2.9.9",
+    "vite-plugin-wasm-pack": "^0.1.12"
+  }
 }

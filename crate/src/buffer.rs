@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
+use glam::{IVec2, UVec2};
+
 use crate::{
     coords::CHUNK_SIZE,
     modules::{AnchoredModule, Pin},
     upc::{Bit, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
+    utils::Selection,
 };
 
 use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
@@ -68,6 +71,51 @@ impl Buffer {
                 .insert(anchor_coord, anchored_module.clone());
         }
     }
+
+    pub fn clone_selection(&self, selection: &Selection) -> Buffer {
+        // This is pretty damn inefficient. If copy-paste seems to slow, might need to redo this.
+        let mut buffer = Buffer::default();
+
+        for (chunk_coord, cell_coords) in selection.group_changes_by_chunk() {
+            if let Some(existing_chunk) = self.chunks.get(&chunk_coord) {
+                let mut new_chunk = BufferChunk::default();
+
+                for cell_coord in cell_coords {
+                    let cell = existing_chunk.get_cell(cell_coord);
+
+                    // Clone modules if their root is included in the selection
+                    if cell.get_bit(Bit::MODULE_ROOT) {
+                        if let Some(module) = self.anchored_modules.get(&cell_coord) {
+                            buffer.set_modules(vec![module.clone()]);
+                        }
+                    }
+
+                    buffer.set_cell(cell_coord, cell);
+                }
+            }
+        }
+
+        buffer
+    }
+
+    pub fn paste_buffer_offset_by(&mut self, root_offset: IVec2, buffer: &Buffer) {
+        // Copy chunks
+        for (chunk_coord, chunk) in &buffer.chunks {
+            let relative_chunk_start =
+                LocalCoord(UVec2::ZERO).to_cell_coord(chunk_coord).0 + root_offset;
+
+            for y in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    let offset_cell_loc = relative_chunk_start + IVec2::new(x as i32, y as i32);
+                    let cell = chunk.get_cell(LocalCoord(UVec2::new(x as u32, y as u32)));
+                    self.set_cell(CellCoord(offset_cell_loc), cell);
+                }
+            }
+        }
+
+        // Copy modules
+        self.set_modules(buffer.anchored_modules.values().cloned());
+    }
 }
 
 impl BufferChunk {
@@ -91,10 +139,10 @@ impl BufferChunk {
         let slice = &mut self.cells[idx..idx + UPC_BYTE_LEN];
         let existing = UPC::from_slice(slice);
 
-        // IO pins cannot be replaced with this call, so set IO bit if existing cell has an IO.
-        if existing.get_bit(Bit::IO) {
-            cell.set_bit(Bit::IO);
-        }
+        // IO pins and module roots cannot be replaced with this call, so set IO/root bit if
+        // existing cell has one.
+        cell.set_bit_val(Bit::IO, existing.get_bit(Bit::IO));
+        cell.set_bit_val(Bit::MODULE_ROOT, existing.get_bit(Bit::MODULE_ROOT));
 
         // Track cell count as well.
         if existing == Default::default() && cell != Default::default() {
@@ -116,6 +164,7 @@ impl BufferChunk {
             let target = &mut chunk.cells[idx..idx + UPC_BYTE_LEN];
             let mut cell = UPC::from_slice(src);
             cell.clear_bit(Bit::IO);
+            cell.clear_bit(Bit::MODULE_ROOT);
             target.copy_from_slice(&cell.0);
         }
 

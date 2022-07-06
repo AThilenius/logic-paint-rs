@@ -8,6 +8,7 @@ use crate::{
 };
 
 pub struct ExecutionContext {
+    pub buffer_mask: BufferMask,
     compiler_results: CompilerResults,
     anchored_modules: Vec<AnchoredModule>,
     state: SimState,
@@ -18,8 +19,6 @@ struct SimState {
     pub step_count: usize,
     pub gate_states: Vec<bool>,
     pub trace_states: Vec<bool>,
-    // pub pin_module_states: Vec<PinModuleState>,
-    // pub pin_states: Vec<Vec<PinState>>,
 }
 
 impl ExecutionContext {
@@ -30,6 +29,7 @@ impl ExecutionContext {
         let modules = buffer.anchored_modules.values().cloned().collect();
 
         Self {
+            buffer_mask: Default::default(),
             compiler_results,
             anchored_modules: modules,
             state: SimState {
@@ -127,13 +127,13 @@ impl ExecutionContext {
         self.state.step_count += 1;
     }
 
-    pub fn update_buffer_mask(&self, buffer_mask: &mut BufferMask) {
+    pub fn update_buffer_mask(&mut self) {
         for (chunk_coord, cell_part_to_traces) in self
             .compiler_results
             .trace_to_cell_part_index_by_chunk
             .iter()
         {
-            let chunk = buffer_mask.get_or_create_chunk_mut(*chunk_coord);
+            let chunk = self.buffer_mask.get_or_create_chunk_mut(*chunk_coord);
             for index in cell_part_to_traces {
                 let i = index.cell_index_in_chunk * MASK_BYTE_LEN;
                 let cell_slice = &mut chunk.cells[i..i + MASK_BYTE_LEN];

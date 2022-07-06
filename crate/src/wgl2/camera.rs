@@ -4,7 +4,7 @@ use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
 
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
-    dom::RawInput,
+    input::InputState,
 };
 
 #[derive(Clone, PartialEq)]
@@ -15,7 +15,6 @@ pub struct Camera {
     pub proj_matrix: Mat4,
     pixel_ratio: f32,
     drag_world_anchor: Option<Vec2>,
-    last_mouse_position: Vec2,
 }
 
 impl Camera {
@@ -27,7 +26,6 @@ impl Camera {
             size: Vec2::ONE,
             proj_matrix: Default::default(),
             drag_world_anchor: None,
-            last_mouse_position: Vec2::ZERO,
         };
 
         camera.update_proj_matrix();
@@ -54,74 +52,37 @@ impl Camera {
         )
     }
 
-    pub fn try_handle_input_event(&mut self, event: &RawInput) -> bool {
-        match event {
-            RawInput::MouseWheelEvent(event) => {
-                event.prevent_default();
-                event.stop_propagation();
-
-                // Zoom centered around the cursor
-                let screen_point = Vec2::new(event.offset_x() as f32, event.offset_y() as f32);
-                let origin_world = self.project_screen_point_to_world(screen_point);
-                self.scale += self.scale * event.delta_y() as f32 * 0.001;
-                self.scale = f32::clamp(self.scale, 0.02, 10.0);
-                self.update_proj_matrix();
-                let new_world_point = self.project_screen_point_to_world(screen_point);
-                self.translation += origin_world - new_world_point;
-                true
-            }
-            RawInput::KeyDown(event) if event.code() == "Space" => {
-                event.prevent_default();
-                event.stop_propagation();
-
-                self.drag_world_anchor =
-                    Some(self.project_screen_point_to_world(self.last_mouse_position));
-                true
-            }
-            RawInput::KeyUp(event) if event.code() == "Space" => {
-                event.prevent_default();
-                event.stop_propagation();
-
-                self.drag_world_anchor = None;
-                true
-            }
-            RawInput::MouseDown(event) if event.button() == 1 => {
-                event.prevent_default();
-                event.stop_propagation();
-
-                self.drag_world_anchor = Some(self.project_screen_point_to_world(Vec2::new(
-                    event.offset_x() as f32,
-                    event.offset_y() as f32,
-                )));
-                true
-            }
-            RawInput::MouseUp(event) if event.button() == 1 => {
-                event.prevent_default();
-                event.stop_propagation();
-
-                self.drag_world_anchor = None;
-                true
-            }
-            RawInput::MouseMove(event) => {
-                // We always track the last mouse position. This is used when panning starts.
-                self.last_mouse_position =
-                    Vec2::new(event.offset_x() as f32, event.offset_y() as f32);
-
-                // We want to put the drag_world_anchor directly under the mouse.
-                let new_world_point = self.project_screen_point_to_world(self.last_mouse_position);
-                if let Some(anchor) = self.drag_world_anchor {
-                    event.prevent_default();
-                    event.stop_propagation();
-
-                    // How far do we need to move the camera to move the anchor under the mouse
-                    self.translation += anchor - new_world_point;
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
+    /// Returns true if input processing should be truncated because of panning.
+    pub fn handle_input(&mut self, input: &InputState) -> bool {
+        // Track the drag-anchor for panning on initial click of middle-mouse or Space.
+        if input.mouse_input.middle || input.keyboard_input.keydown.contains("Space") {
+            self.drag_world_anchor = Some(self.drag_world_anchor.unwrap_or_else(|| {
+                self.project_screen_point_to_world(input.mouse_input.screen_point)
+            }));
+        } else {
+            self.drag_world_anchor = None;
         }
+
+        // Handle pan mouse dragging. We want to put the drag_world_anchor directly under the mouse.
+        let new_world_point = self.project_screen_point_to_world(input.mouse_input.screen_point);
+        if let Some(anchor) = self.drag_world_anchor {
+            // How far we need to move the camera to move the anchor under the mouse
+            self.translation += anchor - new_world_point;
+
+            // Returning here disallows any other camera op while panning. They create
+            // discontinuities.
+            return true;
+        }
+
+        // Handle scroll zooming around the world anchor under the mouse.
+        let origin_world = self.project_screen_point_to_world(input.mouse_input.screen_point);
+        self.scale += self.scale * input.mouse_input.scroll_delta_y;
+        self.scale = f32::clamp(self.scale, 0.02, 10.0);
+        self.update_proj_matrix();
+        let new_world_point = self.project_screen_point_to_world(input.mouse_input.screen_point);
+        self.translation += origin_world - new_world_point;
+
+        false
     }
 
     /// Project a screen x,y point into the world. Z axis is ignored because I don't need it.

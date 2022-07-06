@@ -17,6 +17,7 @@ uniform vec3 io_color;
 uniform vec3 active_color;
 uniform vec3 grid_color;
 uniform vec3 background_color;
+uniform vec3 cell_select_color;
 uniform vec2 grid_res;
 uniform float grid_blend_strength;
 uniform float metal_over_si_blend;
@@ -107,6 +108,7 @@ void main() {
     bool gate_active = (mask.g & (1u << 0u)) > 0u;
     bool si_ul_active = (mask.b & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
     bool si_dr_active = (mask.a & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
+    bool cell_selected = (mask.r & (1u << 1u)) > 0u;
 
     bool metal_connection = connection(
         tile_uv,
@@ -213,5 +215,12 @@ void main() {
     // Vias are on or off.
     vec3 with_via_color = mix(with_io_color, via_color, via_blend);
 
-    out_color = vec4(with_via_color, 1.0);
+    // Cell selection highlights the whole cell
+    vec3 with_cell_selection = mix(
+        with_via_color,
+        cell_select_color,
+        cell_selected ? 0.5 : 0.0
+    );
+
+    out_color = vec4(with_cell_selection, 1.0);
 }

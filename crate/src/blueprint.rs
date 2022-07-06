@@ -5,11 +5,13 @@ use crate::{
     upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
 };
 
+use glam::IVec2;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::UnwrapThrowExt;
 
 #[derive(Serialize, Deserialize)]
 pub struct Blueprint {
+    pub root_offset: Option<IVec2>,
     chunks: Option<Vec<CellChunk>>,
     modules: Option<Vec<ModuleSerde>>,
 }
@@ -118,6 +120,7 @@ impl From<&Buffer> for Blueprint {
         }
 
         Self {
+            root_offset: None,
             chunks: Some(chunks),
             modules: Some(
                 buffer
