@@ -24,12 +24,18 @@ pub struct CellProgram {
     pub active_color: Uniform<Vec3>,
     pub grid_color: Uniform<Vec3>,
     pub background_color: Uniform<Vec3>,
-    pub cell_select_color: Uniform<Vec3>,
-    pub cell_select_ll: Uniform<IVec2>,
-    pub cell_select_ur: Uniform<IVec2>,
     pub grid_res: Uniform<Vec2>,
     pub grid_blend_strength: Uniform<f32>,
     pub metal_over_si_blend: Uniform<f32>,
+
+    // Selection
+    pub cell_select_color: Uniform<Vec3>,
+    pub cell_select_ll: Uniform<IVec2>,
+    pub cell_select_ur: Uniform<IVec2>,
+
+    //Cursor follow
+    pub cursor_follow_color: Uniform<Vec3>,
+    pub cursor_coord: Uniform<IVec2>,
 }
 
 impl CellProgram {
@@ -53,12 +59,16 @@ impl CellProgram {
         let active_color = Uniform::new(&ctx, &program, "active_color");
         let grid_color = Uniform::new(&ctx, &program, "grid_color");
         let background_color = Uniform::new(&ctx, &program, "background_color");
-        let cell_select_color = Uniform::new(&ctx, &program, "cell_select_color");
-        let cell_select_ll = Uniform::new(&ctx, &program, "cell_select_ll");
-        let cell_select_ur = Uniform::new(&ctx, &program, "cell_select_ur");
         let grid_res = Uniform::new(&ctx, &program, "grid_res");
         let grid_blend_strength = Uniform::new(&ctx, &program, "grid_blend_strength");
         let metal_over_si_blend = Uniform::new(&ctx, &program, "metal_over_si_blend");
+
+        let cell_select_color = Uniform::new(&ctx, &program, "cell_select_color");
+        let cell_select_ll = Uniform::new(&ctx, &program, "cell_select_ll");
+        let cell_select_ur = Uniform::new(&ctx, &program, "cell_select_ur");
+
+        let cursor_follow_color = Uniform::new(&ctx, &program, "cursor_follow_color");
+        let cursor_coord = Uniform::new(&ctx, &program, "cursor_coord");
 
         // Set default style values
         chunk_start_cell_offset.set(&ctx, IVec2::new(0, 0));
@@ -69,12 +79,16 @@ impl CellProgram {
         active_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         grid_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         background_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
-        cell_select_color.set(&ctx, Vec3::new(0.08, 0.15, 0.2));
-        cell_select_ll.set(&ctx, IVec2::new(0, 0));
-        cell_select_ur.set(&ctx, IVec2::new(0, 0));
         grid_res.set(&ctx, Vec2::new(32.0, 32.0));
         grid_blend_strength.set(&ctx, 0.03);
         metal_over_si_blend.set(&ctx, 0.6);
+
+        cell_select_color.set(&ctx, Vec3::new(0.32, 0.6, 0.8));
+        cell_select_ll.set(&ctx, IVec2::new(0, 0));
+        cell_select_ur.set(&ctx, IVec2::new(0, 0));
+
+        cursor_follow_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
+        cursor_coord.set(&ctx, IVec2::new(0, 0));
 
         // Set defaults for texture samplers
         cells_texture_sampler.set(&ctx, 0);
@@ -96,12 +110,16 @@ impl CellProgram {
             active_color,
             grid_color,
             background_color,
-            cell_select_color,
-            cell_select_ll,
-            cell_select_ur,
             grid_res,
             grid_blend_strength,
             metal_over_si_blend,
+
+            cell_select_color,
+            cell_select_ll,
+            cell_select_ur,
+
+            cursor_follow_color,
+            cursor_coord,
         })
     }
 

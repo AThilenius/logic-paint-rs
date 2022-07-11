@@ -20,10 +20,10 @@ pub struct Viewport {
     pub ephemeral_buffer: Option<Buffer>,
     pub execution_context: Option<ExecutionContext>,
     pub selection: Selection,
-    pub ephemeral_selection: Option<Selection>,
     pub camera: Camera,
     pub time: f64,
     pub input_state: InputState,
+    mouse_follow_buffer: Option<Buffer>,
     mode: Mode,
     canvas: NodeRef,
     render_context: Option<RenderContext>,
@@ -89,6 +89,13 @@ impl Viewport {
             Vec2::new(w as f32, h as f32),
         );
 
+        // Redraw the mouse-follow buffer to the ephemeral buffer each frame.
+        if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
+            let mut buffer = self.active_buffer.clone();
+            buffer.paste_at(self.input_state.mouse_input.cell, mouse_follow_buffer);
+            self.ephemeral_buffer = Some(buffer);
+        }
+
         if let Some(render_context) = &mut self.render_context {
             let buffer = self
                 .ephemeral_buffer
@@ -108,6 +115,12 @@ impl Viewport {
     }
 
     fn dispatch_input_state(&mut self) {
+        // Handle cursor-follow before anything else.
+        if let Some(render_context) = &self.render_context {
+            render_context.set_cursor_coord(self.input_state.mouse_input.cell);
+        }
+
+        // Let the camera take all events beyond that.
         if self.camera.handle_input(&self.input_state) {
             return;
         }
@@ -116,6 +129,8 @@ impl Viewport {
         if self.input_state.keyboard_input.keydown.contains("Escape") {
             self.mode = Mode::Visual;
             self.selection = Default::default();
+            self.mouse_follow_buffer = None;
+            self.ephemeral_buffer = None;
         } else if self.input_state.keyboard_input.keydown.contains("KeyD") {
             self.mode = Mode::PaintSi;
         } else if self.input_state.keyboard_input.keydown.contains("KeyF") {
@@ -124,15 +139,33 @@ impl Viewport {
 
         match self.mode {
             Mode::Visual => {
-                if self.input_state.mouse_input.primary {
-                    if let Some(drag) = self.input_state.mouse_input.drag {
-                        self.selection = Selection::from_rectangle_inclusive(
-                            drag.start,
-                            self.input_state.mouse_input.cell,
-                        );
+                if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
+                    // Handle placing the mouse follow buffer.
+                    if self.input_state.mouse_input.primary
+                        && !self.input_state.previous_mouse_input.primary
+                    {
+                        self.active_buffer
+                            .paste_at(self.input_state.mouse_input.cell, &mouse_follow_buffer);
+
+                        self.notify_js_on_change();
                     }
-                } else if self.input_state.mouse_input.secondary {
-                    self.selection = Default::default();
+
+                    // Right click (and ESC) clears the mouse follow buffer.
+                    if self.input_state.mouse_input.secondary {
+                        self.mouse_follow_buffer = None;
+                        self.ephemeral_buffer = None;
+                    }
+                } else {
+                    if self.input_state.mouse_input.primary {
+                        if let Some(drag) = self.input_state.mouse_input.drag {
+                            self.selection = Selection::from_rectangle_inclusive(
+                                drag.start,
+                                self.input_state.mouse_input.cell,
+                            );
+                        }
+                    } else if self.input_state.mouse_input.secondary {
+                        self.selection = Default::default();
+                    }
                 }
             }
             Mode::PaintMetallic | Mode::PaintSi => {
@@ -153,12 +186,7 @@ impl Viewport {
                 self.active_buffer = buffer;
 
                 // Notify JS.
-                if let Some(on_edit_callback) = self.on_edit_callback.as_ref() {
-                    let json = serde_json::to_string_pretty(&Blueprint::from(&self.active_buffer))
-                        .unwrap_throw();
-                    let js_str = JsValue::from(&json);
-                    let _ = on_edit_callback.call1(&JsValue::null(), &js_str);
-                }
+                self.notify_js_on_change();
             }
 
             return;
@@ -214,6 +242,15 @@ impl Viewport {
 
         self.ephemeral_buffer = Some(buffer);
     }
+
+    fn notify_js_on_change(&self) {
+        if let Some(on_edit_callback) = self.on_edit_callback.as_ref() {
+            let json =
+                serde_json::to_string_pretty(&Blueprint::from(&self.active_buffer)).unwrap_throw();
+            let js_str = JsValue::from(&json);
+            let _ = on_edit_callback.call1(&JsValue::null(), &js_str);
+        }
+    }
 }
 
 impl Component for Viewport {
@@ -226,10 +263,10 @@ impl Component for Viewport {
             ephemeral_buffer: None,
             execution_context: None,
             selection: Default::default(),
-            ephemeral_selection: None,
             camera: Camera::new(),
             time: 0.0,
             input_state: InputState::new(),
+            mouse_follow_buffer: None,
             mode: Mode::Visual,
             canvas: NodeRef::default(),
             render_context: None,
@@ -253,9 +290,8 @@ impl Component for Viewport {
                 }
             }
             Msg::PasteBlueprint(blueprint) => {
-                if let Some(new_buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
-                    self.active_buffer
-                        .paste_at(self.input_state.mouse_input.cell, &new_buffer);
+                if let Some(buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
+                    self.mouse_follow_buffer = Some(buffer);
                 }
             }
             Msg::Render(time) => {

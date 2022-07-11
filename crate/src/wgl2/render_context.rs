@@ -8,7 +8,7 @@ use crate::buffer_mask::BufferMask;
 use crate::utils::Selection;
 use crate::wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture};
 
-use crate::coords::ChunkCoord;
+use crate::coords::{CellCoord, ChunkCoord};
 
 pub struct RenderContext {
     program: CellProgram,
@@ -133,5 +133,9 @@ impl RenderContext {
         }
 
         Ok(())
+    }
+
+    pub fn set_cursor_coord(&self, coord: CellCoord) {
+        self.program.cursor_coord.set(&self.gl, coord.0);
     }
 }

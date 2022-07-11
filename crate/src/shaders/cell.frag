@@ -18,12 +18,18 @@ uniform vec3 io_color;
 uniform vec3 active_color;
 uniform vec3 grid_color;
 uniform vec3 background_color;
-uniform vec3 cell_select_color;
-uniform ivec2 cell_select_ll;
-uniform ivec2 cell_select_ur;
 uniform vec2 grid_res;
 uniform float grid_blend_strength;
 uniform float metal_over_si_blend;
+
+// Selection
+uniform vec3 cell_select_color;
+uniform ivec2 cell_select_ll;
+uniform ivec2 cell_select_ur;
+
+// Cursor-follow
+uniform vec3 cursor_follow_color;
+uniform ivec2 cursor_coord;
 
 out vec4 out_color;
 
@@ -119,6 +125,8 @@ void main() {
         cell.x < cell_select_ur.x &&
         cell.y < cell_select_ur.y;
 
+    bool cursor = cursor_coord.x == cell.x || cursor_coord.y == cell.y;
+
     bool metal_connection = connection(
         tile_uv,
         metal_dir_up,
@@ -199,37 +207,45 @@ void main() {
     via_blend = via ? via_blend : 0.0;
 
     // Linear color blending.
-    vec3 base_color = mix(background_color, grid_color, grid_blend);
+    // Start with base (checker) color.
+    vec3 color = mix(background_color, grid_color, grid_blend);
+
+    // Cursor follow highlight.
+    color = mix(
+        color,
+        cursor_follow_color,
+        cursor ? 0.5 : 0.0
+    );
 
     // Si totally overrides base color.
-    base_color = mix(base_color, si_color, si_blend);
+    color = mix(color, si_color, si_blend);
 
     // Gate totally overrides si
-    base_color = mix(base_color, gate_color, gate_blend);
+    color = mix(color, gate_color, gate_blend);
 
     // Metal is only blended if there is si.
-    vec3 with_metal_color = mix(
-        base_color,
+    color = mix(
+        color,
         blended_metal_color,
         si_blend > 0.5 ? metal_blend * metal_over_si_blend : metal_blend
     );
 
     // And I/O overrides all of it and fills the entire cell.
-    vec3 with_io_color = mix(
-        with_metal_color,
+    color = mix(
+        color,
         blended_io_color,
         is_io ? 1.0 : 0.0
     );
 
     // Vias are on or off.
-    vec3 with_via_color = mix(with_io_color, via_color, via_blend);
+    color = mix(color, via_color, via_blend);
 
     // Cell selection highlights the whole cell
-    vec3 with_cell_selection = mix(
-        with_via_color,
+    color = mix(
+        color,
         cell_select_color,
         cell_selected ? 0.5 : 0.0
     );
 
-    out_color = vec4(with_cell_selection, 1.0);
+    out_color = vec4(color, 1.0);
 }
