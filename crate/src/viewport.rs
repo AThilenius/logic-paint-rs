@@ -7,7 +7,6 @@ use crate::{
     blueprint::Blueprint,
     brush::{draw_metal, draw_si, draw_via},
     buffer::Buffer,
-    coords::CellCoord,
     dom::{DomIntervalHooks, ModuleMount, RawInput},
     execution_context::ExecutionContext,
     input::InputState,
@@ -72,21 +71,6 @@ pub enum Mode {
 }
 
 impl Viewport {
-    // pub fn copy(&self) -> Blueprint {
-    //     if let Some(selection) = self
-    //         .selection
-    //         .as_ref()
-    //         .or(self.ephemeral_selection.as_ref())
-    //     {
-    //         let buffer = self.active_buffer.clone_selection(&selection);
-    //         let mut blueprint = Blueprint::from(&buffer);
-    //         blueprint.root_offset = Some(-self.input_state.mouse_input.cell.0);
-    //         Some(blueprint)
-    //     } else {
-    //         None
-    //     }
-    // }
-
     fn draw(&mut self, time: f64) {
         self.time = time;
         let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
@@ -297,12 +281,13 @@ impl Component for Viewport {
                 }
             }
             Msg::PasteBlueprint(blueprint) => {
-                // if let Some(new_buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
-                //     self.active_buffer.paste_buffer_offset_by(
-                //         blueprint.root_offset.unwrap_or(IVec2::ZERO),
-                //         &new_buffer,
-                //     );
-                // }
+                if let Some(new_buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
+                    self.active_buffer.paste_offset_by(
+                        blueprint.root_offset.unwrap_or(IVec2::ZERO)
+                            + self.input_state.mouse_input.cell.0,
+                        &new_buffer,
+                    );
+                }
             }
             Msg::Render(time) => {
                 // Update modules.

@@ -78,26 +78,23 @@ impl LogicPaint {
     }
 
     pub fn copy(&mut self) -> String {
-        // let component = self.handle.get_component().unwrap_throw();
-        // if let Some(blueprint) = component.copy() {
-        //     serde_json::to_string_pretty(&blueprint).unwrap_throw()
-        // } else {
-        //     "{}".to_owned()
-        // }
-
-        "{}".to_owned()
+        let component = self.handle.get_component().unwrap_throw();
+        let buffer = component
+            .active_buffer
+            .clone_selection(&component.selection);
+        let mut blueprint = Blueprint::from(&buffer);
+        blueprint.root_offset = Some(-component.input_state.mouse_input.cell.0);
+        serde_json::to_string_pretty(&blueprint).unwrap_throw()
     }
 
     pub fn paste(&mut self, data: &str) -> Option<String> {
-        // if let Ok(blueprint) = serde_json::from_str::<Blueprint>(data) {
-        //     self.handle
-        //         .send_message(YewViewportMsg::PasteBlueprint(blueprint));
-        //     None
-        // } else {
-        //     Some("Failed to deserialize JSON, or structure is invalid.".to_owned())
-        // }
-
-        None
+        if let Ok(blueprint) = serde_json::from_str::<Blueprint>(data) {
+            self.handle
+                .send_message(YewViewportMsg::PasteBlueprint(blueprint));
+            None
+        } else {
+            Some("Failed to deserialize JSON, or structure is invalid.".to_owned())
+        }
     }
 
     pub fn set_partial_blueprint_from_json_string(&mut self, data: &str) -> Option<String> {

@@ -72,50 +72,83 @@ impl Buffer {
         }
     }
 
-    // pub fn clone_selection(&self, selection: &Selection) -> Buffer {
-    //     // This is pretty damn inefficient. If copy-paste seems to slow, might need to redo this.
-    //     let mut buffer = Buffer::default();
+    pub fn clone_selection(&self, selection: &Selection) -> Buffer {
+        let mut buffer = Buffer::default();
 
-    //     for (chunk_coord, cell_coords) in selection.group_changes_by_chunk() {
-    //         if let Some(existing_chunk) = self.chunks.get(&chunk_coord) {
-    //             let mut new_chunk = BufferChunk::default();
+        for (chunk_coord, self_chunk) in &self.chunks {
+            // None of the chunk overlaps, continue.
+            if !selection.test_any_of_chunk_in_selection(*chunk_coord) {
+                continue;
+            }
 
-    //             for cell_coord in cell_coords {
-    //                 let cell = existing_chunk.get_cell(cell_coord);
+            // Blit any chunks that are entirely within the selection.
+            if selection.test_entire_chunk_in_selection(*chunk_coord) {
+                buffer.chunks.insert(*chunk_coord, self_chunk.clone());
+                continue;
+            }
 
-    //                 // Clone modules if their root is included in the selection
-    //                 if cell.get_bit(Bit::MODULE_ROOT) {
-    //                     if let Some(module) = self.anchored_modules.get(&cell_coord) {
-    //                         buffer.set_modules(vec![module.clone()]);
-    //                     }
-    //                 }
+            // Have to copy cells one at a time because the selection is a partial of the chunk.
+            let ll = LocalCoord::from(CellCoord(IVec2::max(
+                chunk_coord.first_cell_coord().0,
+                selection.lower_left.0,
+            )))
+            .0;
 
-    //                 buffer.set_cell(cell_coord, cell);
-    //             }
-    //         }
-    //     }
+            let ur = LocalCoord::from(CellCoord(IVec2::min(
+                chunk_coord.last_cell_coord().0,
+                selection.upper_right.0,
+            )))
+            .0 + UVec2::ONE;
 
-    //     buffer
-    // }
+            let chunk = buffer
+                .chunks
+                .entry(chunk_coord.clone())
+                .or_insert(Default::default());
 
-    // pub fn paste_buffer_offset_by(&mut self, root_offset: IVec2, buffer: &Buffer) {
-    //     // Copy chunks
-    //     for (chunk_coord, chunk) in &buffer.chunks {
-    //         let relative_chunk_start =
-    //             LocalCoord(UVec2::ZERO).to_cell_coord(chunk_coord).0 + root_offset;
+            for y in ll.y..ur.y {
+                for x in ll.x..ur.x {
+                    let local_coord = LocalCoord(UVec2::new(x as u32, y as u32));
+                    chunk.set_cell(local_coord, self_chunk.get_cell(local_coord));
+                }
+            }
+        }
 
-    //         for y in 0..CHUNK_SIZE {
-    //             for x in 0..CHUNK_SIZE {
-    //                 let offset_cell_loc = relative_chunk_start + IVec2::new(x as i32, y as i32);
-    //                 let cell = chunk.get_cell(LocalCoord(UVec2::new(x as u32, y as u32)));
-    //                 self.set_cell(CellCoord(offset_cell_loc), cell);
-    //             }
-    //         }
-    //     }
+        // Then test and copy each module root that is in the selection
+        buffer.set_modules(
+            self.anchored_modules
+                .values()
+                .filter(|m| selection.test_cell_in_selection(m.anchor.root))
+                .cloned(),
+        );
 
-    //     // Copy modules
-    //     self.set_modules(buffer.anchored_modules.values().cloned());
-    // }
+        buffer
+    }
+
+    pub fn paste_offset_by(&mut self, offset: IVec2, buffer: &Buffer) {
+        // There are more efficient ways to do this, but they cause a lot of brain-damage trying to
+        // think about. So I'm brute-forcing it. -shrug-
+        for (chunk_coord, chunk) in &buffer.chunks {
+            let target_first_cell_offset = chunk_coord.first_cell_coord().0 + offset;
+
+            for y in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    let local_coord = LocalCoord(UVec2::new(x as u32, y as u32));
+                    let cell = chunk.get_cell(local_coord);
+
+                    if cell == Default::default() {
+                        continue;
+                    }
+
+                    self.set_cell(
+                        CellCoord(target_first_cell_offset + IVec2::new(x as i32, y as i32)),
+                        cell,
+                    );
+                }
+            }
+        }
+
+        self.set_modules(buffer.anchored_modules.values().cloned());
+    }
 }
 
 impl BufferChunk {

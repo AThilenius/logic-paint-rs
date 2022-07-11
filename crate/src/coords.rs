@@ -86,11 +86,17 @@ impl CellCoord {
 
 #[allow(dead_code)]
 impl ChunkCoord {
-    #[inline(always)]
     pub fn first_cell_coord(&self) -> CellCoord {
         CellCoord(IVec2::new(
             self.0.x << LOG_CHUNK_SIZE,
             self.0.y << LOG_CHUNK_SIZE,
+        ))
+    }
+
+    pub fn last_cell_coord(&self) -> CellCoord {
+        CellCoord(IVec2::new(
+            (self.0.x << LOG_CHUNK_SIZE) + CHUNK_SIZE as i32 - 1,
+            (self.0.y << LOG_CHUNK_SIZE) + CHUNK_SIZE as i32 - 1,
         ))
     }
 }
