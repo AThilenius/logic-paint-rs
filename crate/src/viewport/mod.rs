@@ -1,3 +1,10 @@
+pub mod brush;
+pub mod buffer;
+pub mod buffer_mask;
+pub mod compiler;
+pub mod execution_context;
+pub mod input;
+
 use glam::Vec2;
 use gloo::{events::EventListener, utils::document};
 use wasm_bindgen::{prelude::*, JsCast};
@@ -6,12 +13,9 @@ use yew::prelude::*;
 
 use crate::{
     blueprint::Blueprint,
-    brush::{clear_metal, clear_si, draw_metal, draw_si, draw_via},
-    buffer::Buffer,
     dom::{DomIntervalHooks, ModuleMount, RawInput},
-    execution_context::ExecutionContext,
-    input::InputState,
     utils::Selection,
+    viewport::{brush::*, buffer::Buffer, execution_context::ExecutionContext, input::InputState},
     wgl2::{Camera, RenderContext},
 };
 

@@ -1,8 +1,8 @@
 use crate::{
-    buffer::{Buffer, BufferChunk},
     coords::ChunkCoord,
     modules::ModuleSerde,
     upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
+    viewport::buffer::{Buffer, BufferChunk},
 };
 
 use serde::{Deserialize, Serialize};

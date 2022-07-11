@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
-use crate::buffer::Buffer;
-use crate::buffer_mask::BufferMask;
-use crate::utils::Selection;
-use crate::wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture};
+use crate::{
+    utils::Selection,
+    viewport::{buffer::Buffer, buffer_mask::BufferMask},
+    wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
+};
 
 use crate::coords::{CellCoord, ChunkCoord};
 

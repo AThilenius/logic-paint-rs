@@ -4,10 +4,10 @@ use std::{
 };
 
 use crate::{
-    buffer::Buffer,
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
     log,
     upc::{Bit, Metal, NormalizedCell, Silicon},
+    viewport::buffer::Buffer,
 };
 
 pub struct CompilerResults {

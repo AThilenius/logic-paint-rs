@@ -1,14 +1,8 @@
 use wasm_bindgen::prelude::*;
 
 mod blueprint;
-mod brush;
-mod buffer;
-mod buffer_mask;
-mod compiler;
 mod coords;
 mod dom;
-mod execution_context;
-mod input;
 mod logic_paint;
 mod modules;
 mod substrate;

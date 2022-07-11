@@ -1,9 +1,9 @@
 use arrayvec::ArrayVec;
 
 use crate::{
-    buffer::Buffer,
     coords::CellCoord,
     upc::{Metal, NormalizedCell, Placement, Silicon},
+    viewport::buffer::Buffer,
 };
 
 pub fn draw_via(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord) {

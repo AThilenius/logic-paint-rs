@@ -3,13 +3,11 @@ use std::collections::HashMap;
 use glam::{IVec2, UVec2};
 
 use crate::{
-    coords::CHUNK_SIZE,
+    coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
     modules::{AnchoredModule, Pin},
     upc::{Bit, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,
 };
-
-use super::coords::{CellCoord, ChunkCoord, LocalCoord, LOG_CHUNK_SIZE};
 
 #[derive(Default, Clone)]
 pub struct Buffer {

@@ -1,10 +1,12 @@
 use wasm_bindgen::UnwrapThrowExt;
 
 use crate::{
-    buffer::Buffer,
-    buffer_mask::{BufferMask, MASK_BYTE_LEN},
-    compiler::{Atom, CellPart, CompilerResults},
     modules::{AnchoredModule, Pin},
+    viewport::{
+        buffer::Buffer,
+        buffer_mask::{BufferMask, MASK_BYTE_LEN},
+        compiler::{Atom, CellPart, CompilerResults},
+    },
 };
 
 pub struct ExecutionContext {

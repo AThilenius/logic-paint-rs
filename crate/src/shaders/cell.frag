@@ -143,10 +143,10 @@ void main() {
 
     bool si_connection = connection(
         tile_uv,
-        !mosfet_vertical && si_dir_up,
-        !mosfet_horizontal && si_dir_right,
-        !mosfet_vertical && si_dir_down,
-        !mosfet_horizontal && si_dir_left
+        si_dir_up,
+        si_dir_right,
+        si_dir_down,
+        si_dir_left
     );
 
     bool gate_connection = connection_gate(

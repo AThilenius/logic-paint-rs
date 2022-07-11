@@ -4,7 +4,7 @@ use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
 
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
-    input::InputState,
+    viewport::input::InputState,
 };
 
 #[derive(Clone, PartialEq)]
