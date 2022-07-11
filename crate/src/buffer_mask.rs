@@ -1,6 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use crate::coords::{ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE};
+use crate::coords::{ChunkCoord, CHUNK_SIZE};
 
 /// Number of bytes used per cell in a BufferMask
 pub const MASK_BYTE_LEN: usize = 4;
@@ -51,18 +51,6 @@ impl BufferMask {
 pub struct BufferMaskChunk {
     /// 4-byte cells, in row-major order. Ready for blitting to the GPU.
     pub cells: Vec<u8>,
-}
-
-impl BufferMaskChunk {
-    #[inline(always)]
-    pub fn set_cell_active<T>(&mut self, c: T)
-    where
-        T: Into<LocalCoord>,
-    {
-        let coord: LocalCoord = c.into();
-        let idx = (((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize) * MASK_BYTE_LEN;
-        self.cells[idx] = self.cells[idx] | (1u8 << 1);
-    }
 }
 
 impl Default for BufferMaskChunk {

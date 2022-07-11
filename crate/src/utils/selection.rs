@@ -42,20 +42,6 @@ impl Selection {
             && cell_coord.0.y < self.upper_right.0.y
     }
 
-    pub fn test_entire_chunk_in_selection<T>(&self, point: T) -> bool
-    where
-        T: Into<ChunkCoord>,
-    {
-        let chunk_coord: ChunkCoord = point.into();
-        let ll = chunk_coord.first_cell_coord();
-        let ur = chunk_coord.last_cell_coord();
-
-        ll.0.x >= self.lower_left.0.x
-            && ur.0.x < self.upper_right.0.x
-            && ll.0.y >= self.lower_left.0.y
-            && ur.0.y < self.upper_right.0.y
-    }
-
     pub fn test_any_of_chunk_in_selection<T>(&self, point: T) -> bool
     where
         T: Into<ChunkCoord>,

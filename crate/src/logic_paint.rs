@@ -81,9 +81,8 @@ impl LogicPaint {
         let component = self.handle.get_component().unwrap_throw();
         let buffer = component
             .active_buffer
-            .clone_selection(&component.selection);
-        let mut blueprint = Blueprint::from(&buffer);
-        blueprint.root_offset = Some(-component.input_state.mouse_input.cell.0);
+            .clone_selection(&component.selection, component.input_state.mouse_input.cell);
+        let blueprint = Blueprint::from(&buffer);
         serde_json::to_string_pretty(&blueprint).unwrap_throw()
     }
 

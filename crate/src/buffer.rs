@@ -72,22 +72,15 @@ impl Buffer {
         }
     }
 
-    pub fn clone_selection(&self, selection: &Selection) -> Buffer {
+    pub fn clone_selection(&self, selection: &Selection, root: CellCoord) -> Buffer {
         let mut buffer = Buffer::default();
 
-        for (chunk_coord, self_chunk) in &self.chunks {
+        for (chunk_coord, chunk) in &self.chunks {
             // None of the chunk overlaps, continue.
             if !selection.test_any_of_chunk_in_selection(*chunk_coord) {
                 continue;
             }
 
-            // Blit any chunks that are entirely within the selection.
-            if selection.test_entire_chunk_in_selection(*chunk_coord) {
-                buffer.chunks.insert(*chunk_coord, self_chunk.clone());
-                continue;
-            }
-
-            // Have to copy cells one at a time because the selection is a partial of the chunk.
             let ll = LocalCoord::from(CellCoord(IVec2::max(
                 chunk_coord.first_cell_coord().0,
                 selection.lower_left.0,
@@ -100,15 +93,15 @@ impl Buffer {
             )))
             .0 + UVec2::ONE;
 
-            let chunk = buffer
-                .chunks
-                .entry(chunk_coord.clone())
-                .or_insert(Default::default());
-
             for y in ll.y..ur.y {
                 for x in ll.x..ur.x {
                     let local_coord = LocalCoord(UVec2::new(x as u32, y as u32));
-                    chunk.set_cell(local_coord, self_chunk.get_cell(local_coord));
+                    let cell = chunk.get_cell(local_coord);
+
+                    let target_cell_coord =
+                        CellCoord(local_coord.to_cell_coord(chunk_coord).0 - root.0);
+
+                    buffer.set_cell(target_cell_coord, cell);
                 }
             }
         }
@@ -118,17 +111,19 @@ impl Buffer {
             self.anchored_modules
                 .values()
                 .filter(|m| selection.test_cell_in_selection(m.anchor.root))
-                .cloned(),
+                .map(|m| {
+                    let mut module = m.clone();
+                    module.anchor.root.0 -= root.0;
+                    module
+                }),
         );
 
         buffer
     }
 
-    pub fn paste_offset_by(&mut self, offset: IVec2, buffer: &Buffer) {
-        // There are more efficient ways to do this, but they cause a lot of brain-damage trying to
-        // think about. So I'm brute-forcing it. -shrug-
+    pub fn paste_at(&mut self, cell_coord: CellCoord, buffer: &Buffer) {
         for (chunk_coord, chunk) in &buffer.chunks {
-            let target_first_cell_offset = chunk_coord.first_cell_coord().0 + offset;
+            let target_first_cell_offset = chunk_coord.first_cell_coord().0 + cell_coord.0;
 
             for y in 0..CHUNK_SIZE {
                 for x in 0..CHUNK_SIZE {

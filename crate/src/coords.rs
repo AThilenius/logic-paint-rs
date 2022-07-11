@@ -1,10 +1,9 @@
 use glam::{IVec2, UVec2};
 use serde::{Deserialize, Serialize};
 
-use crate::upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN};
+use crate::upc::LOG_UPC_BYTE_LEN;
 
 pub(crate) const CHUNK_SIZE: usize = 32;
-pub(crate) const CHUNK_BYTES: usize = CHUNK_SIZE * CHUNK_SIZE * UPC_BYTE_LEN;
 pub(crate) const LOG_CHUNK_SIZE: usize = 5;
 const UPPER_MASK: i32 = !((CHUNK_SIZE as i32) - 1);
 const LOWER_MASK: usize = CHUNK_SIZE - 1;

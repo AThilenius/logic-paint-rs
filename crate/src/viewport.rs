@@ -1,4 +1,4 @@
-use glam::{IVec2, Vec2};
+use glam::Vec2;
 use wasm_bindgen::prelude::*;
 use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
@@ -88,34 +88,6 @@ impl Viewport {
             window().unwrap().device_pixel_ratio() as f32,
             Vec2::new(w as f32, h as f32),
         );
-
-        // Update the selection mask
-        // self.selection_mask = Default::default();
-        // let merged_selection = {
-        //     if let Some(selection) = &self.selection {
-        //         if let Some(ephemeral_selection) = &self.ephemeral_selection {
-        //             if self.input_state.keyboard_input.ctrl {
-        //                 Some(selection.difference(ephemeral_selection))
-        //             } else {
-        //                 Some(selection.union(ephemeral_selection))
-        //             }
-        //         } else {
-        //             Some(selection.clone())
-        //         }
-        //     } else {
-        //         self.ephemeral_selection.clone()
-        //     }
-        // };
-
-        // if let Some(selection) = merged_selection {
-        //     for (chunk_coord, cell_coords) in selection.group_changes_by_chunk() {
-        //         let chunk = self.selection_mask.get_or_create_chunk_mut(chunk_coord);
-
-        //         for cell_coord in cell_coords {
-        //             chunk.set_cell_active(cell_coord);
-        //         }
-        //     }
-        // }
 
         if let Some(render_context) = &mut self.render_context {
             let buffer = self
@@ -282,11 +254,8 @@ impl Component for Viewport {
             }
             Msg::PasteBlueprint(blueprint) => {
                 if let Some(new_buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
-                    self.active_buffer.paste_offset_by(
-                        blueprint.root_offset.unwrap_or(IVec2::ZERO)
-                            + self.input_state.mouse_input.cell.0,
-                        &new_buffer,
-                    );
+                    self.active_buffer
+                        .paste_at(self.input_state.mouse_input.cell, &new_buffer);
                 }
             }
             Msg::Render(time) => {
