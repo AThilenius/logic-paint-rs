@@ -5,6 +5,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::buffer::Buffer;
 use crate::buffer_mask::BufferMask;
+use crate::log;
 use crate::utils::Selection;
 use crate::wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture};
 

@@ -32,20 +32,12 @@ impl UPC {
     }
 
     #[inline(always)]
-    pub fn set_bit_val(&mut self, bit: Bit, val: bool) {
-        Bit::set(self, bit, val);
-    }
-
-    #[inline(always)]
     pub fn clear_bit(&mut self, bit: Bit) {
         Bit::set(self, bit, false);
     }
 
     pub fn is_mosfet(&self) -> bool {
-        self.get_bit(Bit::GATE_DIR_UP)
-            | self.get_bit(Bit::GATE_DIR_RIGHT)
-            | self.get_bit(Bit::GATE_DIR_DOWN)
-            | self.get_bit(Bit::GATE_DIR_LEFT)
+        self.get_bit(Bit::MOSFET_HORIZONTAL) || self.get_bit(Bit::MOSFET_VERTICAL)
     }
 }
 
@@ -53,14 +45,12 @@ impl UPC {
 pub enum Bit {
     SI_N,
     SI_P,
+    MOSFET_HORIZONTAL,
+    MOSFET_VERTICAL,
     SI_DIR_UP,
     SI_DIR_RIGHT,
     SI_DIR_DOWN,
     SI_DIR_LEFT,
-    GATE_DIR_UP,
-    GATE_DIR_RIGHT,
-    GATE_DIR_DOWN,
-    GATE_DIR_LEFT,
     METAL,
     METAL_DIR_UP,
     METAL_DIR_RIGHT,
@@ -78,20 +68,20 @@ impl Bit {
         match bit {
             Bit::SI_N => upc[0] & (1 << 7) > 0,
             Bit::SI_P => upc[0] & (1 << 6) > 0,
-            Bit::SI_DIR_UP => upc[0] & (1 << 5) > 0,
-            Bit::SI_DIR_RIGHT => upc[0] & (1 << 4) > 0,
-            Bit::SI_DIR_DOWN => upc[0] & (1 << 3) > 0,
-            Bit::SI_DIR_LEFT => upc[0] & (1 << 2) > 0,
-            Bit::GATE_DIR_UP => upc[0] & (1 << 1) > 0,
-            Bit::GATE_DIR_RIGHT => upc[0] & (1 << 0) > 0,
-            Bit::GATE_DIR_DOWN => upc[1] & (1 << 7) > 0,
-            Bit::GATE_DIR_LEFT => upc[1] & (1 << 6) > 0,
-            Bit::METAL => upc[1] & (1 << 5) > 0,
-            Bit::METAL_DIR_UP => upc[1] & (1 << 4) > 0,
-            Bit::METAL_DIR_RIGHT => upc[1] & (1 << 3) > 0,
-            Bit::METAL_DIR_DOWN => upc[1] & (1 << 2) > 0,
-            Bit::METAL_DIR_LEFT => upc[1] & (1 << 1) > 0,
-            Bit::VIA => upc[1] & (1 << 0) > 0,
+            Bit::MOSFET_HORIZONTAL => upc[0] & (1 << 5) > 0,
+            Bit::MOSFET_VERTICAL => upc[0] & (1 << 4) > 0,
+            Bit::SI_DIR_UP => upc[0] & (1 << 3) > 0,
+            Bit::SI_DIR_RIGHT => upc[0] & (1 << 2) > 0,
+            Bit::SI_DIR_DOWN => upc[0] & (1 << 1) > 0,
+            Bit::SI_DIR_LEFT => upc[0] & (1 << 0) > 0,
+
+            Bit::METAL => upc[1] & (1 << 7) > 0,
+            Bit::METAL_DIR_UP => upc[1] & (1 << 6) > 0,
+            Bit::METAL_DIR_RIGHT => upc[1] & (1 << 5) > 0,
+            Bit::METAL_DIR_DOWN => upc[1] & (1 << 4) > 0,
+            Bit::METAL_DIR_LEFT => upc[1] & (1 << 3) > 0,
+            Bit::VIA => upc[1] & (1 << 2) > 0,
+
             Bit::IO => upc[2] & (1 << 7) > 0,
             Bit::MODULE_ROOT => upc[2] & (1 << 6) > 0,
         }
@@ -104,20 +94,20 @@ impl Bit {
             match bit {
                 Bit::SI_N => upc[0] |= 1 << 7,
                 Bit::SI_P => upc[0] |= 1 << 6,
-                Bit::SI_DIR_UP => upc[0] |= 1 << 5,
-                Bit::SI_DIR_RIGHT => upc[0] |= 1 << 4,
-                Bit::SI_DIR_DOWN => upc[0] |= 1 << 3,
-                Bit::SI_DIR_LEFT => upc[0] |= 1 << 2,
-                Bit::GATE_DIR_UP => upc[0] |= 1 << 1,
-                Bit::GATE_DIR_RIGHT => upc[0] |= 1 << 0,
-                Bit::GATE_DIR_DOWN => upc[1] |= 1 << 7,
-                Bit::GATE_DIR_LEFT => upc[1] |= 1 << 6,
-                Bit::METAL => upc[1] |= 1 << 5,
-                Bit::METAL_DIR_UP => upc[1] |= 1 << 4,
-                Bit::METAL_DIR_RIGHT => upc[1] |= 1 << 3,
-                Bit::METAL_DIR_DOWN => upc[1] |= 1 << 2,
-                Bit::METAL_DIR_LEFT => upc[1] |= 1 << 1,
-                Bit::VIA => upc[1] |= 1 << 0,
+                Bit::MOSFET_HORIZONTAL => upc[0] |= 1 << 5,
+                Bit::MOSFET_VERTICAL => upc[0] |= 1 << 4,
+                Bit::SI_DIR_UP => upc[0] |= 1 << 3,
+                Bit::SI_DIR_RIGHT => upc[0] |= 1 << 2,
+                Bit::SI_DIR_DOWN => upc[0] |= 1 << 1,
+                Bit::SI_DIR_LEFT => upc[0] |= 1 << 0,
+
+                Bit::METAL => upc[1] |= 1 << 7,
+                Bit::METAL_DIR_UP => upc[1] |= 1 << 6,
+                Bit::METAL_DIR_RIGHT => upc[1] |= 1 << 5,
+                Bit::METAL_DIR_DOWN => upc[1] |= 1 << 4,
+                Bit::METAL_DIR_LEFT => upc[1] |= 1 << 3,
+                Bit::VIA => upc[1] |= 1 << 2,
+
                 Bit::IO => upc[2] |= 1 << 7,
                 Bit::MODULE_ROOT => upc[2] |= 1 << 6,
             }
@@ -125,20 +115,20 @@ impl Bit {
             match bit {
                 Bit::SI_N => upc[0] &= !(1 << 7),
                 Bit::SI_P => upc[0] &= !(1 << 6),
-                Bit::SI_DIR_UP => upc[0] &= !(1 << 5),
-                Bit::SI_DIR_RIGHT => upc[0] &= !(1 << 4),
-                Bit::SI_DIR_DOWN => upc[0] &= !(1 << 3),
-                Bit::SI_DIR_LEFT => upc[0] &= !(1 << 2),
-                Bit::GATE_DIR_UP => upc[0] &= !(1 << 1),
-                Bit::GATE_DIR_RIGHT => upc[0] &= !(1 << 0),
-                Bit::GATE_DIR_DOWN => upc[1] &= !(1 << 7),
-                Bit::GATE_DIR_LEFT => upc[1] &= !(1 << 6),
-                Bit::METAL => upc[1] &= !(1 << 5),
-                Bit::METAL_DIR_UP => upc[1] &= !(1 << 4),
-                Bit::METAL_DIR_RIGHT => upc[1] &= !(1 << 3),
-                Bit::METAL_DIR_DOWN => upc[1] &= !(1 << 2),
-                Bit::METAL_DIR_LEFT => upc[1] &= !(1 << 1),
-                Bit::VIA => upc[1] &= !(1 << 0),
+                Bit::MOSFET_HORIZONTAL => upc[0] &= !(1 << 5),
+                Bit::MOSFET_VERTICAL => upc[0] &= !(1 << 4),
+                Bit::SI_DIR_UP => upc[0] &= !(1 << 3),
+                Bit::SI_DIR_RIGHT => upc[0] &= !(1 << 2),
+                Bit::SI_DIR_DOWN => upc[0] &= !(1 << 1),
+                Bit::SI_DIR_LEFT => upc[0] &= !(1 << 0),
+
+                Bit::METAL => upc[1] &= !(1 << 7),
+                Bit::METAL_DIR_UP => upc[1] &= !(1 << 6),
+                Bit::METAL_DIR_RIGHT => upc[1] &= !(1 << 5),
+                Bit::METAL_DIR_DOWN => upc[1] &= !(1 << 4),
+                Bit::METAL_DIR_LEFT => upc[1] &= !(1 << 3),
+                Bit::VIA => upc[1] &= !(1 << 2),
+
                 Bit::IO => upc[2] &= !(1 << 7),
                 Bit::MODULE_ROOT => upc[2] &= !(1 << 6),
             }
@@ -177,6 +167,7 @@ pub enum Silicon {
     },
     Mosfet {
         is_npn: bool,
+        is_horizontal: bool,
         gate_placement: Placement,
         ec_placement: Placement,
     },
@@ -185,16 +176,6 @@ pub enum Silicon {
 impl Default for Silicon {
     fn default() -> Self {
         Self::None
-    }
-}
-
-impl Silicon {
-    pub fn matches_n(&self, n: bool) -> bool {
-        match self {
-            Silicon::NP { is_n, .. } if *is_n == n => true,
-            Silicon::Mosfet { is_npn, .. } if *is_npn == n => true,
-            _ => false,
-        }
     }
 }
 
@@ -207,7 +188,6 @@ impl From<UPC> for NormalizedCell {
             cell.metal = Metal::Trace {
                 has_via: upc.get_bit(Bit::VIA),
                 placement: Placement {
-                    center: true,
                     up: upc.get_bit(Bit::METAL_DIR_UP),
                     right: upc.get_bit(Bit::METAL_DIR_RIGHT),
                     down: upc.get_bit(Bit::METAL_DIR_DOWN),
@@ -218,21 +198,21 @@ impl From<UPC> for NormalizedCell {
 
         if upc.is_mosfet() {
             // MOSFET
+            let is_horizontal = upc.get_bit(Bit::MOSFET_HORIZONTAL);
             cell.si = Silicon::Mosfet {
                 is_npn: upc.get_bit(Bit::SI_N),
+                is_horizontal,
                 gate_placement: Placement {
-                    center: true,
-                    up: upc.get_bit(Bit::GATE_DIR_UP),
-                    right: upc.get_bit(Bit::GATE_DIR_RIGHT),
-                    down: upc.get_bit(Bit::GATE_DIR_DOWN),
-                    left: upc.get_bit(Bit::GATE_DIR_LEFT),
+                    up: !is_horizontal && upc.get_bit(Bit::SI_DIR_UP),
+                    right: is_horizontal && upc.get_bit(Bit::SI_DIR_RIGHT),
+                    down: !is_horizontal && upc.get_bit(Bit::SI_DIR_DOWN),
+                    left: is_horizontal && upc.get_bit(Bit::SI_DIR_LEFT),
                 },
                 ec_placement: Placement {
-                    center: false,
-                    up: upc.get_bit(Bit::SI_DIR_UP),
-                    right: upc.get_bit(Bit::SI_DIR_RIGHT),
-                    down: upc.get_bit(Bit::SI_DIR_DOWN),
-                    left: upc.get_bit(Bit::SI_DIR_LEFT),
+                    up: is_horizontal && upc.get_bit(Bit::SI_DIR_UP),
+                    right: !is_horizontal && upc.get_bit(Bit::SI_DIR_RIGHT),
+                    down: is_horizontal && upc.get_bit(Bit::SI_DIR_DOWN),
+                    left: !is_horizontal && upc.get_bit(Bit::SI_DIR_LEFT),
                 },
             };
         } else if upc.get_bit(Bit::SI_N) || upc.get_bit(Bit::SI_P) {
@@ -240,7 +220,6 @@ impl From<UPC> for NormalizedCell {
             cell.si = Silicon::NP {
                 is_n: upc.get_bit(Bit::SI_N),
                 placement: Placement {
-                    center: true,
                     up: upc.get_bit(Bit::SI_DIR_UP),
                     right: upc.get_bit(Bit::SI_DIR_RIGHT),
                     down: upc.get_bit(Bit::SI_DIR_DOWN),
@@ -283,6 +262,7 @@ impl From<NormalizedCell> for UPC {
             }
             Silicon::Mosfet {
                 is_npn,
+                is_horizontal,
                 gate_placement,
                 ec_placement,
             } => {
@@ -292,20 +272,34 @@ impl From<NormalizedCell> for UPC {
                     upc.set_bit(Bit::SI_P);
                 }
 
-                Bit::set(&mut upc, Bit::GATE_DIR_UP, gate_placement.up);
-                Bit::set(&mut upc, Bit::GATE_DIR_RIGHT, gate_placement.right);
-                Bit::set(&mut upc, Bit::GATE_DIR_DOWN, gate_placement.down);
-                Bit::set(&mut upc, Bit::GATE_DIR_LEFT, gate_placement.left);
+                Bit::set(&mut upc, Bit::MOSFET_HORIZONTAL, is_horizontal);
+                Bit::set(&mut upc, Bit::MOSFET_VERTICAL, !is_horizontal);
 
-                Bit::set(&mut upc, Bit::SI_DIR_UP, ec_placement.up);
-                Bit::set(&mut upc, Bit::SI_DIR_RIGHT, ec_placement.right);
-                Bit::set(&mut upc, Bit::SI_DIR_DOWN, ec_placement.down);
-                Bit::set(&mut upc, Bit::SI_DIR_LEFT, ec_placement.left);
+                Bit::set(
+                    &mut upc,
+                    Bit::SI_DIR_UP,
+                    ec_placement.up || gate_placement.up,
+                );
+                Bit::set(
+                    &mut upc,
+                    Bit::SI_DIR_RIGHT,
+                    ec_placement.right || gate_placement.right,
+                );
+                Bit::set(
+                    &mut upc,
+                    Bit::SI_DIR_DOWN,
+                    ec_placement.down || gate_placement.down,
+                );
+                Bit::set(
+                    &mut upc,
+                    Bit::SI_DIR_LEFT,
+                    ec_placement.left || gate_placement.left,
+                );
             }
             Silicon::None => {}
         }
 
-        upc.set_bit_val(Bit::MODULE_ROOT, cell.module_root);
+        Bit::set(&mut upc, Bit::MODULE_ROOT, cell.module_root);
 
         upc
     }
@@ -316,7 +310,6 @@ impl From<NormalizedCell> for UPC {
 /// set, but can also stand alone).
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Placement {
-    pub center: bool,
     pub up: bool,
     pub right: bool,
     pub down: bool,
@@ -325,7 +318,6 @@ pub struct Placement {
 
 impl Placement {
     pub const NONE: Self = Self {
-        center: false,
         up: false,
         right: false,
         down: false,
@@ -333,7 +325,6 @@ impl Placement {
     };
 
     pub const CENTER: Self = Self {
-        center: true,
         up: false,
         right: false,
         down: false,
@@ -373,7 +364,6 @@ impl Placement {
             (-1, 0) => self.left = true,
             _ => panic!("Non-unit cardinal direction vector"),
         }
-        self.center = true;
     }
 
     pub fn clear_cardinal(&mut self, dir: IVec2) {
@@ -384,7 +374,6 @@ impl Placement {
             (-1, 0) => self.left = false,
             _ => panic!("Non-unit cardinal direction vector"),
         }
-        self.center = true;
     }
 
     pub fn has_cardinal(&self, dir: IVec2) -> bool {
@@ -396,14 +385,6 @@ impl Placement {
             _ => panic!("Non-unit cardinal direction vector"),
         }
     }
-
-    pub fn in_line_with(&self, dir: IVec2) -> bool {
-        match (dir.x, dir.y) {
-            (0, 1) | (0, -1) => self.up || self.down,
-            (1, 0) | (-1, 0) => self.left || self.right,
-            _ => panic!("Non-unit cardinal direction vector"),
-        }
-    }
 }
 
 impl ops::BitOr for Placement {
@@ -411,7 +392,6 @@ impl ops::BitOr for Placement {
 
     fn bitor(self, rhs: Self) -> Self::Output {
         Self::Output {
-            center: self.center | rhs.center,
             left: self.left | rhs.left,
             up: self.up | rhs.up,
             right: self.right | rhs.right,

@@ -169,8 +169,12 @@ impl BufferChunk {
 
         // IO pins and module roots cannot be replaced with this call, so set IO/root bit if
         // existing cell has one.
-        cell.set_bit_val(Bit::IO, existing.get_bit(Bit::IO));
-        cell.set_bit_val(Bit::MODULE_ROOT, existing.get_bit(Bit::MODULE_ROOT));
+        Bit::set(&mut cell, Bit::IO, existing.get_bit(Bit::IO));
+        Bit::set(
+            &mut cell,
+            Bit::MODULE_ROOT,
+            existing.get_bit(Bit::MODULE_ROOT),
+        );
 
         // Track cell count as well.
         if existing == Default::default() && cell != Default::default() {

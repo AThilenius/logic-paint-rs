@@ -132,8 +132,12 @@ impl Viewport {
             self.ephemeral_buffer = None;
         } else if self.input_state.keyboard_input.keydown.contains("KeyD") {
             self.mode = Mode::PaintSi;
+            self.selection = Default::default();
+            self.mouse_follow_buffer = None;
         } else if self.input_state.keyboard_input.keydown.contains("KeyF") {
             self.mode = Mode::PaintMetallic;
+            self.selection = Default::default();
+            self.mouse_follow_buffer = None;
         }
 
         match self.mode {

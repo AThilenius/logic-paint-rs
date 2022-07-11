@@ -64,12 +64,10 @@ pub fn draw_si(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord, pain
         // circuit, then we can assume the si we are painting is what is going to be drawn and
         // connected. We can optimistically create the connection from the from-cell (in an
         // temporary clone) before going on to the to-cell.
-        //
-        // However... gate placement is the only thing that can be reliably tested for MOSFETs, as
-        // a MOSFET (by definition) must connect a gate, but doesn't necessarily need to connect an
-        // EC.
 
         let mut connected_from_cell = from_cell.clone();
+        let going_horizontal = dir.x != 0;
+
         match (paint_n, &mut connected_from_cell.si) {
             (
                 true,
@@ -93,40 +91,44 @@ pub fn draw_si(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord, pain
                 true,
                 Silicon::Mosfet {
                     is_npn: true,
-                    gate_placement,
+                    is_horizontal,
                     ec_placement,
+                    ..
                 },
-            ) if !gate_placement.in_line_with(dir) => {
+            ) if *is_horizontal != going_horizontal => {
                 ec_placement.set_cardinal(dir);
             }
             (
                 true,
                 Silicon::Mosfet {
                     is_npn: false,
+                    is_horizontal,
                     gate_placement,
                     ..
                 },
-            ) if gate_placement.in_line_with(dir) => {
+            ) if *is_horizontal == going_horizontal => {
                 gate_placement.set_cardinal(dir);
             }
             (
                 false,
                 Silicon::Mosfet {
                     is_npn: true,
+                    is_horizontal,
                     gate_placement,
                     ..
                 },
-            ) if gate_placement.in_line_with(dir) => {
+            ) if *is_horizontal == going_horizontal => {
                 gate_placement.set_cardinal(dir);
             }
             (
                 false,
                 Silicon::Mosfet {
                     is_npn: false,
-                    gate_placement,
+                    is_horizontal,
                     ec_placement,
+                    ..
                 },
-            ) if !gate_placement.in_line_with(dir) => {
+            ) if *is_horizontal != going_horizontal => {
                 ec_placement.set_cardinal(dir);
             }
             _ => {}
@@ -177,6 +179,7 @@ pub fn draw_si(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord, pain
             ) if !placement.has_cardinal(dir) => {
                 to_cell.si = Silicon::Mosfet {
                     is_npn: false,
+                    is_horizontal: going_horizontal,
                     gate_placement: Placement::from_cardinal(-dir),
                     ec_placement: *placement,
                 }
@@ -190,6 +193,7 @@ pub fn draw_si(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord, pain
             ) if !placement.has_cardinal(dir) => {
                 to_cell.si = Silicon::Mosfet {
                     is_npn: true,
+                    is_horizontal: going_horizontal,
                     gate_placement: Placement::from_cardinal(-dir),
                     ec_placement: *placement,
                 }
@@ -198,20 +202,22 @@ pub fn draw_si(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord, pain
                 true,
                 Silicon::Mosfet {
                     is_npn: true,
-                    gate_placement,
+                    is_horizontal,
                     ec_placement,
+                    ..
                 },
-            ) if !gate_placement.in_line_with(dir) => {
+            ) if *is_horizontal != going_horizontal => {
                 ec_placement.set_cardinal(-dir);
             }
             (
                 false,
                 Silicon::Mosfet {
                     is_npn: true,
+                    is_horizontal,
                     gate_placement,
                     ..
                 },
-            ) if gate_placement.in_line_with(dir) => {
+            ) if *is_horizontal == going_horizontal => {
                 gate_placement.set_cardinal(-dir);
             }
 
@@ -219,20 +225,22 @@ pub fn draw_si(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord, pain
                 true,
                 Silicon::Mosfet {
                     is_npn: false,
+                    is_horizontal,
                     gate_placement,
                     ..
                 },
-            ) if gate_placement.in_line_with(dir) => {
+            ) if *is_horizontal == going_horizontal => {
                 gate_placement.set_cardinal(-dir);
             }
             (
                 false,
                 Silicon::Mosfet {
                     is_npn: false,
-                    gate_placement,
+                    is_horizontal,
                     ec_placement,
+                    ..
                 },
-            ) if !gate_placement.in_line_with(dir) => {
+            ) if *is_horizontal != going_horizontal => {
                 ec_placement.set_cardinal(-dir);
             }
             _ => {
@@ -283,7 +291,7 @@ pub fn clear_si<T>(buffer: &mut Buffer, cell_coords: T)
 where
     T: IntoIterator<Item = CellCoord>,
 {
-    'outer: for cell_coord in cell_coords.into_iter() {
+    for cell_coord in cell_coords.into_iter() {
         let upc = buffer.get_cell(cell_coord);
 
         if upc == Default::default() {
@@ -304,6 +312,7 @@ where
 
         // Clear the target cell
         normalized.si = Silicon::None;
+        buffer.set_cell(cell_coord, normalized.into());
 
         // Then un-link neighbors.
         for vector in vectors {
@@ -317,15 +326,7 @@ where
                     ec_placement,
                     ..
                 } => {
-                    let mut new_gate_pl = gate_placement.clone();
-                    new_gate_pl.clear_cardinal(-vector);
-
-                    if new_gate_pl == Placement::NONE || new_gate_pl == Placement::CENTER {
-                        // This change would result in an invalid gate. I'm not a huge fan of this
-                        // solution, but for now we just cancel removal.
-                        break 'outer;
-                    }
-
+                    gate_placement.clear_cardinal(-vector);
                     ec_placement.clear_cardinal(-vector);
                 }
                 _ => {}
@@ -333,9 +334,6 @@ where
 
             buffer.set_cell(neighbor_coord, neighbor.into());
         }
-
-        // Only now can we safely set the original cell.
-        buffer.set_cell(cell_coord, normalized.into());
     }
 }
 

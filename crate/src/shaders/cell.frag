@@ -48,7 +48,13 @@ bool connection(vec2 texel_uv, bool up, bool right, bool down, bool left) {
         || (x < l && y > l && y < h && left);
 }
 
-bool connection_gate(vec2 texel_uv, bool up, bool right, bool down, bool left) {
+bool connection_gate(
+    vec2 texel_uv,
+    bool horizontal,
+    bool vertical,
+    bool up_left,
+    bool down_right
+) {
     // Configure
     float l = 0.2;
     float h = 1.0 - l;
@@ -61,19 +67,23 @@ bool connection_gate(vec2 texel_uv, bool up, bool right, bool down, bool left) {
     float y = texel_uv.y;
 
     return false
-        // Gate changes orientation based on up-down or left-right
-        || ((up || down) && (y < h && y > l && x > gl && x < gh))
-        || ((left || right) && (y < gh && y > gl && x > l && x < h))
+        || (vertical && (y < h && y > l && x > gl && x < gh))
+        || (horizontal && (y < gh && y > gl && x > l && x < h))
 
         // Draw the side attachments the same as `connection`.
-        || (y > h && x > l && x < h && up)
-        || (y < l && x > l && x < h && down)
-        || (x > h && y > l && y < h && right)
-        || (x < l && y > l && y < h && left);
+        || (y > h && x > l && x < h && up_left && vertical)
+        || (y < l && x > l && x < h && down_right && vertical)
+        || (x > h && y > l && y < h && down_right && horizontal)
+        || (x < l && y > l && y < h && up_left && horizontal);
 }
 
 void main() {
-    vec2 float_local_coord = clamp(v_uv * 32.0, vec2(0.0), vec2(32.0));
+    float epsilon = 0.00001;
+    vec2 float_local_coord = clamp(
+        v_uv * 32.0,
+        vec2(0.0),
+        vec2(32.0 - epsilon)
+    );
     uvec2 local_coord = clamp(
         uvec2(floor(float_local_coord)),
         uvec2(0),
@@ -88,29 +98,25 @@ void main() {
     // Mirrors the format in upc.rs
     bool si_n = (cells.r & (1u << 7u)) > 0u;
     bool si_p = (cells.r & (1u << 6u)) > 0u;
-    bool si_dir_up = (cells.r & (1u << 5u)) > 0u;
-    bool si_dir_right = (cells.r & (1u << 4u)) > 0u;
-    bool si_dir_down = (cells.r & (1u << 3u)) > 0u;
-    bool si_dir_left = (cells.r & (1u << 2u)) > 0u;
-    bool gate_dir_up = (cells.r & (1u << 1u)) > 0u;
-    bool gate_dir_right = (cells.r & (1u << 0u)) > 0u;
+    bool mosfet_horizontal = (cells.r & (1u << 5u)) > 0u;
+    bool mosfet_vertical = (cells.r & (1u << 4u)) > 0u;
+    bool si_dir_up = (cells.r & (1u << 3u)) > 0u;
+    bool si_dir_right = (cells.r & (1u << 2u)) > 0u;
+    bool si_dir_down = (cells.r & (1u << 1u)) > 0u;
+    bool si_dir_left = (cells.r & (1u << 0u)) > 0u;
 
-    bool gate_dir_down = (cells.g & (1u << 7u)) > 0u;
-    bool gate_dir_left = (cells.g & (1u << 6u)) > 0u;
-    bool metal = (cells.g & (1u << 5u)) > 0u;
-    bool metal_dir_up = (cells.g & (1u << 4u)) > 0u;
-    bool metal_dir_right = (cells.g & (1u << 3u)) > 0u;
-    bool metal_dir_down = (cells.g & (1u << 2u)) > 0u;
-    bool metal_dir_left = (cells.g & (1u << 1u)) > 0u;
-    bool via = (cells.g & (1u << 0u)) > 0u;
+    bool metal = (cells.g & (1u << 7u)) > 3u;
+    bool metal_dir_up = (cells.g & (1u << 6u)) > 0u;
+    bool metal_dir_right = (cells.g & (1u << 5u)) > 0u;
+    bool metal_dir_down = (cells.g & (1u << 4u)) > 0u;
+    bool metal_dir_left = (cells.g & (1u << 3u)) > 0u;
+    bool via = (cells.g & (1u << 2u)) > 0u;
 
     bool is_io = (cells.b & (1u << 7u)) > 0u;
+    bool is_root = (cells.b & (1u << 6u)) > 0u;
 
-    bool is_mosfet =
-        gate_dir_up ||
-        gate_dir_right ||
-        gate_dir_down ||
-        gate_dir_left;
+    // Derrived values
+    bool is_mosfet = mosfet_horizontal || mosfet_vertical;
 
     bool metal_active = (mask.r & (1u << 0u)) > 0u;
     bool gate_active = (mask.g & (1u << 0u)) > 0u;
@@ -137,18 +143,20 @@ void main() {
 
     bool si_connection = connection(
         tile_uv,
-        si_dir_up,
-        si_dir_right,
-        si_dir_down,
-        si_dir_left
+        !mosfet_vertical && si_dir_up,
+        !mosfet_horizontal && si_dir_right,
+        !mosfet_vertical && si_dir_down,
+        !mosfet_horizontal && si_dir_left
     );
 
     bool gate_connection = connection_gate(
         tile_uv,
-        gate_dir_up,
-        gate_dir_right,
-        gate_dir_down,
-        gate_dir_left
+        mosfet_horizontal,
+        mosfet_vertical,
+        // Up-left
+        (mosfet_vertical && si_dir_up) || (mosfet_horizontal && si_dir_left),
+        // Down-right
+        (mosfet_vertical && si_dir_down) || (mosfet_horizontal && si_dir_right)
     );
 
     vec2 stripe_uv = tile_uv * 2.0;
@@ -165,8 +173,7 @@ void main() {
         + (grid_1 ? grid_blend_strength : 0.0);
 
     vec3 si_color = si_n ? n_color.rgb : p_color.rgb;
-    bool vertical_gate = gate_dir_up || gate_dir_down;
-    bool si_active = vertical_gate
+    bool si_active = mosfet_vertical
         ?  (tile_uv.x < 0.5 ? si_ul_active : si_dr_active)
         :  (tile_uv.y > 0.5 ? si_ul_active : si_dr_active);
     si_color = mix(

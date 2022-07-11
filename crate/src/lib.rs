@@ -23,13 +23,10 @@ pub fn main() {
     console_error_panic_hook::set_once();
 }
 
-// 2022-07-09 Ideas
-// - Viewport hosts state, of which there are three:
-//   - Visual: select, copy, paste, delete regions
-//   - Painting: paint Si/metal
-//   - Execution: running controls
-// - Viewport hosts the selection buffer, and handles copy/paste/delete events for the selection
-// - Viewport hosts the cursor-follow buffer used to paste (and duplicate?) chunks of Buffer
+// Still to do:
+// - Something with the focus is still fucked up.
+// - Need to figure out how to represents a MOSFET with no gate connections. Deleting cells is a
+//   real PITA when you can't leave MOSFETS in a broken state.
 
 // The module.json file is always generated. I need this for having a sane way to define memory
 // for both the micro-ops lookup, and main memory.
@@ -53,26 +50,7 @@ pub fn main() {
 // Update is called on modules once per clock. Clock modules just flip their output each update, or
 // by some divisor of the update rate.
 
-// Selection. The BufferMask needs to be able to select metal, si (3 parts) and/or the entire cell.
-// Most of the tools need to select the entire cell. Occasionally they will select just parts though
-// like when highlighting a conductive path.
-// Actual highlighting style/colors ideally are defined in the BufferMask, per-cell. I need to check
-// how much space I have for that though. Otherwise they are global, and defined in uniforms. There
-// are cell-selection checkers, conductive path highlighting, path 'active' during running, cell
-// highlight under mouse, and more I'm not thinking of.
-
 // New terms:
 // Fundamental Clock: the update loop in the ExecutionContext. It is the highest frequency a module
 // can be updated at.
 // Clock: module that clocks an I/O pin at an integer divisor of the Fundamental Clock.
-
-// Other stuff:
-
-// - Need a cursor-follow buffer accessible from JS, for pasting into. It is None by default.
-//   Ideally it should be serialized such that I can move my mouse from one window split to another
-//   and it follows.
-
-// Micro-tasks
-// - Use a + cursor when interacting with cells (use 'cell' cursor in visual mode)
-// - Figure out how to draw under module HTML
-// - Rendering bug between chunks
