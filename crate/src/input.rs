@@ -18,7 +18,6 @@ pub struct InputState {
 pub struct MouseInput {
     pub primary: bool,
     pub secondary: bool,
-    pub middle: bool,
     pub scroll_delta_y: f32,
     pub screen_point: Vec2,
     pub cell: CellCoord,
@@ -44,7 +43,6 @@ impl InputState {
         let starting_mouse_input = MouseInput {
             primary: false,
             secondary: false,
-            middle: false,
             scroll_delta_y: 0.0,
             // Pick a point off-screen
             screen_point: Vec2::new(10_000.0, 10_000.0),
@@ -112,7 +110,6 @@ impl InputState {
                 self.mouse_input = MouseInput {
                     primary,
                     secondary,
-                    middle,
                     scroll_delta_y: 0.0,
                     screen_point,
                     cell,
@@ -157,7 +154,6 @@ impl InputState {
                 self.mouse_input = MouseInput {
                     primary,
                     secondary,
-                    middle,
                     scroll_delta_y,
                     screen_point,
                     cell,

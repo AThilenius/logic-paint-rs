@@ -375,12 +375,20 @@ impl Component for Viewport {
                     {oncontextmenu}
                     {onwheel}
                     ref={self.canvas.clone()}
-                    style={format!("
-                        cursor: {};
-                    ", match self.mode {
-                        Mode::Visual => "cell",
-                        Mode::PaintMetallic | Mode::PaintSi => "crosshair"
-                    })}
+                    style={
+                        let cursor = {
+                            if self.input_state.keyboard_input.keydown.contains("Space") {
+                                "grabbing"
+                            } else {
+                                match self.mode {
+                                    Mode::Visual => "cell",
+                                    Mode::PaintMetallic | Mode::PaintSi => "crosshair",
+                                }
+                            }
+                        };
+
+                        format!("cursor: {};", cursor)
+                    }
                 />
                 <span
                     style={if self.mode != Mode::Visual { "pointer-events: none;"} else {""}}
