@@ -72,50 +72,50 @@ impl Buffer {
         }
     }
 
-    pub fn clone_selection(&self, selection: &Selection) -> Buffer {
-        // This is pretty damn inefficient. If copy-paste seems to slow, might need to redo this.
-        let mut buffer = Buffer::default();
+    // pub fn clone_selection(&self, selection: &Selection) -> Buffer {
+    //     // This is pretty damn inefficient. If copy-paste seems to slow, might need to redo this.
+    //     let mut buffer = Buffer::default();
 
-        for (chunk_coord, cell_coords) in selection.group_changes_by_chunk() {
-            if let Some(existing_chunk) = self.chunks.get(&chunk_coord) {
-                let mut new_chunk = BufferChunk::default();
+    //     for (chunk_coord, cell_coords) in selection.group_changes_by_chunk() {
+    //         if let Some(existing_chunk) = self.chunks.get(&chunk_coord) {
+    //             let mut new_chunk = BufferChunk::default();
 
-                for cell_coord in cell_coords {
-                    let cell = existing_chunk.get_cell(cell_coord);
+    //             for cell_coord in cell_coords {
+    //                 let cell = existing_chunk.get_cell(cell_coord);
 
-                    // Clone modules if their root is included in the selection
-                    if cell.get_bit(Bit::MODULE_ROOT) {
-                        if let Some(module) = self.anchored_modules.get(&cell_coord) {
-                            buffer.set_modules(vec![module.clone()]);
-                        }
-                    }
+    //                 // Clone modules if their root is included in the selection
+    //                 if cell.get_bit(Bit::MODULE_ROOT) {
+    //                     if let Some(module) = self.anchored_modules.get(&cell_coord) {
+    //                         buffer.set_modules(vec![module.clone()]);
+    //                     }
+    //                 }
 
-                    buffer.set_cell(cell_coord, cell);
-                }
-            }
-        }
+    //                 buffer.set_cell(cell_coord, cell);
+    //             }
+    //         }
+    //     }
 
-        buffer
-    }
+    //     buffer
+    // }
 
-    pub fn paste_buffer_offset_by(&mut self, root_offset: IVec2, buffer: &Buffer) {
-        // Copy chunks
-        for (chunk_coord, chunk) in &buffer.chunks {
-            let relative_chunk_start =
-                LocalCoord(UVec2::ZERO).to_cell_coord(chunk_coord).0 + root_offset;
+    // pub fn paste_buffer_offset_by(&mut self, root_offset: IVec2, buffer: &Buffer) {
+    //     // Copy chunks
+    //     for (chunk_coord, chunk) in &buffer.chunks {
+    //         let relative_chunk_start =
+    //             LocalCoord(UVec2::ZERO).to_cell_coord(chunk_coord).0 + root_offset;
 
-            for y in 0..CHUNK_SIZE {
-                for x in 0..CHUNK_SIZE {
-                    let offset_cell_loc = relative_chunk_start + IVec2::new(x as i32, y as i32);
-                    let cell = chunk.get_cell(LocalCoord(UVec2::new(x as u32, y as u32)));
-                    self.set_cell(CellCoord(offset_cell_loc), cell);
-                }
-            }
-        }
+    //         for y in 0..CHUNK_SIZE {
+    //             for x in 0..CHUNK_SIZE {
+    //                 let offset_cell_loc = relative_chunk_start + IVec2::new(x as i32, y as i32);
+    //                 let cell = chunk.get_cell(LocalCoord(UVec2::new(x as u32, y as u32)));
+    //                 self.set_cell(CellCoord(offset_cell_loc), cell);
+    //             }
+    //         }
+    //     }
 
-        // Copy modules
-        self.set_modules(buffer.anchored_modules.values().cloned());
-    }
+    //     // Copy modules
+    //     self.set_modules(buffer.anchored_modules.values().cloned());
+    // }
 }
 
 impl BufferChunk {

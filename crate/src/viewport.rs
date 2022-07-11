@@ -7,7 +7,7 @@ use crate::{
     blueprint::Blueprint,
     brush::{draw_metal, draw_si, draw_via},
     buffer::Buffer,
-    buffer_mask::BufferMask,
+    coords::CellCoord,
     dom::{DomIntervalHooks, ModuleMount, RawInput},
     execution_context::ExecutionContext,
     input::InputState,
@@ -20,8 +20,7 @@ pub struct Viewport {
     pub active_buffer: Buffer,
     pub ephemeral_buffer: Option<Buffer>,
     pub execution_context: Option<ExecutionContext>,
-    pub selection: Option<Selection>,
-    pub selection_mask: BufferMask,
+    pub selection: Selection,
     pub ephemeral_selection: Option<Selection>,
     pub camera: Camera,
     pub time: f64,
@@ -73,20 +72,20 @@ pub enum Mode {
 }
 
 impl Viewport {
-    pub fn copy(&self) -> Option<Blueprint> {
-        if let Some(selection) = self
-            .selection
-            .as_ref()
-            .or(self.ephemeral_selection.as_ref())
-        {
-            let buffer = self.active_buffer.clone_selection(&selection);
-            let mut blueprint = Blueprint::from(&buffer);
-            blueprint.root_offset = Some(-self.input_state.mouse_input.cell.0);
-            Some(blueprint)
-        } else {
-            None
-        }
-    }
+    // pub fn copy(&self) -> Blueprint {
+    //     if let Some(selection) = self
+    //         .selection
+    //         .as_ref()
+    //         .or(self.ephemeral_selection.as_ref())
+    //     {
+    //         let buffer = self.active_buffer.clone_selection(&selection);
+    //         let mut blueprint = Blueprint::from(&buffer);
+    //         blueprint.root_offset = Some(-self.input_state.mouse_input.cell.0);
+    //         Some(blueprint)
+    //     } else {
+    //         None
+    //     }
+    // }
 
     fn draw(&mut self, time: f64) {
         self.time = time;
@@ -107,31 +106,32 @@ impl Viewport {
         );
 
         // Update the selection mask
-        self.selection_mask = Default::default();
-        let merged_selection = {
-            if let Some(selection) = &self.selection {
-                if let Some(ephemeral_selection) = &self.ephemeral_selection {
-                    if self.input_state.keyboard_input.ctrl {
-                        Some(selection.difference(ephemeral_selection))
-                    } else {
-                        Some(selection.union(ephemeral_selection))
-                    }
-                } else {
-                    Some(selection.clone())
-                }
-            } else {
-                self.ephemeral_selection.clone()
-            }
-        };
-        if let Some(selection) = merged_selection {
-            for (chunk_coord, cell_coords) in selection.group_changes_by_chunk() {
-                let chunk = self.selection_mask.get_or_create_chunk_mut(chunk_coord);
+        // self.selection_mask = Default::default();
+        // let merged_selection = {
+        //     if let Some(selection) = &self.selection {
+        //         if let Some(ephemeral_selection) = &self.ephemeral_selection {
+        //             if self.input_state.keyboard_input.ctrl {
+        //                 Some(selection.difference(ephemeral_selection))
+        //             } else {
+        //                 Some(selection.union(ephemeral_selection))
+        //             }
+        //         } else {
+        //             Some(selection.clone())
+        //         }
+        //     } else {
+        //         self.ephemeral_selection.clone()
+        //     }
+        // };
 
-                for cell_coord in cell_coords {
-                    chunk.set_cell_active(cell_coord);
-                }
-            }
-        }
+        // if let Some(selection) = merged_selection {
+        //     for (chunk_coord, cell_coords) in selection.group_changes_by_chunk() {
+        //         let chunk = self.selection_mask.get_or_create_chunk_mut(chunk_coord);
+
+        //         for cell_coord in cell_coords {
+        //             chunk.set_cell_active(cell_coord);
+        //         }
+        //     }
+        // }
 
         if let Some(render_context) = &mut self.render_context {
             let buffer = self
@@ -139,14 +139,14 @@ impl Viewport {
                 .as_ref()
                 .unwrap_or(&self.active_buffer);
 
-            let mask = self
-                .execution_context
-                .as_ref()
-                .map(|c| &c.buffer_mask)
-                .unwrap_or(&self.selection_mask);
-
             render_context
-                .draw(time, buffer, mask, &self.camera)
+                .draw(
+                    time,
+                    buffer,
+                    &self.selection,
+                    self.execution_context.as_ref().map(|e| &e.buffer_mask),
+                    &self.camera,
+                )
                 .unwrap_throw();
         }
     }
@@ -159,7 +159,7 @@ impl Viewport {
         // Keybinds: Esc => Visual, D => PaintSi, F => PaintMetallic
         if self.input_state.keyboard_input.keydown.contains("Escape") {
             self.mode = Mode::Visual;
-            self.selection = None;
+            self.selection = Default::default();
         } else if self.input_state.keyboard_input.keydown.contains("KeyD") {
             self.mode = Mode::PaintSi;
         } else if self.input_state.keyboard_input.keydown.contains("KeyF") {
@@ -168,52 +168,20 @@ impl Viewport {
 
         match self.mode {
             Mode::Visual => {
-                self.dispatch_visual_input_state();
+                if self.input_state.mouse_input.primary {
+                    if let Some(drag) = self.input_state.mouse_input.drag {
+                        self.selection = Selection::from_rectangle_inclusive(
+                            drag.start,
+                            self.input_state.mouse_input.cell,
+                        );
+                    }
+                } else if self.input_state.mouse_input.secondary {
+                    self.selection = Default::default();
+                }
             }
             Mode::PaintMetallic | Mode::PaintSi => {
                 self.dispatch_paint_input_state();
             }
-        }
-    }
-
-    fn dispatch_visual_input_state(&mut self) {
-        let primary = self.input_state.mouse_input.primary;
-        let secondary = self.input_state.mouse_input.secondary;
-
-        // Neither button is clicked, see if we need to commit the ephemeral selection to the base
-        // selection.
-        if !primary && !secondary {
-            if let Some(ephemeral_selection) = self.ephemeral_selection.take() {
-                if self.input_state.previous_keyboard_input.ctrl {
-                    // Subtract it if (and only if) there is a base selection.
-                    if let Some(selection) = &self.selection {
-                        self.selection = Some(selection.difference(&ephemeral_selection));
-                    }
-                } else {
-                    // Add it to the base selection (or become the base if there is none).
-                    self.selection = self
-                        .selection
-                        .take()
-                        .map(|s| s.union(&ephemeral_selection))
-                        .or(Some(ephemeral_selection));
-                }
-            }
-
-            return;
-        }
-
-        // If shift isn't down, we can indiscriminately clear out the base selection.
-        if !self.input_state.keyboard_input.shift {
-            self.selection = None;
-        }
-
-        // At this point we don't care if it's primary or secondary, we are drawing into the
-        // ephemeral buffer regardless.
-        if let Some(drag) = self.input_state.mouse_input.drag {
-            self.ephemeral_selection = Some(Selection::from_rectangle(
-                drag.start,
-                self.input_state.mouse_input.cell,
-            ));
         }
     }
 
@@ -301,9 +269,8 @@ impl Component for Viewport {
             active_buffer: Buffer::default(),
             ephemeral_buffer: None,
             execution_context: None,
-            selection: None,
+            selection: Default::default(),
             ephemeral_selection: None,
-            selection_mask: BufferMask::default(),
             camera: Camera::new(),
             time: 0.0,
             input_state: InputState::new(),
@@ -330,12 +297,12 @@ impl Component for Viewport {
                 }
             }
             Msg::PasteBlueprint(blueprint) => {
-                if let Some(new_buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
-                    self.active_buffer.paste_buffer_offset_by(
-                        blueprint.root_offset.unwrap_or(IVec2::ZERO),
-                        &new_buffer,
-                    );
-                }
+                // if let Some(new_buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
+                //     self.active_buffer.paste_buffer_offset_by(
+                //         blueprint.root_offset.unwrap_or(IVec2::ZERO),
+                //         &new_buffer,
+                //     );
+                // }
             }
             Msg::Render(time) => {
                 // Update modules.

@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3, Vec4};
+use glam::{IVec2, Mat4, Vec2, Vec3, Vec4};
 use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader};
 
 use super::{uniform::Uniform, SetUniformType};
@@ -16,6 +16,7 @@ pub struct CellProgram {
     pub attr_uv: u32,
 
     // Style uniforms
+    pub chunk_start_cell_offset: Uniform<IVec2>,
     pub n_color: Uniform<Vec4>,
     pub p_color: Uniform<Vec4>,
     pub metal_color: Uniform<Vec3>,
@@ -24,6 +25,8 @@ pub struct CellProgram {
     pub grid_color: Uniform<Vec3>,
     pub background_color: Uniform<Vec3>,
     pub cell_select_color: Uniform<Vec3>,
+    pub cell_select_ll: Uniform<IVec2>,
+    pub cell_select_ur: Uniform<IVec2>,
     pub grid_res: Uniform<Vec2>,
     pub grid_blend_strength: Uniform<f32>,
     pub metal_over_si_blend: Uniform<f32>,
@@ -42,6 +45,7 @@ impl CellProgram {
         let cells_texture_sampler = Uniform::new(&ctx, &program, "cells_texture_sampler");
         let mask_texture_sampler = Uniform::new(&ctx, &program, "mask_texture_sampler");
 
+        let chunk_start_cell_offset = Uniform::new(&ctx, &program, "chunk_start_cell_offset");
         let n_color = Uniform::new(&ctx, &program, "n_color");
         let p_color = Uniform::new(&ctx, &program, "p_color");
         let metal_color = Uniform::new(&ctx, &program, "metal_color");
@@ -50,11 +54,14 @@ impl CellProgram {
         let grid_color = Uniform::new(&ctx, &program, "grid_color");
         let background_color = Uniform::new(&ctx, &program, "background_color");
         let cell_select_color = Uniform::new(&ctx, &program, "cell_select_color");
+        let cell_select_ll = Uniform::new(&ctx, &program, "cell_select_ll");
+        let cell_select_ur = Uniform::new(&ctx, &program, "cell_select_ur");
         let grid_res = Uniform::new(&ctx, &program, "grid_res");
         let grid_blend_strength = Uniform::new(&ctx, &program, "grid_blend_strength");
         let metal_over_si_blend = Uniform::new(&ctx, &program, "metal_over_si_blend");
 
         // Set default style values
+        chunk_start_cell_offset.set(&ctx, IVec2::new(0, 0));
         n_color.set(&ctx, Vec4::new(0.98, 0.0, 0.77, 1.0));
         p_color.set(&ctx, Vec4::new(0.0, 0.87, 1.0, 1.0));
         metal_color.set(&ctx, Vec3::new(0.2, 0.2, 0.2));
@@ -63,6 +70,8 @@ impl CellProgram {
         grid_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         background_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
         cell_select_color.set(&ctx, Vec3::new(0.08, 0.15, 0.2));
+        cell_select_ll.set(&ctx, IVec2::new(0, 0));
+        cell_select_ur.set(&ctx, IVec2::new(0, 0));
         grid_res.set(&ctx, Vec2::new(32.0, 32.0));
         grid_blend_strength.set(&ctx, 0.03);
         metal_over_si_blend.set(&ctx, 0.6);
@@ -79,6 +88,7 @@ impl CellProgram {
             mask_texture_sampler,
             attr_position,
             attr_uv,
+            chunk_start_cell_offset,
             n_color,
             p_color,
             metal_color,
@@ -87,6 +97,8 @@ impl CellProgram {
             grid_color,
             background_color,
             cell_select_color,
+            cell_select_ll,
+            cell_select_ur,
             grid_res,
             grid_blend_strength,
             metal_over_si_blend,

@@ -10,6 +10,7 @@ uniform usampler2D cells_texture_sampler;
 uniform usampler2D mask_texture_sampler;
 
 // Style uniforms
+uniform ivec2 chunk_start_cell_offset;
 uniform vec4 n_color;
 uniform vec4 p_color;
 uniform vec3 metal_color;
@@ -18,6 +19,8 @@ uniform vec3 active_color;
 uniform vec3 grid_color;
 uniform vec3 background_color;
 uniform vec3 cell_select_color;
+uniform ivec2 cell_select_ll;
+uniform ivec2 cell_select_ur;
 uniform vec2 grid_res;
 uniform float grid_blend_strength;
 uniform float metal_over_si_blend;
@@ -66,6 +69,7 @@ bool connection_gate(vec2 texel_uv, bool up, bool right, bool down, bool left) {
 
 void main() {
     uvec2 texel = uvec2(floor(v_uv * grid_res));
+    ivec2 cell = chunk_start_cell_offset + ivec2(texel);
 
     // This math was taken from:
     // https://gamedev.stackexchange.com/questions/135282/any-way-to-combine-instantiated-sprite-renderers-into-one-texture-so-i-can-apply/135307#135307
@@ -108,7 +112,12 @@ void main() {
     bool gate_active = (mask.g & (1u << 0u)) > 0u;
     bool si_ul_active = (mask.b & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
     bool si_dr_active = (mask.a & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
-    bool cell_selected = (mask.r & (1u << 1u)) > 0u;
+
+    bool cell_selected =
+        cell.x >= cell_select_ll.x &&
+        cell.y >= cell_select_ll.y &&
+        cell.x < cell_select_ur.x &&
+        cell.y < cell_select_ur.y;
 
     bool metal_connection = connection(
         tile_uv,

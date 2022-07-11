@@ -5,6 +5,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::buffer::Buffer;
 use crate::buffer_mask::BufferMask;
+use crate::utils::Selection;
 use crate::wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture};
 
 use crate::coords::ChunkCoord;
@@ -47,18 +48,25 @@ impl RenderContext {
         &mut self,
         time: f64,
         buffer: &Buffer,
-        mask: &BufferMask,
+        selection: &Selection,
+        mask: Option<&BufferMask>,
         camera: &Camera,
     ) -> Result<(), JsValue> {
         self.gl
             .viewport(0, 0, camera.size.x as i32, camera.size.y as i32);
 
-        // Update camera uniform.
+        // Update per-draw uniforms
         self.program.use_program(&self.gl);
         self.program
             .view_proj
             .set(&self.gl, camera.get_view_proj_matrix());
         self.program.time.set(&self.gl, time as f32);
+        self.program
+            .cell_select_ll
+            .set(&self.gl, selection.lower_left.0);
+        self.program
+            .cell_select_ur
+            .set(&self.gl, selection.upper_right.0);
 
         // Get chunks visible to the camera.
         let visible_chunks = camera.get_visible_chunk_coords();
@@ -102,7 +110,7 @@ impl RenderContext {
             // Update and bind the mask texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
 
-            if let Some(mask_chunk) = mask.get_chunk(chunk_coord) {
+            if let Some(mask_chunk) = mask.and_then(|m| m.get_chunk(chunk_coord)) {
                 render_chunk
                     .mask_texture
                     .set_pixels(&mask_chunk.cells[..])?;
@@ -114,6 +122,12 @@ impl RenderContext {
                 self.empty_texture.bind();
             }
 
+            // Update the per-chunk program uniforms
+            self.program
+                .chunk_start_cell_offset
+                .set(&self.gl, chunk_coord.first_cell_coord().0);
+
+            // Bind the VAO and draw
             render_chunk.vao.bind();
             self.gl.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
         }
