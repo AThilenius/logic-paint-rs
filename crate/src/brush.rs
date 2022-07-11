@@ -1,4 +1,4 @@
-use glam::IVec2;
+use arrayvec::ArrayVec;
 
 use crate::{
     buffer::Buffer,
@@ -21,15 +21,6 @@ pub fn draw_via(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord) {
 }
 
 pub fn draw_si(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord, paint_n: bool) {
-    // Success cases:
-    // - Previous and current don't have silicon
-    // - Previous has same type of silicon as to cell
-    // - Previous has opposite type of silicon as to cell but also has a gate pointed same direction
-    // - Both have same type of silicon (non-op)
-    // - No previous, to cell doesn't have si
-    // - Previous has same type, to-cell has opposite type and no gate (drawing a gate). Check:
-    //   - Adjacent cells are also opposite-type si
-    //   - Next cell in same direction != opposite type si
     let mut to_cell: NormalizedCell = buffer.get_cell(to).into();
 
     // We can paint silicon above any cell that doesn't already have silicon.
@@ -38,157 +29,223 @@ pub fn draw_si(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord, pain
             is_n: paint_n,
             placement: Placement::CENTER,
         };
-    }
 
-    let mut from = from.map(|coord| (coord.clone(), NormalizedCell::from(buffer.get_cell(coord))));
+        buffer.set_cell(to, to_cell.into());
+    }
 
     // Everything else requires a from-cell.
-    if let Some((from, from_cell)) = &mut from {
+    if let Some(from) = from {
+        let from_cell = NormalizedCell::from(buffer.get_cell(from));
+
         let dir = to.0 - from.0;
-        let tan_dir = IVec2::new(dir.y, dir.x);
 
-        // To draw a MOSFET, we need 4 checks, but one of those checks is implicit in the
-        // match statement below (that the to-be MOSFET isn't already a MOSFET).
-        // - The cell we are drawing from is the same Si type (to cell will be the Gate)
-        let from_cell_matches_n = from_cell.si.matches_n(paint_n);
-        // - There is a line of 3 silicon of the opposite type of us (or gates there of)
-        //   tangential to th gate.
-        let dirs = [to.0 + tan_dir, to.0, to.0 - tan_dir];
-        let tangent_cells_match_opposite_n = dirs.iter().all(|p| {
-            NormalizedCell::from(buffer.get_cell(CellCoord(*p)))
-                .si
-                .matches_n(!paint_n)
-        });
-        // - The Si under the to-be Gate doesn't connect in the direction we are going.
-        let to_cell_does_not_connect_in_dir = {
-            if let Silicon::NP { placement, .. } = to_cell.si {
-                !placement.cardinal_vectors().contains(&dir)
-            } else {
-                false
-            }
-        };
-
-        match (&mut from_cell.si, &mut to_cell.si) {
-            // Single-layer cells of the same type can be joined (painted above).
-            (
-                Silicon::NP {
-                    is_n: fc_is_n,
-                    placement: fc_pl,
-                    ..
-                },
-                Silicon::NP {
-                    is_n: tc_is_n,
-                    placement: tc_pl,
-                    ..
-                },
-            ) if fc_is_n == tc_is_n && *tc_is_n == paint_n => {
-                fc_pl.set_cardinal(dir);
-                tc_pl.set_cardinal(-dir);
-            }
-            // An already existing gate can connect with an EMPTY cell in the same direction it's
-            // going.
-            (
-                Silicon::Mosfet {
-                    is_npn,
-                    gate_placement,
-                    ..
-                },
-                Silicon::None,
-            ) => {
-                gate_placement.set_cardinal(dir);
-                let mut placement = Placement::NONE;
-                placement.set_cardinal(-dir);
-                to_cell.si = Silicon::NP {
-                    is_n: !*is_npn,
-                    placement,
-                };
-            }
-            // An already existing gate can connect with an existing single-layer cell in the same
-            // direction it's going if that cell is the same type as the gate silicon.
-            (
-                Silicon::Mosfet {
-                    is_npn,
-                    gate_placement,
-                    ..
-                },
-                Silicon::NP {
-                    is_n, placement, ..
-                },
-            ) if is_npn != is_n => {
-                gate_placement.set_cardinal(dir);
-                placement.set_cardinal(-dir);
-            }
-            // MOSFETs can only be drawn from silicon, onto single-layer silicon of the opposite
-            // type. They also require the tangential cells be of the same type as the MOSFET.
-            (
-                Silicon::NP {
-                    placement: fc_pl, ..
-                }
-                | Silicon::Mosfet {
-                    gate_placement: fc_pl,
-                    ..
-                },
-                Silicon::NP {
-                    placement: tc_pl, ..
-                },
-            ) if from_cell_matches_n
-                && tangent_cells_match_opposite_n
-                && to_cell_does_not_connect_in_dir =>
-            {
-                fc_pl.set_cardinal(dir);
-                let mut gate_placement = Placement::NONE;
-                gate_placement.set_cardinal(-dir);
-
-                to_cell.si = Silicon::Mosfet {
-                    is_npn: !paint_n,
-                    gate_placement,
-                    ec_placement: *tc_pl,
-                };
-            }
-            // You can draw from an NP onto a MOSFET's gate.
-            (
-                Silicon::NP {
-                    is_n, placement, ..
-                },
-                Silicon::Mosfet {
-                    is_npn,
-                    gate_placement,
-                    ..
-                },
-            ) if *is_n == paint_n && is_n != is_npn && gate_placement.has_cardinal(dir) => {
-                placement.set_cardinal(dir);
-                gate_placement.set_cardinal(-dir);
-            }
-            // Or from an MOSFET gate onto another MOSFET's gate.
-            (
-                Silicon::Mosfet {
-                    is_npn: fc_npn,
-                    gate_placement: fc_gp,
-                    ..
-                },
-                Silicon::Mosfet {
-                    is_npn: tc_npn,
-                    gate_placement: tc_gp,
-                    ..
-                },
-            ) if *fc_npn != paint_n
-                && fc_npn == tc_npn
-                && fc_gp.has_cardinal(dir)
-                && tc_gp.has_cardinal(-dir) =>
-            {
-                tc_gp.set_cardinal(dir);
-                fc_gp.set_cardinal(-dir);
-            }
-
+        // If the from_cell is already connected, then there is nothing to do.
+        match from_cell.si {
+            Silicon::NP { placement, .. } if placement.has_cardinal(dir) => return,
+            Silicon::Mosfet {
+                gate_placement,
+                ec_placement,
+                ..
+            } if gate_placement.has_cardinal(dir) || ec_placement.has_cardinal(dir) => return,
             _ => {}
         }
-    }
 
-    if let Some((from, from_cell)) = from {
-        buffer.set_cell(from, from_cell.into());
-    }
+        // At this point both from-cell and to-cell will both have silicon. We can take an easy
+        // short-circuit by looking at if the from cell can possibly connect given what type we are
+        // painting, and what direction we are going. We can connect when:
+        // N : NP(n) : connect
+        // P : NP(p) : connect
+        // N : MOSFET(npn) && ec_in_line_with_dir : connect ec
+        // N : MOSFET(pnp) && gate_in_line_with_dir : connect gate
+        // P : MOSFET(npn) && gate_in_line_with_dir : connect gate
+        // P : MOSFET(pnp) && ec_in_line_with_dir : connect ec
+        //
+        // No other connections can possibly connect, so we can short-circuit. If we don't short
+        // circuit, then we can assume the si we are painting is what is going to be drawn and
+        // connected. We can optimistically create the connection from the from-cell (in an
+        // temporary clone) before going on to the to-cell.
+        //
+        // However... gate placement is the only thing that can be reliably tested for MOSFETs, as
+        // a MOSFET (by definition) must connect a gate, but doesn't necessarily need to connect an
+        // EC.
 
-    buffer.set_cell(to, to_cell.into());
+        let mut connected_from_cell = from_cell.clone();
+        match (paint_n, &mut connected_from_cell.si) {
+            (
+                true,
+                Silicon::NP {
+                    is_n: true,
+                    placement,
+                },
+            ) => {
+                placement.set_cardinal(dir);
+            }
+            (
+                false,
+                Silicon::NP {
+                    is_n: false,
+                    placement,
+                },
+            ) => {
+                placement.set_cardinal(dir);
+            }
+            (
+                true,
+                Silicon::Mosfet {
+                    is_npn: true,
+                    gate_placement,
+                    ec_placement,
+                },
+            ) if !gate_placement.in_line_with(dir) => {
+                ec_placement.set_cardinal(dir);
+            }
+            (
+                true,
+                Silicon::Mosfet {
+                    is_npn: false,
+                    gate_placement,
+                    ..
+                },
+            ) if gate_placement.in_line_with(dir) => {
+                gate_placement.set_cardinal(dir);
+            }
+            (
+                false,
+                Silicon::Mosfet {
+                    is_npn: true,
+                    gate_placement,
+                    ..
+                },
+            ) if gate_placement.in_line_with(dir) => {
+                gate_placement.set_cardinal(dir);
+            }
+            (
+                false,
+                Silicon::Mosfet {
+                    is_npn: false,
+                    gate_placement,
+                    ec_placement,
+                },
+            ) if !gate_placement.in_line_with(dir) => {
+                ec_placement.set_cardinal(dir);
+            }
+            _ => {}
+        }
+
+        // If the from-cell can't connect, then we can skip the rest.
+        if connected_from_cell == from_cell {
+            return;
+        }
+
+        // Now we have to test the to-cell to see if we can paint it. That is possible when:
+        // N : NP(n) : connect
+        // P : NP(p) : connect
+        // N : NP(p) && doesnt_connect_in_dir : make MOSFET(PNP), connect gate
+        // P : NP(n) && doesnt_connect_in_dir : make MOSFET(NPN), connect gate
+        // N : MOSFET(npn) && ec_in_line_with_dir : connect ec
+        // P : MOSFET(npn) && gate_in_line_with_dir : connect gate
+        // N : MOSFET(pnp) && gate_in_line_with_dir : connect gate
+        // P : MOSFET(pnp) && ec_in_line_with_dir : connect ec
+        //
+        // No other connections can possibly be made. We can throw away the from-cell connection.
+        // Otherwise we commit the from-cell change.
+        match (paint_n, &mut to_cell.si) {
+            (
+                true,
+                Silicon::NP {
+                    is_n: true,
+                    placement,
+                },
+            ) => {
+                placement.set_cardinal(-dir);
+            }
+            (
+                false,
+                Silicon::NP {
+                    is_n: false,
+                    placement,
+                },
+            ) => {
+                placement.set_cardinal(-dir);
+            }
+            (
+                true,
+                Silicon::NP {
+                    is_n: false,
+                    placement,
+                },
+            ) if !placement.has_cardinal(dir) => {
+                to_cell.si = Silicon::Mosfet {
+                    is_npn: false,
+                    gate_placement: Placement::from_cardinal(-dir),
+                    ec_placement: *placement,
+                }
+            }
+            (
+                false,
+                Silicon::NP {
+                    is_n: true,
+                    placement,
+                },
+            ) if !placement.has_cardinal(dir) => {
+                to_cell.si = Silicon::Mosfet {
+                    is_npn: true,
+                    gate_placement: Placement::from_cardinal(-dir),
+                    ec_placement: *placement,
+                }
+            }
+            (
+                true,
+                Silicon::Mosfet {
+                    is_npn: true,
+                    gate_placement,
+                    ec_placement,
+                },
+            ) if !gate_placement.in_line_with(dir) => {
+                ec_placement.set_cardinal(-dir);
+            }
+            (
+                false,
+                Silicon::Mosfet {
+                    is_npn: true,
+                    gate_placement,
+                    ..
+                },
+            ) if gate_placement.in_line_with(dir) => {
+                gate_placement.set_cardinal(-dir);
+            }
+
+            (
+                true,
+                Silicon::Mosfet {
+                    is_npn: false,
+                    gate_placement,
+                    ..
+                },
+            ) if gate_placement.in_line_with(dir) => {
+                gate_placement.set_cardinal(-dir);
+            }
+            (
+                false,
+                Silicon::Mosfet {
+                    is_npn: false,
+                    gate_placement,
+                    ec_placement,
+                },
+            ) if !gate_placement.in_line_with(dir) => {
+                ec_placement.set_cardinal(-dir);
+            }
+            _ => {
+                // Can't connect to to_cell, so abort drawing.
+                return;
+            }
+        }
+
+        // If we made it to here then both from and to connected up, so we can write both into the
+        // buffer.
+        buffer.set_cell(from, connected_from_cell.into());
+        buffer.set_cell(to, to_cell.into());
+    }
 }
 
 pub fn draw_metal(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord) {
@@ -220,4 +277,101 @@ pub fn draw_metal(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord) {
         buffer.set_cell(from, from_cell.into());
     }
     buffer.set_cell(to, to_cell.into());
+}
+
+pub fn clear_si<T>(buffer: &mut Buffer, cell_coords: T)
+where
+    T: IntoIterator<Item = CellCoord>,
+{
+    'outer: for cell_coord in cell_coords.into_iter() {
+        let upc = buffer.get_cell(cell_coord);
+
+        if upc == Default::default() {
+            continue;
+        }
+
+        let mut normalized: NormalizedCell = buffer.get_cell(cell_coord.clone()).into();
+
+        let vectors = match normalized.si {
+            Silicon::NP { placement, .. } => placement.cardinal_vectors(),
+            Silicon::Mosfet {
+                gate_placement,
+                ec_placement,
+                ..
+            } => (gate_placement | ec_placement).cardinal_vectors(),
+            _ => ArrayVec::new(),
+        };
+
+        // Clear the target cell
+        normalized.si = Silicon::None;
+
+        // Then un-link neighbors.
+        for vector in vectors {
+            let neighbor_coord = CellCoord(cell_coord.0 + vector);
+            let mut neighbor: NormalizedCell = buffer.get_cell(neighbor_coord).into();
+
+            match &mut neighbor.si {
+                Silicon::NP { placement, .. } => placement.clear_cardinal(-vector),
+                Silicon::Mosfet {
+                    gate_placement,
+                    ec_placement,
+                    ..
+                } => {
+                    let mut new_gate_pl = gate_placement.clone();
+                    new_gate_pl.clear_cardinal(-vector);
+
+                    if new_gate_pl == Placement::NONE || new_gate_pl == Placement::CENTER {
+                        // This change would result in an invalid gate. I'm not a huge fan of this
+                        // solution, but for now we just cancel removal.
+                        break 'outer;
+                    }
+
+                    ec_placement.clear_cardinal(-vector);
+                }
+                _ => {}
+            }
+
+            buffer.set_cell(neighbor_coord, neighbor.into());
+        }
+
+        // Only now can we safely set the original cell.
+        buffer.set_cell(cell_coord, normalized.into());
+    }
+}
+
+pub fn clear_metal<T>(buffer: &mut Buffer, cell_coords: T)
+where
+    T: IntoIterator<Item = CellCoord>,
+{
+    for cell_coord in cell_coords.into_iter() {
+        let upc = buffer.get_cell(cell_coord);
+
+        if upc == Default::default() {
+            continue;
+        }
+
+        let mut normalized: NormalizedCell = buffer.get_cell(cell_coord.clone()).into();
+
+        let vectors = match normalized.metal {
+            Metal::Trace { placement, .. } => placement.cardinal_vectors(),
+            _ => ArrayVec::new(),
+        };
+
+        // Clear the target cell
+        normalized.metal = Metal::None;
+        buffer.set_cell(cell_coord, normalized.into());
+
+        // Then un-link neighbors.
+        for vector in vectors {
+            let neighbor_coord = CellCoord(cell_coord.0 + vector);
+            let mut neighbor: NormalizedCell = buffer.get_cell(neighbor_coord).into();
+
+            match &mut neighbor.metal {
+                Metal::Trace { placement, .. } => placement.clear_cardinal(-vector),
+                _ => {}
+            }
+
+            buffer.set_cell(neighbor_coord, neighbor.into());
+        }
+    }
 }

@@ -5,12 +5,11 @@ use yew::prelude::*;
 
 use crate::{
     blueprint::Blueprint,
-    brush::{draw_metal, draw_si, draw_via},
+    brush::{clear_metal, clear_si, draw_metal, draw_si, draw_via},
     buffer::Buffer,
     dom::{DomIntervalHooks, ModuleMount, RawInput},
     execution_context::ExecutionContext,
     input::InputState,
-    upc::{Metal, NormalizedCell, Silicon},
     utils::Selection,
     wgl2::{Camera, RenderContext},
 };
@@ -200,16 +199,10 @@ impl Viewport {
         // If Ctrl is held down, then we are clearing. The logic for clearing is totally different
         // from painting, so we handle it separately. These of we. The preverbal we. It's just me.
         if self.input_state.keyboard_input.ctrl {
-            for cell_coord in path {
-                let mut normalized: NormalizedCell = buffer.get_cell(cell_coord.clone()).into();
-
-                match self.mode {
-                    Mode::PaintMetallic => normalized.metal = Metal::None,
-                    Mode::PaintSi => normalized.si = Silicon::None,
-                    _ => {}
-                }
-
-                buffer.set_cell(cell_coord, normalized.into());
+            match self.mode {
+                Mode::PaintMetallic => clear_metal(&mut buffer, path),
+                Mode::PaintSi => clear_si(&mut buffer, path),
+                _ => {}
             }
         } else {
             // Input modes are much, much more complicated. That logic is delegated to it's own file

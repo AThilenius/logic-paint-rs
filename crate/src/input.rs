@@ -73,13 +73,11 @@ impl InputState {
                 // it to mean 'neither' is clicked. Aborting can be done with ESC.
                 let left_mouse = e.buttons() & 1 != 0;
                 let right_mouse = e.buttons() & 2 != 0;
-                let middle_mouse = e.buttons() & 4 != 0;
                 let shift = e.shift_key();
 
                 let primary = left_mouse && !shift && !right_mouse;
                 let secondary =
                     (right_mouse && !left_mouse) || (shift && (left_mouse ^ right_mouse));
-                let middle = middle_mouse && !left_mouse && !right_mouse;
 
                 let screen_point = Vec2::new(e.offset_x() as f32, e.offset_y() as f32);
                 let cell = camera.project_screen_point_to_cell(screen_point);
@@ -138,13 +136,11 @@ impl InputState {
                 // it to mean 'neither' is clicked. Aborting can be done with ESC.
                 let left_mouse = e.buttons() & 1 != 0;
                 let right_mouse = e.buttons() & 2 != 0;
-                let middle_mouse = e.buttons() & 4 != 0;
                 let shift = e.shift_key();
 
                 let primary = left_mouse && !shift && !right_mouse;
                 let secondary =
                     (right_mouse && !left_mouse) || (shift && (left_mouse ^ right_mouse));
-                let middle = middle_mouse && !left_mouse && !right_mouse;
 
                 let screen_point = Vec2::new(e.offset_x() as f32, e.offset_y() as f32);
                 let cell = camera.project_screen_point_to_cell(screen_point);

@@ -340,6 +340,12 @@ impl Placement {
         left: false,
     };
 
+    pub fn from_cardinal(dir: IVec2) -> Self {
+        let mut placement = Placement::NONE;
+        placement.set_cardinal(dir);
+        placement
+    }
+
     pub fn cardinal_vectors(&self) -> ArrayVec<IVec2, 4> {
         let mut vec = ArrayVec::<_, 4>::new();
 
@@ -370,12 +376,31 @@ impl Placement {
         self.center = true;
     }
 
+    pub fn clear_cardinal(&mut self, dir: IVec2) {
+        match (dir.x, dir.y) {
+            (0, 1) => self.up = false,
+            (1, 0) => self.right = false,
+            (0, -1) => self.down = false,
+            (-1, 0) => self.left = false,
+            _ => panic!("Non-unit cardinal direction vector"),
+        }
+        self.center = true;
+    }
+
     pub fn has_cardinal(&self, dir: IVec2) -> bool {
         match (dir.x, dir.y) {
             (0, 1) => self.up,
             (1, 0) => self.right,
             (0, -1) => self.down,
             (-1, 0) => self.left,
+            _ => panic!("Non-unit cardinal direction vector"),
+        }
+    }
+
+    pub fn in_line_with(&self, dir: IVec2) -> bool {
+        match (dir.x, dir.y) {
+            (0, 1) | (0, -1) => self.up || self.down,
+            (1, 0) | (-1, 0) => self.left || self.right,
             _ => panic!("Non-unit cardinal direction vector"),
         }
     }
