@@ -8,7 +8,7 @@ pub(crate) const LOG_CHUNK_SIZE: usize = 5;
 const UPPER_MASK: i32 = !((CHUNK_SIZE as i32) - 1);
 const LOWER_MASK: usize = CHUNK_SIZE - 1;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct CellCoord(pub IVec2);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]

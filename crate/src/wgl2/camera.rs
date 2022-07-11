@@ -55,16 +55,17 @@ impl Camera {
     /// Returns true if input processing should be truncated because of panning.
     pub fn handle_input(&mut self, input: &InputState) -> bool {
         // Track the drag-anchor for panning on initial click of Space.
-        if input.keyboard_input.keydown.contains("Space") {
-            self.drag_world_anchor = Some(self.drag_world_anchor.unwrap_or_else(|| {
-                self.project_screen_point_to_world(input.mouse_input.screen_point)
-            }));
+        if input.keydown.contains("Space") {
+            self.drag_world_anchor = Some(
+                self.drag_world_anchor
+                    .unwrap_or_else(|| self.project_screen_point_to_world(input.screen_point)),
+            );
         } else {
             self.drag_world_anchor = None;
         }
 
         // Handle pan mouse dragging. We want to put the drag_world_anchor directly under the mouse.
-        let new_world_point = self.project_screen_point_to_world(input.mouse_input.screen_point);
+        let new_world_point = self.project_screen_point_to_world(input.screen_point);
         if let Some(anchor) = self.drag_world_anchor {
             // How far we need to move the camera to move the anchor under the mouse
             self.translation += anchor - new_world_point;
@@ -75,11 +76,11 @@ impl Camera {
         }
 
         // Handle scroll zooming around the world anchor under the mouse.
-        let origin_world = self.project_screen_point_to_world(input.mouse_input.screen_point);
-        self.scale += self.scale * input.mouse_input.scroll_delta_y;
+        let origin_world = self.project_screen_point_to_world(input.screen_point);
+        self.scale += self.scale * input.scroll_delta_y;
         self.scale = f32::clamp(self.scale, 0.02, 10.0);
         self.update_proj_matrix();
-        let new_world_point = self.project_screen_point_to_world(input.mouse_input.screen_point);
+        let new_world_point = self.project_screen_point_to_world(input.screen_point);
         self.translation += origin_world - new_world_point;
 
         false

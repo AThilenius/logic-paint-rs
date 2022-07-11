@@ -23,9 +23,6 @@ pub fn main() {
     console_error_panic_hook::set_once();
 }
 
-// Still to do:
-// - Something with the focus is still fucked up.
-
 // The module.json file is always generated. I need this for having a sane way to define memory
 // for both the micro-ops lookup, and main memory.
 

@@ -108,11 +108,9 @@ body {
   bottom: 0;
 }
 
-.lp-bottom-bar {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
+.lp-info-panel {
   position: absolute;
-  bottom: 0;
-  width: 100%;
+  top: 20px;
+  left: 20px;
+  color: darkgray;
 }

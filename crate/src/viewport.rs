@@ -11,7 +11,6 @@ use crate::{
     dom::{DomIntervalHooks, ModuleMount, RawInput},
     execution_context::ExecutionContext,
     input::InputState,
-    log,
     utils::Selection,
     wgl2::{Camera, RenderContext},
 };
@@ -19,7 +18,6 @@ use crate::{
 pub struct Viewport {
     pub active_buffer: Buffer,
     pub ephemeral_buffer: Option<Buffer>,
-    pub execution_context: Option<ExecutionContext>,
     pub selection: Selection,
     pub camera: Camera,
     pub time: f64,
@@ -40,11 +38,9 @@ pub enum Msg {
     PasteBlueprint(Blueprint),
     RawInput(RawInput),
     Render(f64),
-    StartStopSim,
     SetFocus(bool),
 }
 
-#[derive(PartialEq, Eq)]
 pub enum Mode {
     /// (ESC) Default starting mode, accessed from any other mode with ESC.
     /// - Denoted by the cell-cursor (Excel style)
@@ -70,12 +66,37 @@ pub enum Mode {
     /// RMB || Shift+LMB paint P
     /// Ctrl+... to erase any type & mosfets
     PaintSi,
+
+    /// (E) Enters execution mode
+    /// (R): Run (for now just one clock per frame)
+    /// (C): Enter manual-mode, clocks once.
+    /// (T): Enter manual-mode, ticks once.
+    /// (P): Enter manual-mode
+    Execute(Execution),
+}
+
+pub struct Execution {
+    pub manual: bool,
+    pub context: ExecutionContext,
 }
 
 impl Viewport {
     fn draw(&mut self, time: f64) {
         self.time = time;
         let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+
+        // Update modules.
+        for (_, anchored_module) in self.active_buffer.anchored_modules.iter_mut() {
+            anchored_module.module.borrow_mut().tick(time);
+        }
+
+        // Run the sim loop once per frame
+        if let Mode::Execute(execution) = &mut self.mode {
+            if !execution.manual {
+                execution.context.clock_once();
+            }
+            execution.context.update_buffer_mask();
+        }
 
         // Maintain HTML Canvas size and context viewport.
         let w = canvas.client_width() as u32;
@@ -94,7 +115,7 @@ impl Viewport {
         // Redraw the mouse-follow buffer to the ephemeral buffer each frame.
         if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
             let mut buffer = self.active_buffer.clone();
-            buffer.paste_at(self.input_state.mouse_input.cell, mouse_follow_buffer);
+            buffer.paste_at(self.input_state.cell, mouse_follow_buffer);
             self.ephemeral_buffer = Some(buffer);
         }
 
@@ -104,14 +125,14 @@ impl Viewport {
                 .as_ref()
                 .unwrap_or(&self.active_buffer);
 
+            let mask = if let Mode::Execute(execution) = &self.mode {
+                Some(&execution.context.buffer_mask)
+            } else {
+                None
+            };
+
             render_context
-                .draw(
-                    time,
-                    buffer,
-                    &self.selection,
-                    self.execution_context.as_ref().map(|e| &e.buffer_mask),
-                    &self.camera,
-                )
+                .draw(time, buffer, &self.selection, mask, &self.camera)
                 .unwrap_throw();
         }
     }
@@ -119,7 +140,7 @@ impl Viewport {
     fn dispatch_input_state(&mut self) {
         // Handle cursor-follow before anything else.
         if let Some(render_context) = &self.render_context {
-            render_context.set_cursor_coord(self.input_state.mouse_input.cell);
+            render_context.set_cursor_coord(self.input_state.cell);
         }
 
         // Let the camera take all events beyond that.
@@ -128,48 +149,54 @@ impl Viewport {
         }
 
         // Keybinds: Esc => Visual, D => PaintSi, F => PaintMetallic
-        if self.input_state.keyboard_input.keydown.contains("Escape") {
+        if self.input_state.key_clicked == "Escape" {
             self.mode = Mode::Visual;
             self.selection = Default::default();
             self.mouse_follow_buffer = None;
             self.ephemeral_buffer = None;
-        } else if self.input_state.keyboard_input.keydown.contains("KeyD") {
+        } else if self.input_state.key_clicked == "KeyD" {
             self.mode = Mode::PaintSi;
             self.selection = Default::default();
             self.mouse_follow_buffer = None;
-        } else if self.input_state.keyboard_input.keydown.contains("KeyF") {
+        } else if self.input_state.key_clicked == "KeyF" {
             self.mode = Mode::PaintMetallic;
+            self.selection = Default::default();
+            self.mouse_follow_buffer = None;
+        } else if self.input_state.key_clicked == "KeyE" && !matches!(self.mode, Mode::Execute(..))
+        {
+            self.mode = Mode::Execute(Execution {
+                manual: true,
+                context: ExecutionContext::compile_from_buffer(&self.active_buffer),
+            });
             self.selection = Default::default();
             self.mouse_follow_buffer = None;
         }
 
-        match self.mode {
+        match &mut self.mode {
             Mode::Visual => {
                 if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
                     // Handle placing the mouse follow buffer.
-                    if self.input_state.mouse_input.primary
-                        && !self.input_state.previous_mouse_input.primary
-                    {
+                    if self.input_state.primary_clicked {
                         self.active_buffer
-                            .paste_at(self.input_state.mouse_input.cell, &mouse_follow_buffer);
+                            .paste_at(self.input_state.cell, &mouse_follow_buffer);
 
                         self.notify_js_on_change();
                     }
 
                     // Right click (and ESC) clears the mouse follow buffer.
-                    if self.input_state.mouse_input.secondary {
+                    if self.input_state.secondary {
                         self.mouse_follow_buffer = None;
                         self.ephemeral_buffer = None;
                     }
                 } else {
-                    if self.input_state.mouse_input.primary {
-                        if let Some(drag) = self.input_state.mouse_input.drag {
+                    if self.input_state.primary {
+                        if let Some(drag) = self.input_state.drag {
                             self.selection = Selection::from_rectangle_inclusive(
                                 drag.start,
-                                self.input_state.mouse_input.cell,
+                                self.input_state.cell,
                             );
                         }
-                    } else if self.input_state.mouse_input.secondary {
+                    } else if self.input_state.secondary {
                         self.selection = Default::default();
                     }
                 }
@@ -177,16 +204,25 @@ impl Viewport {
             Mode::PaintMetallic | Mode::PaintSi => {
                 self.dispatch_paint_input_state();
             }
+            Mode::Execute(Execution { manual, context }) => {
+                if self.input_state.key_clicked == "KeyR" {
+                    *manual = false;
+                } else if self.input_state.key_clicked == "KeyC" {
+                    *manual = true;
+                    context.clock_once();
+                } else if self.input_state.key_clicked == "KeyT" {
+                    *manual = true;
+                    context.tick_once();
+                } else if self.input_state.key_clicked == "KeyP" {
+                    *manual = true;
+                }
+            }
         }
     }
 
     fn dispatch_paint_input_state(&mut self) {
-        // TODO: Early-return if the mouse didn't move a cell.
-        let primary = self.input_state.mouse_input.primary;
-        let secondary = self.input_state.mouse_input.secondary;
-
         // If neither button is clicked
-        if !primary && !secondary {
+        if !self.input_state.primary && !self.input_state.secondary {
             // Commit the ephemeral buffer if we have one.
             if let Some(buffer) = self.ephemeral_buffer.take() {
                 self.active_buffer = buffer;
@@ -205,7 +241,7 @@ impl Viewport {
 
         // If Ctrl is held down, then we are clearing. The logic for clearing is totally different
         // from painting, so we handle it separately. These of we. The preverbal we. It's just me.
-        if self.input_state.keyboard_input.ctrl {
+        if self.input_state.ctrl {
             match self.mode {
                 Mode::PaintMetallic => clear_metal(&mut buffer, path),
                 Mode::PaintSi => clear_si(&mut buffer, path),
@@ -220,15 +256,15 @@ impl Viewport {
                 match self.mode {
                     Mode::PaintMetallic => {
                         // Primary paints metal, secondary places a Via (only once).
-                        if primary {
+                        if self.input_state.primary {
                             draw_metal(&mut buffer, from, cell_coord);
-                        } else if secondary {
+                        } else if self.input_state.secondary {
                             draw_via(&mut buffer, from, cell_coord);
                         }
                     }
                     Mode::PaintSi => {
                         // Primary paints N-type, secondary paints P-type.
-                        if primary {
+                        if self.input_state.primary {
                             draw_si(&mut buffer, from, cell_coord, true);
                         } else {
                             draw_si(&mut buffer, from, cell_coord, false);
@@ -261,11 +297,10 @@ impl Component for Viewport {
         Self {
             active_buffer: Buffer::default(),
             ephemeral_buffer: None,
-            execution_context: None,
             selection: Default::default(),
             camera: Camera::new(),
             time: 0.0,
-            input_state: InputState::new(),
+            input_state: Default::default(),
             mouse_follow_buffer: None,
             mode: Mode::Visual,
             canvas: NodeRef::default(),
@@ -296,26 +331,7 @@ impl Component for Viewport {
                 }
             }
             Msg::Render(time) => {
-                // Update modules.
-                for (_, anchored_module) in self.active_buffer.anchored_modules.iter_mut() {
-                    anchored_module.module.borrow_mut().tick(time);
-                }
-
-                // Run the sim loop once.
-                if let Some(execution_context) = &mut self.execution_context {
-                    execution_context.step();
-                    execution_context.update_buffer_mask();
-                }
-
                 self.draw(time);
-            }
-            Msg::StartStopSim => {
-                if self.execution_context.is_some() {
-                    self.execution_context = None;
-                } else {
-                    self.execution_context =
-                        Some(ExecutionContext::compile_from_buffer(&self.active_buffer));
-                }
             }
             Msg::SetFocus(focused) => {
                 if !focused {
@@ -356,6 +372,33 @@ impl Component for Viewport {
             })
             .collect::<Html>();
 
+        let mode = html!(
+            <div style="font-weight: bold;">
+            {
+                match &self.mode {
+                    Mode::Visual => html!(<span style="color: darkgreen;">{"Visual"}</span>),
+                    Mode::PaintMetallic => html!(<span style="color: gray;">{"Metal"}</span>),
+                    Mode::PaintSi => html!(<span style="color: rgb(255, 0, 255);">{
+                        "Silicon"
+                    }</span>),
+                    Mode::Execute(Execution { manual, context }) => {
+                        html!(
+                            <span style={
+                                format!("color: {};", if *manual { "orange" } else { "green" })
+                            }>
+                            <div>{if *manual { "Execution Paused" } else { "Running" }}</div>
+                            <div>{format!("Ticks: {}", context.state.tick_count)}</div>
+                            <div>{
+                                format!("Fundamental Clocks: {}", context.state.clock_count)
+                            }</div>
+                            </span>
+                        )
+                    }
+                }
+            }
+            </div>
+        );
+
         html! {
             <div class="lp-viewport">
                 <canvas
@@ -367,12 +410,13 @@ impl Component for Viewport {
                     ref={self.canvas.clone()}
                     style={
                         let cursor = {
-                            if self.input_state.keyboard_input.keydown.contains("Space") {
+                            if self.input_state.keydown.contains("Space") {
                                 "grabbing"
                             } else {
                                 match self.mode {
                                     Mode::Visual => "cell",
                                     Mode::PaintMetallic | Mode::PaintSi => "crosshair",
+                                    Mode::Execute(..) => "default",
                                 }
                             }
                         };
@@ -380,41 +424,35 @@ impl Component for Viewport {
                         format!("cursor: {};", cursor)
                     }
                 />
-                <span
-                    style={if self.mode != Mode::Visual { "pointer-events: none;"} else {""}}
-                >
-                    <div class="lp-bottom-bar">
-                        <button
-                            style={format!("
-                                height: 40px;
-                                background: {};
-                            ",
-                            if self.execution_context.is_none() { "green" } else { "darkred" })}
-                            onclick={ctx.link().callback(|_| Msg::StartStopSim )}
-                        >
-                            { if self.execution_context.is_none() { "Start" } else { "Stop "} }
-                        </button>
-
-                        <button
-                            style={format!("
-                                height: 40px;
-                                background: {};
-                            ",
-                            if self.mode == Mode::PaintSi { "magenta" } else { "gray" })}
-                        >
-                            {"Paint Silicon"}
-                        </button>
-                        <button
-                            style={format!("
-                                height: 40px;
-                                background: {};
-                            ",
-                            if self.mode == Mode::PaintMetallic { "magenta" } else { "gray" })}
-                        >
-                            {"Paint Metallic"}
-                        </button>
+                <div class="lp-info-panel">
+                    {mode}
+                    <div>{format!("Cursor: {}", self.input_state.cell.0)}</div>
+                    <div>
+                        {"Selection: "}
+                        {
+                            if self.selection.is_zero() {
+                                "None".to_owned()
+                            } else {
+                                format!(
+                                    "{} -> {}",
+                                    self.selection.lower_left.0,
+                                    self.selection.upper_right.0
+                                )
+                            }
+                        }
                     </div>
-                    <span>{ modules_html }</span>
+                </div>
+                <span
+                    style={
+                        if matches!(self.mode, Mode::PaintSi)
+                            || matches!(self.mode, Mode::PaintMetallic) {
+                            "pointer-events: none;"
+                        } else {
+                            ""
+                        }
+                    }
+                >
+                    { modules_html }
                 </span>
             </div>
         }

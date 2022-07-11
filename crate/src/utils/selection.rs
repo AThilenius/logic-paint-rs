@@ -57,6 +57,11 @@ impl Selection {
         ll.0.y < self.upper_right.0.y &&
         ur.0.y >= self.lower_left.0.y
     }
+
+    pub fn is_zero(&self) -> bool {
+        let diff = self.upper_right.0 - self.lower_left.0;
+        diff.x <= 0 && diff.y <= 0
+    }
 }
 
 impl Default for Selection {
