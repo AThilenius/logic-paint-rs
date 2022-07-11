@@ -13,9 +13,9 @@ pub struct ExecutionContext {
     pub max_ticks_per_clock: usize,
     pub buffer_mask: BufferMask,
     pub state: SimState,
+    pub is_mid_clock_cycle: bool,
     compiler_results: CompilerResults,
     anchored_modules: Vec<AnchoredModule>,
-    is_mid_clock_cycle: bool,
 }
 
 #[derive(Default)]

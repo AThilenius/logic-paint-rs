@@ -7,12 +7,20 @@ pub struct Clock {
     pub pin: Pin,
 }
 
+impl Clock {
+    pub fn new() -> Self {
+        Self {
+            pin: Pin::new(0, 0, false),
+        }
+    }
+}
+
 impl Module for Clock {
     fn get_pins(&self) -> Vec<Pin> {
         vec![self.pin]
     }
 
-    fn tick(&mut self, _time: f64) {
+    fn clock(&mut self, _time: f64) {
         self.pin.output_high = !self.pin.output_high;
     }
 }
@@ -53,7 +61,7 @@ impl Component for ClockComponent {
                         if data.pin.output_high { "red" } else { "blue" }
                     )
                 }
-            />
+            >{"~"}</div>
         }
     }
 }

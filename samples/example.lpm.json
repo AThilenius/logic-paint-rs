@@ -1,6 +1,10 @@
 {
   "modules": [
     {
+      "anchor": { "root": [0, -2] },
+      "module": { "Clock": {} }
+    },
+    {
       "anchor": { "root": [2, 2] },
       "module": { "Register": { "bus_width": 4 } }
     },

@@ -89,14 +89,11 @@ impl Viewport {
         self.time = time;
         let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
 
-        // Update modules.
-        for (_, anchored_module) in self.active_buffer.anchored_modules.iter_mut() {
-            anchored_module.module.borrow_mut().tick(time);
-        }
-
-        // Run the sim loop once per frame
+        // Handle execution.
         if let Mode::Execute(execution) = &mut self.mode {
             if !execution.manual {
+                // Update modules.
+                self.active_buffer.clock_modules(time);
                 execution.context.clock_once();
             }
             execution.context.update_buffer_mask();
@@ -213,9 +210,14 @@ impl Viewport {
                     *manual = false;
                 } else if self.input_state.key_clicked == "KeyC" {
                     *manual = true;
+                    self.active_buffer.clock_modules(self.time);
                     context.clock_once();
                 } else if self.input_state.key_clicked == "KeyT" {
                     *manual = true;
+                    // Only clock modules if we are between clock cycles.
+                    if !context.is_mid_clock_cycle {
+                        self.active_buffer.clock_modules(self.time);
+                    }
                     context.tick_once();
                 } else if self.input_state.key_clicked == "KeyP" {
                     *manual = true;

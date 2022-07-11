@@ -6,8 +6,8 @@ use yew::html;
 use crate::{
     coords::CellCoord,
     modules::{
-        Alignment, Anchor, AnchoredModule, Memory, MemoryComponent, Module, Register,
-        RegisterComponent, TogglePin, TogglePinComponent,
+        Alignment, Anchor, AnchoredModule, Clock, ClockComponent, Memory, MemoryComponent, Module,
+        Register, RegisterComponent, TogglePin, TogglePinComponent,
     },
 };
 
@@ -28,6 +28,7 @@ pub enum ModuleSerdeData {
     Memory(MemorySerdeData),
     Register(RegisterSerdeData),
     TogglePin(TogglePinSerdeData),
+    Clock(ClockSerdeData),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -42,6 +43,9 @@ pub struct RegisterSerdeData {
 pub struct TogglePinSerdeData {
     pub initially_high: Option<bool>,
 }
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ClockSerdeData {}
 
 impl ModuleSerde {
     pub fn instantiate(&self) -> AnchoredModule {
@@ -78,6 +82,16 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
+            ModuleSerdeData::Clock(_) => {
+                let module = Rc::new(RefCell::new(Clock::new()));
+
+                AnchoredModule {
+                    anchor: (&self.anchor).into(),
+                    module: module.clone(),
+                    html: html! { <ClockComponent data={module.clone()} /> },
+                    module_serde: self.clone(),
+                }
+            }
         }
     }
 }
@@ -93,6 +107,7 @@ impl Into<Box<dyn Module>> for ModuleSerde {
             ModuleSerdeData::TogglePin(TogglePinSerdeData { initially_high }) => {
                 Box::new(TogglePin::new(initially_high.unwrap_or_default()))
             }
+            ModuleSerdeData::Clock(_) => Box::new(Clock::new()),
         }
     }
 }

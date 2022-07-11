@@ -31,7 +31,7 @@ pub trait Module {
 
     fn set_pins(&mut self, _pins: &Vec<Pin>) {}
 
-    fn tick(&mut self, _time: f64) {}
+    fn clock(&mut self, _time: f64) {}
 }
 
 impl AnchoredModule {

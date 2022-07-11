@@ -145,6 +145,12 @@ impl Buffer {
 
         self.set_modules(buffer.anchored_modules.values().cloned());
     }
+
+    pub fn clock_modules(&mut self, time: f64) {
+        for (_, anchored_module) in self.anchored_modules.iter_mut() {
+            anchored_module.module.borrow_mut().clock(time);
+        }
+    }
 }
 
 impl BufferChunk {
