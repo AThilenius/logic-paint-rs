@@ -57,6 +57,9 @@ impl Buffer {
     {
         for anchored_module in anchored_modules.into_iter() {
             let anchor_coord = anchored_module.anchor.root;
+            let mut upc = self.get_cell(anchor_coord);
+            upc.set_bit(Bit::MODULE_ROOT);
+            self.set_cell(anchor_coord, upc);
 
             for Pin { coord_offset, .. } in anchored_module.module.borrow().get_pins() {
                 let pin_coord = coord_offset.to_cell_coord(anchor_coord);
@@ -165,14 +168,15 @@ impl BufferChunk {
         let slice = &mut self.cells[idx..idx + UPC_BYTE_LEN];
         let existing = UPC::from_slice(slice);
 
-        // IO pins and module roots cannot be replaced with this call, so set IO/root bit if
-        // existing cell has one.
-        Bit::set(&mut cell, Bit::IO, existing.get_bit(Bit::IO));
-        Bit::set(
-            &mut cell,
-            Bit::MODULE_ROOT,
-            existing.get_bit(Bit::MODULE_ROOT),
-        );
+        // ModuleRoot and IO bits cannot be un-set. (They are unset by creating an entirely new
+        // Buffer). So make sure Cell sets them if the previous cell had them.
+        if existing.get_bit(Bit::IO) {
+            cell.set_bit(Bit::IO);
+        }
+
+        if existing.get_bit(Bit::MODULE_ROOT) {
+            cell.set_bit(Bit::MODULE_ROOT);
+        }
 
         // Track cell count as well.
         if existing == Default::default() && cell != Default::default() {

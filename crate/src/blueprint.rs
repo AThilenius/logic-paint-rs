@@ -77,6 +77,7 @@ impl Blueprint {
         if let Some(modules) = &self.modules {
             buffer.set_modules(modules.iter().map(|s| s.instantiate()));
         } else {
+            // Re-set the original modules to set the IO pins.
             buffer.set_modules(existing_buffer.anchored_modules.values().cloned());
         }
 
