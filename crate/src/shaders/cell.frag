@@ -18,7 +18,6 @@ uniform vec3 io_color;
 uniform vec3 active_color;
 uniform vec3 grid_color;
 uniform vec3 background_color;
-uniform vec2 grid_res;
 uniform float grid_blend_strength;
 uniform float metal_over_si_blend;
 
@@ -74,18 +73,17 @@ bool connection_gate(vec2 texel_uv, bool up, bool right, bool down, bool left) {
 }
 
 void main() {
-    uvec2 texel = uvec2(floor(v_uv * grid_res));
-    ivec2 cell = chunk_start_cell_offset + ivec2(texel);
+    vec2 float_local_coord = clamp(v_uv * 32.0, vec2(0.0), vec2(32.0));
+    uvec2 local_coord = clamp(
+        uvec2(floor(float_local_coord)),
+        uvec2(0),
+        uvec2(31)
+    );
+    ivec2 cell_coord = chunk_start_cell_offset + ivec2(local_coord);
+    vec2 tile_uv = fract(float_local_coord);
 
-    // This math was taken from:
-    // https://gamedev.stackexchange.com/questions/135282/any-way-to-combine-instantiated-sprite-renderers-into-one-texture-so-i-can-apply/135307#135307
-    vec2 canvas_location = v_uv * grid_res;
-    vec2 tile_uv = fract(canvas_location);
-    canvas_location = (canvas_location - tile_uv) / grid_res;
-    tile_uv = tile_uv * 126.0 / 128.0 + 1.0 / 128.0;
-
-    uvec4 cells = texelFetch(cells_texture_sampler, ivec2(texel), 0);
-    uvec4 mask = texelFetch(mask_texture_sampler, ivec2(texel), 0);
+    uvec4 cells = texelFetch(cells_texture_sampler, ivec2(local_coord), 0);
+    uvec4 mask = texelFetch(mask_texture_sampler, ivec2(local_coord), 0);
 
     // Mirrors the format in upc.rs
     bool si_n = (cells.r & (1u << 7u)) > 0u;
@@ -120,12 +118,14 @@ void main() {
     bool si_dr_active = (mask.a & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
 
     bool cell_selected =
-        cell.x >= cell_select_ll.x &&
-        cell.y >= cell_select_ll.y &&
-        cell.x < cell_select_ur.x &&
-        cell.y < cell_select_ur.y;
+        cell_coord.x >= cell_select_ll.x &&
+        cell_coord.y >= cell_select_ll.y &&
+        cell_coord.x < cell_select_ur.x &&
+        cell_coord.y < cell_select_ur.y;
 
-    bool cursor = cursor_coord.x == cell.x || cursor_coord.y == cell.y;
+    bool cursor =
+        cursor_coord.x == cell_coord.x ||
+        cursor_coord.y == cell_coord.y;
 
     bool metal_connection = connection(
         tile_uv,
@@ -158,8 +158,8 @@ void main() {
         mod(stripe_uv.x + stripe_uv.y + time, 2.0) * 0.5
     );
 
-    bool grid_1 = (((texel.x % 2u) + (texel.y % 2u)) % 2u) == 0u;
-    bool grid_8 = ((((texel.x >> 3) % 2u) + ((texel.y >> 3) % 2u)) % 2u) == 0u;
+    bool grid_1 = (((local_coord.x % 2u) + (local_coord.y % 2u)) % 2u) == 0u;
+    bool grid_8 = ((((local_coord.x >> 3) % 2u) + ((local_coord.y >> 3) % 2u)) % 2u) == 0u;
     float grid_blend =
           (grid_8 ? grid_blend_strength * 0.6 : 0.0)
         + (grid_1 ? grid_blend_strength : 0.0);
