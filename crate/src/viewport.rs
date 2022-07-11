@@ -1,5 +1,6 @@
 use glam::Vec2;
-use wasm_bindgen::prelude::*;
+use gloo::{events::EventListener, utils::document};
+use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
 
@@ -10,6 +11,7 @@ use crate::{
     dom::{DomIntervalHooks, ModuleMount, RawInput},
     execution_context::ExecutionContext,
     input::InputState,
+    log,
     utils::Selection,
     wgl2::{Camera, RenderContext},
 };
@@ -28,6 +30,7 @@ pub struct Viewport {
     render_context: Option<RenderContext>,
     dom_events: Option<DomIntervalHooks>,
     on_edit_callback: Option<js_sys::Function>,
+    event_hooks: Vec<EventListener>,
 }
 
 pub enum Msg {
@@ -269,6 +272,7 @@ impl Component for Viewport {
             render_context: None,
             dom_events: None,
             on_edit_callback: None,
+            event_hooks: vec![],
         }
     }
 
@@ -335,15 +339,11 @@ impl Component for Viewport {
         let onwheel = ctx
             .link()
             .callback(|e| Msg::RawInput(RawInput::MouseWheelEvent(e)));
-        let onkeydown = ctx.link().callback(|e| Msg::RawInput(RawInput::KeyDown(e)));
-        let onkeyup = ctx.link().callback(|e| Msg::RawInput(RawInput::KeyUp(e)));
         let oncontextmenu = ctx.link().callback(|e: MouseEvent| {
             e.prevent_default();
             e.stop_propagation();
             Msg::None
         });
-        let onfocus = ctx.link().callback(|_| Msg::SetFocus(true));
-        let onblur = ctx.link().callback(|_| Msg::SetFocus(false));
 
         let modules_html = self
             .active_buffer
@@ -357,14 +357,7 @@ impl Component for Viewport {
             .collect::<Html>();
 
         html! {
-            <div
-                class="lp-viewport"
-                {onkeydown}
-                {onkeyup}
-                {onfocus}
-                {onblur}
-                tabindex={0}
-            >
+            <div class="lp-viewport">
                 <canvas
                     {onmousedown}
                     {onmouseup}
@@ -442,5 +435,32 @@ impl Component for Viewport {
             })
             .unwrap_throw(),
         );
+
+        let window = window().unwrap();
+        let document = document();
+
+        let link = ctx.link().clone();
+        let key_down = EventListener::new(&document, "keydown", move |event| {
+            let event = event.dyn_ref::<web_sys::KeyboardEvent>().unwrap_throw();
+            link.send_message(Msg::RawInput(RawInput::KeyDown(event.clone())));
+        });
+
+        let link = ctx.link().clone();
+        let key_up = EventListener::new(&document, "keyup", move |event| {
+            let event = event.dyn_ref::<web_sys::KeyboardEvent>().unwrap_throw();
+            link.send_message(Msg::RawInput(RawInput::KeyUp(event.clone())));
+        });
+
+        let link = ctx.link().clone();
+        let focus = EventListener::new(&window, "focus", move |_| {
+            link.send_message(Msg::SetFocus(true));
+        });
+
+        let link = ctx.link().clone();
+        let blur = EventListener::new(&window, "blur", move |_| {
+            link.send_message(Msg::SetFocus(false));
+        });
+
+        self.event_hooks = vec![key_down, key_up, focus, blur];
     }
 }

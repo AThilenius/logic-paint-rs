@@ -21,6 +21,7 @@
     "impls",
     "ivec",
     "keydown",
+    "keyup",
     "lightgray",
     "lookaside",
     "lpbin",

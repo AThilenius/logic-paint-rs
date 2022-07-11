@@ -25,8 +25,6 @@ pub fn main() {
 
 // Still to do:
 // - Something with the focus is still fucked up.
-// - Need to figure out how to represents a MOSFET with no gate connections. Deleting cells is a
-//   real PITA when you can't leave MOSFETS in a broken state.
 
 // The module.json file is always generated. I need this for having a sane way to define memory
 // for both the micro-ops lookup, and main memory.
