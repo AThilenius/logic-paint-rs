@@ -32,9 +32,8 @@ uniform ivec2 cursor_coord;
 
 out vec4 out_color;
 
-bool connection(vec2 texel_uv, bool up, bool right, bool down, bool left) {
+bool connection(float l, vec2 texel_uv, bool up, bool right, bool down, bool left) {
     // Configure
-    float l = 0.2;
     float h = 1.0 - l;
 
     float x = texel_uv.x;
@@ -134,6 +133,7 @@ void main() {
         cursor_coord.y == cell_coord.y;
 
     bool metal_connection = connection(
+        0.3,
         tile_uv,
         metal_dir_up,
         metal_dir_right,
@@ -142,6 +142,7 @@ void main() {
     );
 
     bool si_connection = connection(
+        0.2,
         tile_uv,
         si_dir_up,
         si_dir_right,

@@ -1,14 +1,16 @@
 {
   "name": "logic-paint",
+  "publisher": "athilenius",
   "author": {
     "name": "Alec Thilenius",
     "email": "alec@thilenius.com"
   },
   "displayName": "Logic Paint",
   "description": "Custom editor for Logic Paint Blueprints",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "license": "MIT",
+  "icon": "media/logic-paint-icon.png",
   "repository": {
     "type": "git",
     "url": "https://gitlab.com/athilenius/logic-paint-rs"
@@ -42,7 +44,7 @@
   },
   "devDependencies": {
     "@types/node": "^12.12.0",
-    "@types/vscode": "^1.67.0",
+    "@types/vscode": "^1.65.0",
     "@typescript-eslint/eslint-plugin": "^5.19.0",
     "@typescript-eslint/parser": "^5.19.0",
     "eslint": "^8.13.0",

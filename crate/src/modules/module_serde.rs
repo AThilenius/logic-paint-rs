@@ -21,16 +21,26 @@ pub struct ModuleSerde {
 #[derive(Clone, Serialize, Deserialize)]
 pub enum ModuleSerdeData {
     Memory {},
-    Register { bus_width: usize },
-    TogglePin { initially_high: Option<bool> },
+    Register {
+        bus_width: usize,
+    },
+    TogglePin {
+        label: Option<String>,
+        initially_high: Option<bool>,
+    },
     Clock {},
-    ConstValue { bus_width: usize, value: i32 },
-    Probe { bus_width: usize },
+    ConstValue {
+        bus_width: usize,
+        value: i32,
+    },
+    Probe {
+        bus_width: usize,
+    },
 }
 
 impl ModuleSerde {
     pub fn instantiate(&self) -> RootedModule {
-        match self.module {
+        match &self.module {
             ModuleSerdeData::Memory {} => {
                 let module = Rc::new(RefCell::new(Memory::new()));
 
@@ -42,7 +52,7 @@ impl ModuleSerde {
                 }
             }
             ModuleSerdeData::Register { bus_width } => {
-                let module = Rc::new(RefCell::new(Register::new(bus_width)));
+                let module = Rc::new(RefCell::new(Register::new(*bus_width)));
 
                 RootedModule {
                     root: self.root,
@@ -51,8 +61,12 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
-            ModuleSerdeData::TogglePin { initially_high } => {
+            ModuleSerdeData::TogglePin {
+                label,
+                initially_high,
+            } => {
                 let module = Rc::new(RefCell::new(TogglePin::new(
+                    label,
                     initially_high.unwrap_or_default(),
                 )));
 
@@ -74,7 +88,7 @@ impl ModuleSerde {
                 }
             }
             ModuleSerdeData::ConstValue { bus_width, value } => {
-                let module = Rc::new(RefCell::new(ConstValue::new(bus_width, value)));
+                let module = Rc::new(RefCell::new(ConstValue::new(*bus_width, *value)));
 
                 RootedModule {
                     root: self.root,
@@ -84,7 +98,7 @@ impl ModuleSerde {
                 }
             }
             ModuleSerdeData::Probe { bus_width } => {
-                let module = Rc::new(RefCell::new(Probe::new(bus_width)));
+                let module = Rc::new(RefCell::new(Probe::new(*bus_width)));
 
                 RootedModule {
                     root: self.root,
@@ -100,17 +114,18 @@ impl ModuleSerde {
 // We never go the other direction, so Into is implemented instead of From.
 impl Into<Box<dyn Module>> for ModuleSerde {
     fn into(self) -> Box<dyn Module> {
-        match self.module {
+        match &self.module {
             ModuleSerdeData::Memory {} => Box::new(Memory::new()),
-            ModuleSerdeData::Register { bus_width } => Box::new(Register::new(bus_width)),
-            ModuleSerdeData::TogglePin { initially_high } => {
-                Box::new(TogglePin::new(initially_high.unwrap_or_default()))
-            }
+            ModuleSerdeData::Register { bus_width } => Box::new(Register::new(*bus_width)),
+            ModuleSerdeData::TogglePin {
+                label,
+                initially_high,
+            } => Box::new(TogglePin::new(label, initially_high.unwrap_or_default())),
             ModuleSerdeData::Clock {} => Box::new(Clock::new()),
             ModuleSerdeData::ConstValue { bus_width, value } => {
-                Box::new(ConstValue::new(bus_width, value))
+                Box::new(ConstValue::new(*bus_width, *value))
             }
-            ModuleSerdeData::Probe { bus_width } => Box::new(Probe::new(bus_width)),
+            ModuleSerdeData::Probe { bus_width } => Box::new(Probe::new(*bus_width)),
         }
     }
 }

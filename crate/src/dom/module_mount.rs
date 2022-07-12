@@ -72,6 +72,7 @@ impl Component for ModuleMount {
                             font-weight: 100;
                             line-height: 1.5em;
                             pointer-events: none;
+                            white-space: nowrap;
                             ",
                             pin.coord_offset.0.x as f32 * 22.0,
                             -pin.coord_offset.0.y as f32 * 22.0,

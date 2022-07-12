@@ -4,12 +4,14 @@ use yew::prelude::*;
 use crate::modules::{Module, Pin};
 
 pub struct TogglePin {
+    pub label: Option<String>,
     pub pin: Pin,
 }
 
 impl TogglePin {
-    pub fn new(initially_high: bool) -> Self {
+    pub fn new(label: &Option<String>, initially_high: bool) -> Self {
         Self {
+            label: label.clone(),
             pin: Pin::new(0, 0, initially_high, "CONST", false),
         }
     }
@@ -18,10 +20,15 @@ impl TogglePin {
 impl Module for TogglePin {
     fn get_pins(&self) -> Vec<Pin> {
         let mut pin = self.pin.clone();
-        pin.label = if self.pin.output_high {
-            "HIGH".to_owned()
+
+        pin.label = if let Some(label) = &self.label {
+            label.to_owned()
         } else {
-            "LOW".to_owned()
+            if self.pin.output_high {
+                format!("HIGH")
+            } else {
+                format!("LOW")
+            }
         };
 
         vec![pin]

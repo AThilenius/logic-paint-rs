@@ -4,8 +4,9 @@ use glam::{IVec2, UVec2};
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
+    log,
     modules::{Pin, RootedModule},
-    upc::{Bit, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
+    upc::{Bit, Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,
 };
 
@@ -103,6 +104,10 @@ impl Buffer {
     }
 
     pub fn paste_at(&mut self, cell_coord: CellCoord, buffer: &Buffer) {
+        // While pasting values, find the bounding rect the target we are pasting into.
+        let mut ll = IVec2::new(i32::MAX, i32::MAX);
+        let mut ur = IVec2::new(i32::MIN, i32::MIN);
+
         for (chunk_coord, chunk) in &buffer.chunks {
             let target_first_cell_offset = chunk_coord.first_cell_coord().0 + cell_coord.0;
 
@@ -115,12 +120,27 @@ impl Buffer {
                         continue;
                     }
 
-                    self.set_cell(
-                        CellCoord(target_first_cell_offset + IVec2::new(x as i32, y as i32)),
-                        cell,
-                    );
+                    let target_cell_coord =
+                        CellCoord(target_first_cell_offset + IVec2::new(x as i32, y as i32));
+
+                    // Tracking bounding rect.
+                    ll = IVec2::min(ll, target_cell_coord.0);
+                    ur = IVec2::max(ur, target_cell_coord.0);
+
+                    self.set_cell(target_cell_coord, cell);
                 }
             }
+        }
+
+        // Then go through the outline of the bounding rect and fix any broken cells.
+        for x in ll.x..(ur.x + 1) {
+            self.fix_cell(CellCoord(IVec2::new(x, ll.y)));
+            self.fix_cell(CellCoord(IVec2::new(x, ur.y)));
+        }
+
+        for y in ll.y..(ur.y + 1) {
+            self.fix_cell(CellCoord(IVec2::new(ll.x, y)));
+            self.fix_cell(CellCoord(IVec2::new(ur.x, y)));
         }
 
         self.set_modules(buffer.rooted_modules.values().cloned());
@@ -130,6 +150,129 @@ impl Buffer {
         for (_, rooted_module) in self.rooted_modules.iter_mut() {
             rooted_module.module.borrow_mut().clock(time);
         }
+    }
+
+    fn fix_cell(&mut self, cell_coord: CellCoord) {
+        // Follow broken connection directions and connect them, if able. The following
+        // connections will be made (every other connection will be dropped):
+        // - Metal -> metal
+        // Both NP and MOSFET, take the type trying to connect (N/P):
+        // N : NP(n)
+        // P : NP(p)
+        // N : MOSFET(npn) if ec_in_line_with_dir
+        // N : MOSFET(pnp) if gate_in_line_with_dir
+        // P : MOSFET(pnp) if ec_in_line_with_dir
+        // P : MOSFET(npn) if gate_in_line_with_dir
+        //
+        // Otherwise the connection is culled.
+
+        let orig_upc = self.get_cell(cell_coord);
+        let mut cell: NormalizedCell = orig_upc.into();
+
+        // Handle metal (which is simple).
+        if let Metal::Trace { placement: pl, .. } = &mut cell.metal {
+            for dir in pl.cardinal_vectors() {
+                let n: NormalizedCell = self.get_cell(CellCoord(cell_coord.0 + dir)).into();
+
+                if let Metal::Trace {
+                    placement: n_pl, ..
+                } = n.metal
+                {
+                    if !n_pl.has_cardinal(-dir) {
+                        // Cannot make the connection, so remove the placement.
+                        pl.clear_cardinal(dir);
+                    }
+                }
+            }
+        }
+
+        // Returns a new Placement type that has only valid connections for the is type in the given
+        // directions.
+        let check_si_pl = |pl: Placement, is_n: bool| {
+            let mut fixed_pl = Placement::default();
+
+            for dir in pl.cardinal_vectors() {
+                let n: NormalizedCell = self.get_cell(CellCoord(cell_coord.0 + dir)).into();
+
+                // This matches the success-table in the comment above.
+                match (is_n, n.si) {
+                    (
+                        true,
+                        Silicon::NP {
+                            is_n: true,
+                            placement: n_pl,
+                        },
+                    )
+                    | (
+                        false,
+                        Silicon::NP {
+                            is_n: false,
+                            placement: n_pl,
+                        },
+                    )
+                    | (
+                        true,
+                        Silicon::Mosfet {
+                            is_npn: true,
+                            ec_placement: n_pl,
+                            ..
+                        },
+                    )
+                    | (
+                        true,
+                        Silicon::Mosfet {
+                            is_npn: false,
+                            gate_placement: n_pl,
+                            ..
+                        },
+                    )
+                    | (
+                        false,
+                        Silicon::Mosfet {
+                            is_npn: true,
+                            gate_placement: n_pl,
+                            ..
+                        },
+                    )
+                    | (
+                        false,
+                        Silicon::Mosfet {
+                            is_npn: false,
+                            ec_placement: n_pl,
+                            ..
+                        },
+                    ) => {
+                        if n_pl.has_cardinal(-dir) {
+                            fixed_pl.set_cardinal(dir);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            fixed_pl
+        };
+
+        // Handle Si type
+        match &mut cell.si {
+            Silicon::NP { is_n, placement } => {
+                *placement = check_si_pl(*placement, *is_n);
+            }
+            Silicon::Mosfet {
+                is_npn,
+                gate_placement,
+                ec_placement,
+                ..
+            } => {
+                *ec_placement = check_si_pl(*ec_placement, *is_npn);
+                *gate_placement = check_si_pl(*gate_placement, !*is_npn);
+            }
+            _ => {}
+        }
+
+        // Write the cell back.
+        let new_upc: UPC = cell.into();
+        self.set_cell(cell_coord, new_upc);
     }
 }
 

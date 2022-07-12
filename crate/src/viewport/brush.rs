@@ -391,7 +391,24 @@ pub fn clear_both_in_selection(buffer: &mut Buffer, selection: &Selection) {
     let ll = selection.lower_left.0;
     let ur = selection.upper_right.0;
 
-    // Clear the outer permitter 'correctly' so that things un-link.
+    clear_border_of_selection(buffer, selection);
+
+    // Then we can just blit-clear the inside.
+    for y in (ll.y + 1)..(ur.y - 1) {
+        for x in (ll.x + 1)..(ur.x - 1) {
+            buffer.set_cell(CellCoord(IVec2::new(x, y)), Default::default());
+        }
+    }
+}
+
+pub fn clear_border_of_selection(buffer: &mut Buffer, selection: &Selection) {
+    if selection.is_zero() {
+        return;
+    }
+
+    let ll = selection.lower_left.0;
+    let ur = selection.upper_right.0;
+
     clear_si(buffer, (ll.x..ur.x).map(|x| CellCoord(IVec2::new(x, ll.y))));
     clear_si(
         buffer,
@@ -413,11 +430,4 @@ pub fn clear_both_in_selection(buffer: &mut Buffer, selection: &Selection) {
         buffer,
         (ll.y..ur.y).map(|y| CellCoord(IVec2::new(ur.x - 1, y))),
     );
-
-    // Then we can just blit-clear the inside.
-    for y in (ll.y + 1)..(ur.y - 1) {
-        for x in (ll.x + 1)..(ur.x - 1) {
-            buffer.set_cell(CellCoord(IVec2::new(x, y)), Default::default());
-        }
-    }
 }

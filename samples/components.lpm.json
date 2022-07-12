@@ -1,0 +1,88 @@
+{
+  "modules": [
+    {
+      "root": [0, 0],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [0, 2],
+      "module": { "TogglePin": {} }
+    },
+    {
+      "root": [0, 4],
+      "module": { "TogglePin": {} }
+    },
+    {
+      "root": [48, 4],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [48, 3],
+      "module": { "TogglePin": { "label": "CIN" } }
+    },
+    {
+      "root": [48, 2],
+      "module": { "TogglePin": { "label": "S1" } }
+    },
+    {
+      "root": [48, 1],
+      "module": { "TogglePin": { "label": "S2" } }
+    },
+    {
+      "root": [48, -6],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [48, -9],
+      "module": { "ConstValue": { "bus_width": 8, "value": 120 } }
+    },
+    {
+      "root": [48, -25],
+      "module": { "ConstValue": { "bus_width": 8, "value": -40 } }
+    },
+    {
+      "root": [88, -9],
+      "module": { "Probe": { "bus_width": 8 } }
+    },
+    {
+      "root": [112, 4],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [112, 3],
+      "module": { "TogglePin": { "label": "S" } }
+    },
+    {
+      "root": [112, 2],
+      "module": { "TogglePin": { "label": "R" } }
+    },
+    {
+      "root": [112, -9],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [112, -10],
+      "module": { "TogglePin": { "label": "EN|CLK" } }
+    },
+    {
+      "root": [112, -11],
+      "module": { "TogglePin": { "label": "S" } }
+    },
+    {
+      "root": [112, -35],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [112, -36],
+      "module": { "TogglePin": { "label": "EN|CLK" } }
+    },
+    {
+      "root": [112, -39],
+      "module": { "ConstValue": { "bus_width": 8, "value": 220 } }
+    },
+    {
+      "root": [140, -39],
+      "module": { "Probe": { "bus_width": 8 } }
+    }
+  ]
+}

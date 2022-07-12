@@ -78,7 +78,7 @@ impl CellProgram {
         grid_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         background_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
         grid_blend_strength.set(&ctx, 0.03);
-        metal_over_si_blend.set(&ctx, 0.6);
+        metal_over_si_blend.set(&ctx, 0.75);
 
         cell_select_color.set(&ctx, Vec3::new(0.32, 0.6, 0.8));
         cell_select_ll.set(&ctx, IVec2::new(0, 0));
