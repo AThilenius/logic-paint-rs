@@ -182,6 +182,8 @@ impl Buffer {
                         // Cannot make the connection, so remove the placement.
                         pl.clear_cardinal(dir);
                     }
+                } else {
+                    pl.clear_cardinal(dir);
                 }
             }
         }
@@ -317,18 +319,24 @@ impl BufferChunk {
         slice.copy_from_slice(&cell.0);
     }
 
-    // TODO: Bug here I think. Need to update count for any cells returned to default.
     pub fn clone_without_io_pins_set(&self) -> Self {
         let mut chunk = Self::default();
+        chunk.cell_count = self.cell_count;
 
         for i in 0..(CHUNK_SIZE * CHUNK_SIZE) {
             let idx = i << LOG_UPC_BYTE_LEN;
             let src = &self.cells[idx..idx + UPC_BYTE_LEN];
             let target = &mut chunk.cells[idx..idx + UPC_BYTE_LEN];
-            let mut cell = UPC::from_slice(src);
+            let orig_cell = UPC::from_slice(src);
+
+            let mut cell = orig_cell;
             cell.clear_bit(Bit::IO);
             cell.clear_bit(Bit::MODULE_ROOT);
             target.copy_from_slice(&cell.0);
+
+            if orig_cell != Default::default() && cell == Default::default() {
+                chunk.cell_count -= 1;
+            }
         }
 
         chunk
