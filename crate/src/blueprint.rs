@@ -78,7 +78,7 @@ impl Blueprint {
             buffer.set_modules(modules.iter().map(|s| s.instantiate()));
         } else {
             // Re-set the original modules to set the IO pins.
-            buffer.set_modules(existing_buffer.anchored_modules.values().cloned());
+            buffer.set_modules(existing_buffer.rooted_modules.values().cloned());
         }
 
         Some(buffer)
@@ -122,7 +122,7 @@ impl From<&Buffer> for Blueprint {
             chunks: Some(chunks),
             modules: Some(
                 buffer
-                    .anchored_modules
+                    .rooted_modules
                     .values()
                     .map(|a| a.module_serde.clone())
                     .collect(),

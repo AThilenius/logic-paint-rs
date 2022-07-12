@@ -10,14 +10,14 @@ pub struct TogglePin {
 impl TogglePin {
     pub fn new(initially_high: bool) -> Self {
         Self {
-            pin: Pin::new(0, 0, initially_high),
+            pin: Pin::new(0, 0, initially_high, "CONST", false),
         }
     }
 }
 
 impl Module for TogglePin {
     fn get_pins(&self) -> Vec<Pin> {
-        vec![self.pin]
+        vec![self.pin.clone()]
     }
 }
 

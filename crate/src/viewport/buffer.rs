@@ -4,7 +4,7 @@ use glam::{IVec2, UVec2};
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
-    modules::{AnchoredModule, Pin},
+    modules::{Pin, RootedModule},
     upc::{Bit, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,
 };
@@ -12,7 +12,7 @@ use crate::{
 #[derive(Default, Clone)]
 pub struct Buffer {
     pub chunks: HashMap<ChunkCoord, BufferChunk>,
-    pub anchored_modules: HashMap<CellCoord, AnchoredModule>,
+    pub rooted_modules: HashMap<CellCoord, RootedModule>,
 }
 
 #[derive(Clone)]
@@ -51,25 +51,25 @@ impl Buffer {
             .set_cell(coord, cell);
     }
 
-    pub fn set_modules<'a, T>(&mut self, anchored_modules: T)
+    pub fn set_modules<'a, T>(&mut self, rooted_modules: T)
     where
-        T: IntoIterator<Item = AnchoredModule>,
+        T: IntoIterator<Item = RootedModule>,
     {
-        for anchored_module in anchored_modules.into_iter() {
-            let anchor_coord = anchored_module.anchor.root;
+        for rooted_module in rooted_modules.into_iter() {
+            let anchor_coord = rooted_module.root;
             let mut upc = self.get_cell(anchor_coord);
             upc.set_bit(Bit::MODULE_ROOT);
             self.set_cell(anchor_coord, upc);
 
-            for Pin { coord_offset, .. } in anchored_module.module.borrow().get_pins() {
+            for Pin { coord_offset, .. } in rooted_module.module.borrow().get_pins() {
                 let pin_coord = coord_offset.to_cell_coord(anchor_coord);
                 let mut upc = self.get_cell(pin_coord);
                 upc.set_bit(Bit::IO);
                 self.set_cell(pin_coord, upc);
             }
 
-            self.anchored_modules
-                .insert(anchor_coord, anchored_module.clone());
+            self.rooted_modules
+                .insert(anchor_coord, rooted_module.clone());
         }
     }
 
@@ -109,12 +109,12 @@ impl Buffer {
 
         // Then test and copy each module root that is in the selection
         buffer.set_modules(
-            self.anchored_modules
+            self.rooted_modules
                 .values()
-                .filter(|m| selection.test_cell_in_selection(m.anchor.root))
+                .filter(|m| selection.test_cell_in_selection(m.root))
                 .map(|m| {
                     let mut module = m.clone();
-                    module.anchor.root.0 -= root.0;
+                    module.root.0 -= root.0;
                     module
                 }),
         );
@@ -143,12 +143,12 @@ impl Buffer {
             }
         }
 
-        self.set_modules(buffer.anchored_modules.values().cloned());
+        self.set_modules(buffer.rooted_modules.values().cloned());
     }
 
     pub fn clock_modules(&mut self, time: f64) {
-        for (_, anchored_module) in self.anchored_modules.iter_mut() {
-            anchored_module.module.borrow_mut().clock(time);
+        for (_, rooted_module) in self.rooted_modules.iter_mut() {
+            rooted_module.module.borrow_mut().clock(time);
         }
     }
 }

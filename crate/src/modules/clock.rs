@@ -10,14 +10,14 @@ pub struct Clock {
 impl Clock {
     pub fn new() -> Self {
         Self {
-            pin: Pin::new(0, 0, false),
+            pin: Pin::new(0, 0, false, "CLK", false),
         }
     }
 }
 
 impl Module for Clock {
     fn get_pins(&self) -> Vec<Pin> {
-        vec![self.pin]
+        vec![self.pin.clone()]
     }
 
     fn clock(&mut self, _time: f64) {
@@ -46,22 +46,8 @@ impl Component for ClockComponent {
         Self {}
     }
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        let data = ctx.props().data.borrow();
-        html! {
-            <div
-                style={
-                    format!("
-                            margin-left: 4px;
-                            margin-bottom: 4px;
-                            height: 14px;
-                            width: 14px;
-                            background: {}
-                        ",
-                        if data.pin.output_high { "red" } else { "blue" }
-                    )
-                }
-            >{"~"}</div>
-        }
+    fn view(&self, _ctx: &Context<Self>) -> Html {
+        // let data = ctx.props().data.borrow();
+        html! {}
     }
 }

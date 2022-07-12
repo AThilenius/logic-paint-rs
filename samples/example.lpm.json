@@ -1,19 +1,19 @@
 {
   "modules": [
     {
-      "anchor": { "root": [0, -2] },
+      "root": [0, -2],
       "module": { "Clock": {} }
     },
     {
-      "anchor": { "root": [2, 2] },
+      "root": [2, 10],
       "module": { "Register": { "bus_width": 4 } }
     },
     {
-      "anchor": { "root": [0, 1] },
+      "root": [0, 1],
       "module": { "TogglePin": { "initially_high": true } }
     },
     {
-      "anchor": { "root": [0, 0] },
+      "root": [0, 0],
       "module": { "TogglePin": {} }
     }
   ]

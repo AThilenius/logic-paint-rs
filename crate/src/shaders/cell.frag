@@ -198,11 +198,14 @@ void main() {
     );
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 
-    vec3 blended_io_color = mix(
-        io_color,
-        active_color,
-        metal_active ? stripe_blend * 0.5 : 0.0
+    vec2 io_dist = tile_uv - vec2(0.5);
+    float io_blend = 1.0 - smoothstep(
+        0.1,
+        0.3,
+        dot(io_dist, io_dist) * 8.0
     );
+    io_blend = is_io ? io_blend : 0.0;
+
 
     vec3 via_color = mix(si_color, vec3(1.0), 1.0);
     vec2 via_dist = tile_uv - vec2(0.5);
@@ -237,15 +240,11 @@ void main() {
         si_blend > 0.5 ? metal_blend * metal_over_si_blend : metal_blend
     );
 
-    // And I/O overrides all of it and fills the entire cell.
-    color = mix(
-        color,
-        blended_io_color,
-        is_io ? 1.0 : 0.0
-    );
-
     // Vias are on or off.
     color = mix(color, via_color, via_blend);
+
+    // I/O pins are drawn like Vias
+    color = mix(color, io_color, io_blend);
 
     // Cell selection highlights the whole cell
     color = mix(

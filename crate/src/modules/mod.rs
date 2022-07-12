@@ -19,8 +19,8 @@ pub use register::*;
 pub use toggle_pin::*;
 
 #[derive(Clone)]
-pub struct AnchoredModule {
-    pub anchor: Anchor,
+pub struct RootedModule {
+    pub root: CellCoord,
     pub module: Rc<RefCell<dyn Module>>,
     pub html: Html,
     pub module_serde: ModuleSerde,
@@ -34,13 +34,13 @@ pub trait Module {
     fn clock(&mut self, _time: f64) {}
 }
 
-impl AnchoredModule {
-    pub fn get_pint_coords(&self) -> Vec<CellCoord> {
+impl RootedModule {
+    pub fn get_pin_coords(&self) -> Vec<CellCoord> {
         self.module
             .borrow()
             .get_pins()
             .iter()
-            .map(|p| p.coord_offset.to_cell_coord(self.anchor.root))
+            .map(|p| p.coord_offset.to_cell_coord(self.root))
             .collect()
     }
 
@@ -53,22 +53,11 @@ impl AnchoredModule {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Anchor {
-    pub root: CellCoord,
-    pub align: Alignment,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Alignment {
-    TopLeft,
-    TopRight,
-    BottomRight,
-    BottomLeft,
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Pin {
+    pub label: String,
+    pub right_align: bool,
+
     /// The cell offset coordinate where this pin lives, relative to it's anchor.
     pub coord_offset: CellCoordOffset,
 
@@ -82,19 +71,33 @@ pub struct Pin {
 }
 
 impl Pin {
-    pub fn new(x: i32, y: i32, output_high: bool) -> Self {
+    pub fn new(x: i32, y: i32, output_high: bool, label: &str, right_align: bool) -> Self {
         Self {
+            label: label.to_owned(),
+            right_align,
             coord_offset: CellCoordOffset((x, y).into()),
             output_high,
             input_high: false,
         }
     }
 
-    pub fn new_repeating(start: IVec2, offset: IVec2, n: usize) -> Vec<Pin> {
+    pub fn new_repeating(
+        start: IVec2,
+        offset: IVec2,
+        n: usize,
+        label_prefix: &str,
+        right_align: bool,
+    ) -> Vec<Pin> {
         let mut cursor = start;
         let mut pins = Vec::new();
-        for _ in 0..n {
-            pins.push(Pin::new(cursor.x, cursor.y, false));
+        for i in 0..n {
+            pins.push(Pin::new(
+                cursor.x,
+                cursor.y,
+                false,
+                &format!("{}{}", label_prefix, i),
+                right_align,
+            ));
             cursor += offset;
         }
 

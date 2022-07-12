@@ -73,7 +73,7 @@ impl CellProgram {
         n_color.set(&ctx, Vec4::new(0.98, 0.0, 0.77, 1.0));
         p_color.set(&ctx, Vec4::new(0.0, 0.87, 1.0, 1.0));
         metal_color.set(&ctx, Vec3::new(0.2, 0.2, 0.2));
-        io_color.set(&ctx, Vec3::new(0.3, 0.3, 0.3));
+        io_color.set(&ctx, Vec3::new(0.5, 0.95, 0.26));
         active_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         grid_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         background_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));

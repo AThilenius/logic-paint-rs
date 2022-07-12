@@ -6,21 +6,15 @@ use yew::html;
 use crate::{
     coords::CellCoord,
     modules::{
-        Alignment, Anchor, AnchoredModule, Clock, ClockComponent, Memory, MemoryComponent, Module,
-        Register, RegisterComponent, TogglePin, TogglePinComponent,
+        Clock, ClockComponent, Memory, MemoryComponent, Module, Register, RegisterComponent,
+        RootedModule, TogglePin, TogglePinComponent,
     },
 };
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ModuleSerde {
-    pub anchor: AnchorSerde,
-    pub module: ModuleSerdeData,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct AnchorSerde {
     pub root: CellCoord,
-    pub align: Option<Alignment>,
+    pub module: ModuleSerdeData,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -48,13 +42,13 @@ pub struct TogglePinSerdeData {
 pub struct ClockSerdeData {}
 
 impl ModuleSerde {
-    pub fn instantiate(&self) -> AnchoredModule {
+    pub fn instantiate(&self) -> RootedModule {
         match self.module {
             ModuleSerdeData::Memory(MemorySerdeData {}) => {
                 let module = Rc::new(RefCell::new(Memory::new()));
 
-                AnchoredModule {
-                    anchor: (&self.anchor).into(),
+                RootedModule {
+                    root: self.root,
                     module: module.clone(),
                     html: html! { <MemoryComponent data={module.clone()} /> },
                     module_serde: self.clone(),
@@ -63,8 +57,8 @@ impl ModuleSerde {
             ModuleSerdeData::Register(RegisterSerdeData { bus_width }) => {
                 let module = Rc::new(RefCell::new(Register::new(bus_width)));
 
-                AnchoredModule {
-                    anchor: (&self.anchor).into(),
+                RootedModule {
+                    root: self.root,
                     module: module.clone(),
                     html: html! { <RegisterComponent data={module.clone()} /> },
                     module_serde: self.clone(),
@@ -75,8 +69,8 @@ impl ModuleSerde {
                     initially_high.unwrap_or_default(),
                 )));
 
-                AnchoredModule {
-                    anchor: (&self.anchor).into(),
+                RootedModule {
+                    root: self.root,
                     module: module.clone(),
                     html: html! { <TogglePinComponent data={module.clone()} /> },
                     module_serde: self.clone(),
@@ -85,8 +79,8 @@ impl ModuleSerde {
             ModuleSerdeData::Clock(_) => {
                 let module = Rc::new(RefCell::new(Clock::new()));
 
-                AnchoredModule {
-                    anchor: (&self.anchor).into(),
+                RootedModule {
+                    root: self.root,
                     module: module.clone(),
                     html: html! { <ClockComponent data={module.clone()} /> },
                     module_serde: self.clone(),
@@ -108,15 +102,6 @@ impl Into<Box<dyn Module>> for ModuleSerde {
                 Box::new(TogglePin::new(initially_high.unwrap_or_default()))
             }
             ModuleSerdeData::Clock(_) => Box::new(Clock::new()),
-        }
-    }
-}
-
-impl From<&AnchorSerde> for Anchor {
-    fn from(anchor_serde: &AnchorSerde) -> Self {
-        Self {
-            root: anchor_serde.root,
-            align: anchor_serde.align.unwrap_or(Alignment::BottomLeft),
         }
     }
 }

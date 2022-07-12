@@ -42,9 +42,9 @@ pub struct PinMap {
 impl From<&Vec<Pin>> for PinMap {
     fn from(vec: &Vec<Pin>) -> Self {
         Self {
-            en: vec[0],
-            write: vec[1],
-            clk: vec[2],
+            en: vec[0].clone(),
+            write: vec[1].clone(),
+            clk: vec[2].clone(),
             bus: vec[3..].to_owned(),
         }
     }
@@ -67,10 +67,10 @@ impl Register {
     pub fn new(bus_width: usize) -> Self {
         Self {
             pins: PinMap {
-                en: Pin::new(0, 0, false),
-                write: Pin::new(0, 1, false),
-                clk: Pin::new(0, 2, false),
-                bus: Pin::new_repeating((2, 0).into(), (0, 1).into(), bus_width),
+                en: Pin::new(0, 0, false, "EN", false),
+                write: Pin::new(0, -1, false, "WRT", false),
+                clk: Pin::new(0, -2, false, "CLK", false),
+                bus: Pin::new_repeating((2, 0).into(), (0, -1).into(), bus_width, "D", true),
             },
             data: vec![false; bus_width],
         }
@@ -153,18 +153,18 @@ impl Component for RegisterComponent {
         }
 
         html! {
-            <div
-                style={
-                    format!("
-                            height: 44px;
-                            width: 44px;
-                            border: 1ps solid gray;
-                            text-align: center;
-                            justify-content: middle;
-                        ",
-                    )
-                }
-            >
+            <div style={
+                format!("
+                        height: {}px;
+                        width: {}px;
+                        border: 1px solid red;
+                        text-align: center;
+                        justify-content: middle;
+                    ",
+                    data.data.len() * 22,
+                    22 * 3
+                )
+            }>
                 {format!("{}", val)}
             </div>
         }

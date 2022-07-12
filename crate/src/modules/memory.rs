@@ -46,7 +46,7 @@ pub struct Memory {
 impl Memory {
     pub fn new() -> Self {
         Self {
-            pin: Pin::new(0, 0, false),
+            pin: Pin::new(0, 0, false, "TODO", false),
         }
     }
 }

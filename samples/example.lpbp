@@ -2,6 +2,13 @@
   "chunks": [
     {
       "chunk_coord": [
+        0,
+        -1
+      ],
+      "cells": "CQAAAAAAAACAA4TEgQOFAIIDhQCDA4EAoAMA0MADAJDDAwCgxAMAyOQDiJQ="
+    },
+    {
+      "chunk_coord": [
         -1,
         -1
       ],
@@ -13,13 +20,6 @@
         0
       ],
       "cells": "GgAAAAAAAAAAAACoAQAAqAIAAKgDAESMBACrACAAAKghAACoIgAAqCMAAKgkAIKMKwCIAEgAhABJAGEASgBYAEsAUgBMAGQATQCBAGoAggCLAEgAqABEAKkAoQCqAJgAqwCSAKwApACtAEEAygBCAA=="
-    },
-    {
-      "chunk_coord": [
-        0,
-        -1
-      ],
-      "cells": "AwAAAAAAAADDAwCgxAMAyOQDiJQ="
     },
     {
       "chunk_coord": [

@@ -369,11 +369,17 @@ impl Component for Viewport {
 
         let modules_html = self
             .active_buffer
-            .anchored_modules
+            .rooted_modules
             .values()
             .map(|m| {
+                let pins = m.module.borrow().get_pins();
                 html! {
-                    <ModuleMount camera={self.camera.clone()} anchor={m.anchor} module_html={m.html.clone()} />
+                    <ModuleMount
+                        camera={self.camera.clone()}
+                        root={m.root}
+                        pins={pins}
+                        module_html={m.html.clone()}
+                    />
                 }
             })
             .collect::<Html>();
