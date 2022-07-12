@@ -1,0 +1,18 @@
+{
+  "chunks": [
+    {
+      "chunk_coord": [
+        0,
+        -1
+      ],
+      "cells": "SwAAAAAAAADgAQCg4QEAqOIBAKjjAQCo5AEAiAACAKABAgCoAgIAqAMCAKgEAgCIIAIAoCECAKgiAgCoIwIAqCQCAIhAAgCgQQIAqEICAKhDAgCoRAIAiGACAKBhAgCoYgIAqGMCAKhkAgCIgAIAoIECAKiCAgCogwIAqIQCAIigAgCgoQIAqKICAKijAgCopAIAiMACAKDBAgCowgIAqMMCAKjEAgCIIAMAoCEDAKgiAwCoIwMAqCQDAIhAAwCgQQMAqEIDAKhDAwCoRAMAiGADAKBhAwCoYgMAqGMDAKhkAwCIgAMAoIEDAKiCAwCogwMAqIQDAIigAwCgoQMAqKIDAKijAwCopAMAiMADAKDBAwCowgMAqMMDAKjEAwCI4AMAoOEDAKjiAwCo4wMAqOQDAIg="
+    },
+    {
+      "chunk_coord": [
+        0,
+        0
+      ],
+      "cells": "BQAAAAAAAAAAAACgAQAAqAIAAKgDAACoBAAAiA=="
+    }
+  ]
+}

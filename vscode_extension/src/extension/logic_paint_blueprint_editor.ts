@@ -5,14 +5,11 @@ import {
   ExtensionContext,
   Range,
   RelativePattern,
-  StatusBarAlignment,
   TextDocument,
-  ThemeColor,
   Uri,
   Webview,
   WebviewPanel,
   WorkspaceEdit,
-  commands,
   env,
   workspace,
   window,
@@ -131,74 +128,24 @@ export class LogicPaintBlueprintEditorProvider
             return;
           }
           case 'SET_CLIPBOARD': {
-            const value = e.value;
-            void env.clipboard.writeText(value);
+            void env.clipboard.writeText(e.content);
+            return;
+          }
+          case 'REQUEST_CLIPBOARD': {
+            (async () => {
+              const content = await env.clipboard.readText();
+              if (content) {
+                webviewPanel.webview.postMessage({
+                  type: 'RETURN_REQUEST_CLIPBOARD',
+                  content,
+                });
+              }
+            })();
             return;
           }
         }
       })
     );
-
-    disposableArray.push(
-      commands.registerCommand('editor.action.clipboardCopyAction', () => {
-        webviewPanel.webview.postMessage({ type: 'TRIGGER_COPY' });
-      })
-    );
-
-    // disposableArray.push(
-    //   commands.registerCommand('editor.action.clipboardCutAction', async () => {
-    //     console.log('Cut called. Setting clipboard');
-    //     await env.clipboard.writeText('Hello, Cut!');
-    //   })
-    // );
-
-    disposableArray.push(
-      commands.registerCommand(
-        'editor.action.clipboardPasteAction',
-        async () => {
-          webviewPanel.webview.postMessage({
-            type: 'PASTE',
-            value: await env.clipboard.readText(),
-          });
-        }
-      )
-    );
-
-    const myStatusBarItem = window.createStatusBarItem(
-      StatusBarAlignment.Right,
-      100
-    );
-
-    myStatusBarItem.text = 'Hello, status bar!';
-    myStatusBarItem.color = new ThemeColor('statusBarItem.prominentForeground');
-    myStatusBarItem.show();
-
-    disposableArray.push(myStatusBarItem);
-
-    // const doc = await workspace.openTextDocument(path);
-    // const pos1 = new Position(3, 8);
-    // const editor = await window.showTextDocument(doc, {
-    //   viewColumn: ViewColumn.Beside,
-    //   preview: true,
-    // });
-    // editor.selections = [new Selection(pos1, pos1)];
-    // var range = new Range(pos1, pos1);
-    // editor.revealRange(range);
-
-    // setTimeout(async () => {
-    //   const editor = await window.showTextDocument(doc, {
-    //     viewColumn: ViewColumn.Beside,
-    //     preview: true,
-    //     selection: new Range(
-    //       new Position(3, 1),
-    //       new Position(3, 10)
-    //     ),
-    //   });
-    //   window.showTextDocument(editor.document);
-    //   editor.selections = [new Selection(pos1, pos1)];
-    //   var range = new Range(pos1, pos1);
-    //   editor.revealRange(range);
-    // }, 5_000);
 
     // Make sure we get rid of the listener when our editor is closed.
     webviewPanel.onDidDispose(() => {

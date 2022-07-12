@@ -6,8 +6,8 @@ use yew::html;
 use crate::{
     coords::CellCoord,
     modules::{
-        Clock, ClockComponent, Memory, MemoryComponent, Module, Register, RegisterComponent,
-        RootedModule, TogglePin, TogglePinComponent,
+        Clock, ClockComponent, ConstValue, ConstValueComponent, Memory, MemoryComponent, Module,
+        Register, RegisterComponent, RootedModule, TogglePin, TogglePinComponent,
     },
 };
 
@@ -23,6 +23,7 @@ pub enum ModuleSerdeData {
     Register(RegisterSerdeData),
     TogglePin(TogglePinSerdeData),
     Clock(ClockSerdeData),
+    ConstValue(ConstValueSerdeData),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -40,6 +41,12 @@ pub struct TogglePinSerdeData {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ClockSerdeData {}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ConstValueSerdeData {
+    pub bus_width: usize,
+    pub value: i32,
+}
 
 impl ModuleSerde {
     pub fn instantiate(&self) -> RootedModule {
@@ -86,6 +93,16 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
+            ModuleSerdeData::ConstValue(ConstValueSerdeData { bus_width, value }) => {
+                let module = Rc::new(RefCell::new(ConstValue::new(bus_width, value)));
+
+                RootedModule {
+                    root: self.root,
+                    module: module.clone(),
+                    html: html! { <ConstValueComponent data={module.clone()} /> },
+                    module_serde: self.clone(),
+                }
+            }
         }
     }
 }
@@ -102,6 +119,9 @@ impl Into<Box<dyn Module>> for ModuleSerde {
                 Box::new(TogglePin::new(initially_high.unwrap_or_default()))
             }
             ModuleSerdeData::Clock(_) => Box::new(Clock::new()),
+            ModuleSerdeData::ConstValue(ConstValueSerdeData { bus_width, value }) => {
+                Box::new(ConstValue::new(bus_width, value))
+            }
         }
     }
 }

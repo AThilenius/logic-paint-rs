@@ -55,7 +55,7 @@ impl Camera {
     /// Returns true if input processing should be truncated because of panning.
     pub fn handle_input(&mut self, input: &InputState) -> bool {
         // Track the drag-anchor for panning on initial click of Space.
-        if input.keydown.contains("Space") {
+        if input.key_codes_down.contains("Space") {
             self.drag_world_anchor = Some(
                 self.drag_world_anchor
                     .unwrap_or_else(|| self.project_screen_point_to_world(input.screen_point)),

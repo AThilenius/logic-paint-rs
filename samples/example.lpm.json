@@ -1,20 +1,24 @@
 {
   "modules": [
     {
-      "root": [0, -2],
+      "root": [0, 0],
       "module": { "Clock": {} }
+    },
+    {
+      "root": [0, 2],
+      "module": { "TogglePin": {} }
+    },
+    {
+      "root": [0, 4],
+      "module": { "TogglePin": { "initially_high": true } }
     },
     {
       "root": [2, 10],
       "module": { "Register": { "bus_width": 4 } }
     },
     {
-      "root": [0, 1],
-      "module": { "TogglePin": { "initially_high": true } }
-    },
-    {
-      "root": [0, 0],
-      "module": { "TogglePin": {} }
+      "root": [2, -10],
+      "module": { "ConstValue": { "bus_width": 8, "value": -2 } }
     }
   ]
 }

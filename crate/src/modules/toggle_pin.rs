@@ -17,7 +17,14 @@ impl TogglePin {
 
 impl Module for TogglePin {
     fn get_pins(&self) -> Vec<Pin> {
-        vec![self.pin.clone()]
+        let mut pin = self.pin.clone();
+        pin.label = if self.pin.output_high {
+            "HIGH".to_owned()
+        } else {
+            "LOW".to_owned()
+        };
+
+        vec![pin]
     }
 }
 
@@ -57,20 +64,9 @@ impl Component for TogglePinComponent {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let data = ctx.props().data.borrow();
         html! {
             <div
-                style={
-                    format!("
-                            margin-left: 4px;
-                            margin-bottom: 4px;
-                            height: 14px;
-                            width: 14px;
-                            background: {}
-                        ",
-                        if data.pin.output_high { "red" } else { "blue" }
-                    )
-                }
+                style={"height: 20px; width: 20px;"}
                 onclick={ctx.link().callback(|_| Msg::Clicked)}
             />
         }

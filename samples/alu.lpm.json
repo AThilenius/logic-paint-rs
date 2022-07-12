@@ -1,0 +1,12 @@
+{
+  "modules": [
+    {
+      "root": [0, 0],
+      "module": { "ConstValue": { "bus_width": 8, "value": 4 } }
+    },
+    {
+      "root": [0, -10],
+      "module": { "ConstValue": { "bus_width": 8, "value": 33 } }
+    }
+  ]
+}

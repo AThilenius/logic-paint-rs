@@ -1,0 +1,16 @@
+{
+  "modules": [
+    {
+      "root": [0, 0],
+      "module": { "TogglePin": { "initially_high": true } }
+    },
+    {
+      "root": [0, 2],
+      "module": { "TogglePin": { "initially_high": true } }
+    },
+    {
+      "root": [0, 4],
+      "module": { "TogglePin": {} }
+    }
+  ]
+}

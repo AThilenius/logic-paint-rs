@@ -7,12 +7,14 @@ use yew::Html;
 use crate::coords::{CellCoord, CellCoordOffset};
 
 mod clock;
+mod const_value;
 mod memory;
 mod module_serde;
 mod register;
 mod toggle_pin;
 
 pub use clock::*;
+pub use const_value::*;
 pub use memory::*;
 pub use module_serde::*;
 pub use register::*;

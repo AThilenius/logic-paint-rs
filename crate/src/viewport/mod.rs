@@ -5,6 +5,8 @@ pub mod compiler;
 pub mod execution_context;
 pub mod input;
 
+use std::collections::HashMap;
+
 use glam::Vec2;
 use gloo::{events::EventListener, utils::document};
 use wasm_bindgen::{prelude::*, JsCast};
@@ -26,20 +28,27 @@ pub struct Viewport {
     pub camera: Camera,
     pub time: f64,
     pub input_state: InputState,
+    registers: HashMap<String, Buffer>,
     mouse_follow_buffer: Option<Buffer>,
     mode: Mode,
     canvas: NodeRef,
     render_context: Option<RenderContext>,
     dom_events: Option<DomIntervalHooks>,
     on_edit_callback: Option<js_sys::Function>,
+    request_clipboard: Option<js_sys::Function>,
+    set_clipboard: Option<js_sys::Function>,
     event_hooks: Vec<EventListener>,
 }
 
 pub enum Msg {
     None,
-    SetOnEditCallback(js_sys::Function),
+    SetJsCallbacks {
+        on_edit_callback: js_sys::Function,
+        request_clipboard: js_sys::Function,
+        set_clipboard: js_sys::Function,
+    },
     SetBlueprintPartial(Blueprint),
-    PasteBlueprint(Blueprint),
+    SetClipboard(Blueprint),
     RawInput(RawInput),
     Render(f64),
     SetFocus(bool),
@@ -149,21 +158,29 @@ impl Viewport {
             return;
         }
 
+        // Check if a named register was clicked (we use this in multiple places).
+        let named_register_clicked = "1234567890*"
+            .chars()
+            .map(|c| c.to_string())
+            .filter(|c| self.input_state.key_clicked == *c)
+            .next();
+
         // Keybinds: Esc => Visual, D => PaintSi, F => PaintMetallic
-        if self.input_state.key_clicked == "Escape" {
+        if self.input_state.key_code_clicked == "Escape" {
             self.mode = Mode::Visual;
             self.selection = Default::default();
             self.mouse_follow_buffer = None;
             self.ephemeral_buffer = None;
-        } else if self.input_state.key_clicked == "KeyD" {
+        } else if self.input_state.key_code_clicked == "KeyQ" {
             self.mode = Mode::PaintSi;
             self.selection = Default::default();
             self.mouse_follow_buffer = None;
-        } else if self.input_state.key_clicked == "KeyF" {
+        } else if self.input_state.key_code_clicked == "KeyW" {
             self.mode = Mode::PaintMetallic;
             self.selection = Default::default();
             self.mouse_follow_buffer = None;
-        } else if self.input_state.key_clicked == "KeyE" && !matches!(self.mode, Mode::Execute(..))
+        } else if self.input_state.key_code_clicked == "KeyE"
+            && !matches!(self.mode, Mode::Execute(..))
         {
             self.mode = Mode::Execute(Execution {
                 manual: true,
@@ -175,7 +192,7 @@ impl Viewport {
 
         match &mut self.mode {
             Mode::Visual => {
-                if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
+                if let Some(mouse_follow_buffer) = self.mouse_follow_buffer.clone() {
                     // Handle placing the mouse follow buffer.
                     if self.input_state.primary_clicked {
                         self.active_buffer
@@ -189,6 +206,29 @@ impl Viewport {
                         self.mouse_follow_buffer = None;
                         self.ephemeral_buffer = None;
                     }
+
+                    // Hitting KeyS + any of the named register keys will save the mouse-follow
+                    // buffer into the named register.
+                    if self.input_state.key_codes_down.contains("KeyS") {
+                        if let Some(named_register) = &named_register_clicked {
+                            // If it's the clipboard register, also set the clipboard.
+                            if named_register == "*" {
+                                self.notify_js_set_clipboard(&mouse_follow_buffer);
+                            } else {
+                                self.registers
+                                    .insert(named_register.clone(), mouse_follow_buffer.clone());
+                            }
+                            self.selection = Default::default();
+                        }
+                    } else {
+                        // Otherwise override the mouse-follow buffer with the newly selected
+                        // register, if it exists.
+                        if let Some(named_register) = &named_register_clicked {
+                            if let Some(buffer) = self.registers.get(named_register) {
+                                self.mouse_follow_buffer = Some(buffer.clone());
+                            }
+                        }
+                    }
                 } else {
                     if self.input_state.primary {
                         if let Some(drag) = self.input_state.drag {
@@ -200,26 +240,77 @@ impl Viewport {
                     } else if self.input_state.secondary {
                         self.selection = Default::default();
                     }
+
+                    // Delete selection
+                    if self.input_state.key_code_clicked == "KeyD" {
+                        self.mouse_follow_buffer = Some(
+                            self.active_buffer
+                                .clone_selection(&self.selection, self.input_state.cell),
+                        );
+                        clear_both_in_selection(&mut self.active_buffer, &self.selection);
+                        self.notify_js_on_change();
+                    }
+
+                    // Yank selection to mouse-follow buffer
+                    if self.input_state.key_code_clicked == "KeyY" {
+                        self.mouse_follow_buffer = Some(
+                            self.active_buffer
+                                .clone_selection(&self.selection, self.input_state.cell),
+                        );
+                        self.selection = Default::default();
+                    }
+
+                    // Hitting KeyS + any of the named register keys will save the selected cells
+                    // into the named register.
+                    if self.input_state.key_codes_down.contains("KeyS") && !self.selection.is_zero()
+                    {
+                        if let Some(named_register) = &named_register_clicked {
+                            let buffer = self
+                                .active_buffer
+                                .clone_selection(&self.selection, self.input_state.cell);
+
+                            // If it's the clipboard register, also set the clipboard.
+                            if named_register == "*" {
+                                self.notify_js_set_clipboard(&buffer);
+                            } else {
+                                self.registers.insert(named_register.clone(), buffer);
+                            }
+                            self.selection = Default::default();
+                        }
+                    } else {
+                        // Hitting any of the named register keys (while not holding KeyS) will load
+                        // the register into the mouse-follow buffer.
+                        if let Some(named_register) = named_register_clicked {
+                            // If it's the clipboard register then we have to request the clipboard from
+                            // JS and wait for it to come back. Sucks.
+                            if named_register == "*" {
+                                self.notify_js_request_clipboard();
+                            } else if let Some(buffer) = self.registers.get(&named_register) {
+                                self.mouse_follow_buffer = Some(buffer.clone());
+                            }
+                            self.selection = Default::default();
+                        }
+                    }
                 }
             }
             Mode::PaintMetallic | Mode::PaintSi => {
                 self.dispatch_paint_input_state();
             }
             Mode::Execute(Execution { manual, context }) => {
-                if self.input_state.key_clicked == "KeyR" {
+                if self.input_state.key_code_clicked == "KeyR" {
                     *manual = false;
-                } else if self.input_state.key_clicked == "KeyC" {
+                } else if self.input_state.key_code_clicked == "KeyC" {
                     *manual = true;
                     self.active_buffer.clock_modules(self.time);
                     context.clock_once();
-                } else if self.input_state.key_clicked == "KeyT" {
+                } else if self.input_state.key_code_clicked == "KeyT" {
                     *manual = true;
                     // Only clock modules if we are between clock cycles.
                     if !context.is_mid_clock_cycle {
                         self.active_buffer.clock_modules(self.time);
                     }
                     context.tick_once();
-                } else if self.input_state.key_clicked == "KeyP" {
+                } else if self.input_state.key_code_clicked == "KeyP" {
                     *manual = true;
                 }
             }
@@ -293,6 +384,20 @@ impl Viewport {
             let _ = on_edit_callback.call1(&JsValue::null(), &js_str);
         }
     }
+
+    fn notify_js_request_clipboard(&self) {
+        if let Some(request_clipboard) = self.request_clipboard.as_ref() {
+            let _ = request_clipboard.call0(&JsValue::null());
+        }
+    }
+
+    fn notify_js_set_clipboard(&self, buffer: &Buffer) {
+        if let Some(set_clipboard) = self.set_clipboard.as_ref() {
+            let json = serde_json::to_string_pretty(&Blueprint::from(buffer)).unwrap_throw();
+            let js_str = JsValue::from(&json);
+            let _ = set_clipboard.call1(&JsValue::null(), &js_str);
+        }
+    }
 }
 
 impl Component for Viewport {
@@ -307,12 +412,15 @@ impl Component for Viewport {
             camera: Camera::new(),
             time: 0.0,
             input_state: Default::default(),
+            registers: HashMap::new(),
             mouse_follow_buffer: None,
             mode: Mode::Visual,
             canvas: NodeRef::default(),
             render_context: None,
             dom_events: None,
             on_edit_callback: None,
+            request_clipboard: None,
+            set_clipboard: None,
             event_hooks: vec![],
         }
     }
@@ -323,17 +431,25 @@ impl Component for Viewport {
                 self.input_state.handle_raw_input(&self.camera, &raw_input);
                 self.dispatch_input_state();
             }
-            Msg::SetOnEditCallback(callback) => {
-                self.on_edit_callback = Some(callback);
+            Msg::SetJsCallbacks {
+                on_edit_callback,
+                request_clipboard,
+                set_clipboard,
+            } => {
+                self.on_edit_callback = Some(on_edit_callback);
+                self.request_clipboard = Some(request_clipboard);
+                self.set_clipboard = Some(set_clipboard);
             }
             Msg::SetBlueprintPartial(blueprint) => {
                 if let Some(new_buffer) = blueprint.into_buffer_from_partial(&self.active_buffer) {
                     self.active_buffer = new_buffer;
                 }
             }
-            Msg::PasteBlueprint(blueprint) => {
+            Msg::SetClipboard(blueprint) => {
                 if let Some(buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
-                    self.mouse_follow_buffer = Some(buffer);
+                    self.mode = Mode::Visual;
+                    self.mouse_follow_buffer = Some(buffer.clone());
+                    self.registers.insert("*".to_owned(), buffer);
                 }
             }
             Msg::Render(time) => {
@@ -422,7 +538,7 @@ impl Component for Viewport {
                     ref={self.canvas.clone()}
                     style={
                         let cursor = {
-                            if self.input_state.keydown.contains("Space") {
+                            if self.input_state.key_codes_down.contains("Space") {
                                 "grabbing"
                             } else {
                                 match self.mode {

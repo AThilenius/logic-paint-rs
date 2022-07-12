@@ -21,7 +21,8 @@ pub struct InputState {
     pub ctrl: bool,
     pub shift: bool,
     pub alt: bool,
-    pub keydown: HashSet<String>,
+    pub key_codes_down: HashSet<String>,
+    pub key_code_clicked: String,
     pub key_clicked: String,
 }
 
@@ -37,6 +38,7 @@ impl InputState {
     pub fn handle_raw_input(&mut self, camera: &Camera, raw_input: &RawInput) {
         self.primary_clicked = false;
         self.secondary_clicked = false;
+        self.key_code_clicked = "".to_owned();
         self.key_clicked = "".to_owned();
         self.scroll_delta_y = 0.0;
 
@@ -87,10 +89,11 @@ impl InputState {
                 self.alt = e.alt_key();
                 self.shift = e.shift_key();
 
-                self.keydown.insert(e.code());
+                self.key_codes_down.insert(e.code());
 
                 if !e.repeat() {
-                    self.key_clicked = e.code();
+                    self.key_code_clicked = e.code();
+                    self.key_clicked = e.key();
                 }
             }
             RawInput::KeyUp(e) => {
@@ -98,7 +101,7 @@ impl InputState {
                 self.alt = e.alt_key();
                 self.shift = e.shift_key();
 
-                self.keydown.remove(&e.code());
+                self.key_codes_down.remove(&e.code());
             }
             RawInput::MouseWheelEvent(e) => {
                 self.scroll_delta_y = (e.delta_y() / 1000.0) as f32;

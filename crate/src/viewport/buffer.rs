@@ -75,35 +75,15 @@ impl Buffer {
 
     pub fn clone_selection(&self, selection: &Selection, root: CellCoord) -> Buffer {
         let mut buffer = Buffer::default();
+        let ll = selection.lower_left.0;
+        let ur = selection.upper_right.0;
 
-        for (chunk_coord, chunk) in &self.chunks {
-            // None of the chunk overlaps, continue.
-            if !selection.test_any_of_chunk_in_selection(*chunk_coord) {
-                continue;
-            }
-
-            let ll = LocalCoord::from(CellCoord(IVec2::max(
-                chunk_coord.first_cell_coord().0,
-                selection.lower_left.0,
-            )))
-            .0;
-
-            let ur = LocalCoord::from(CellCoord(IVec2::min(
-                chunk_coord.last_cell_coord().0,
-                selection.upper_right.0,
-            )))
-            .0 + UVec2::ONE;
-
-            for y in ll.y..ur.y {
-                for x in ll.x..ur.x {
-                    let local_coord = LocalCoord(UVec2::new(x as u32, y as u32));
-                    let cell = chunk.get_cell(local_coord);
-
-                    let target_cell_coord =
-                        CellCoord(local_coord.to_cell_coord(chunk_coord).0 - root.0);
-
-                    buffer.set_cell(target_cell_coord, cell);
-                }
+        for y in ll.y..ur.y {
+            for x in ll.x..ur.x {
+                let from_cell_coord = CellCoord(IVec2::new(x, y));
+                let to_cell_coord = CellCoord(IVec2::new(x, y) - root.0);
+                let cell = self.get_cell(from_cell_coord);
+                buffer.set_cell(to_cell_coord, cell);
             }
         }
 

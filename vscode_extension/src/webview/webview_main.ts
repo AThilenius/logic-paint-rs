@@ -18,9 +18,24 @@ async function main() {
     });
   };
 
+  const onLpRequestedClipboard = () => {
+    vscode.postMessage({
+      type: 'REQUEST_CLIPBOARD',
+    });
+  };
+
+  const onLpSetClipboard = (content: string) => {
+    vscode.postMessage({
+      type: 'SET_CLIPBOARD',
+      content,
+    });
+  };
+
   const logicPaint = new LogicPaint(
     document.getElementById('root') as HTMLCanvasElement,
-    onLpUpdatedBlueprint
+    onLpUpdatedBlueprint,
+    onLpRequestedClipboard,
+    onLpSetClipboard
   );
 
   // Handle messages sent from the extension to the webview
@@ -47,13 +62,8 @@ async function main() {
 
         return;
       }
-      case 'TRIGGER_COPY': {
-        vscode.postMessage({ type: 'SET_CLIPBOARD', value: logicPaint.copy() });
-        return;
-      }
-      case 'PASTE': {
-        const value = message.value;
-        const err = logicPaint.paste(value);
+      case 'RETURN_REQUEST_CLIPBOARD': {
+        const err = logicPaint.set_clipboard(message.content);
         if (err) {
           console.error(err);
         }
