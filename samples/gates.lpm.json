@@ -11,6 +11,38 @@
     {
       "root": [0, 4],
       "module": { "TogglePin": {} }
+    },
+    {
+      "root": [48, 4],
+      "module": { "TogglePin": { "initially_high": true } }
+    },
+    {
+      "root": [48, 3],
+      "module": { "TogglePin": {} }
+    },
+    {
+      "root": [48, 2],
+      "module": { "TogglePin": {} }
+    },
+    {
+      "root": [48, 1],
+      "module": { "TogglePin": {} }
+    },
+    {
+      "root": [48, -6],
+      "module": { "TogglePin": { "initially_high": true } }
+    },
+    {
+      "root": [48, -9],
+      "module": { "ConstValue": { "bus_width": 8, "value": 120 } }
+    },
+    {
+      "root": [48, -25],
+      "module": { "ConstValue": { "bus_width": 8, "value": -40 } }
+    },
+    {
+      "root": [88, -9],
+      "module": { "Probe": { "bus_width": 8 } }
     }
   ]
 }

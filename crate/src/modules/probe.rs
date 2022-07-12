@@ -3,43 +3,46 @@ use yew::prelude::*;
 
 use crate::modules::{Module, Pin};
 
-pub struct ConstValue {
+pub struct Probe {
     pub bus_width: usize,
     pub value: i32,
 }
 
-impl ConstValue {
-    pub fn new(bus_width: usize, value: i32) -> Self {
-        Self { bus_width, value }
+impl Probe {
+    pub fn new(bus_width: usize) -> Self {
+        Self {
+            bus_width,
+            value: 0,
+        }
     }
 }
 
-impl Module for ConstValue {
+impl Module for Probe {
     fn get_pins(&self) -> Vec<Pin> {
-        let mut pins =
-            Pin::new_repeating((0, 0).into(), (0, -1).into(), self.bus_width, "B", false);
-        let unsigned = unsafe { std::mem::transmute::<i32, u32>(self.value) };
+        Pin::new_repeating((0, 0).into(), (0, -1).into(), self.bus_width, "B", false)
+    }
+
+    fn set_pins(&mut self, pins: &Vec<Pin>) {
+        let mut unsigned = 0_u32;
 
         for i in 0..self.bus_width {
-            pins[i].output_high = (unsigned >> i) & 1 > 0;
+            if pins[i].input_high {
+                unsigned |= 1 << i;
+            }
         }
 
-        pins
-    }
-
-    fn set_pins(&mut self, _pins: &Vec<Pin>) {
-        // Output only, ignore.
+        self.value = unsafe { std::mem::transmute::<u32, i32>(unsigned) };
     }
 }
 
-pub struct ConstValueComponent;
+pub struct ProbeComponent;
 
 #[derive(Properties)]
-pub struct ConstValueProps {
-    pub data: Rc<RefCell<ConstValue>>,
+pub struct ProbeProps {
+    pub data: Rc<RefCell<Probe>>,
 }
 
-impl PartialEq for ConstValueProps {
+impl PartialEq for ProbeProps {
     fn eq(&self, _other: &Self) -> bool {
         false
     }
@@ -47,9 +50,9 @@ impl PartialEq for ConstValueProps {
 
 pub enum Msg {}
 
-impl Component for ConstValueComponent {
+impl Component for ProbeComponent {
     type Message = Msg;
-    type Properties = ConstValueProps;
+    type Properties = ProbeProps;
 
     fn create(_ctx: &Context<Self>) -> Self {
         Self {}
@@ -61,7 +64,6 @@ impl Component for ConstValueComponent {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         let data = ctx.props().data.borrow();
-
         html! {
             <div style={
                 format!("

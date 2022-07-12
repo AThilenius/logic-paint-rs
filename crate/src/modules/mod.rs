@@ -10,6 +10,7 @@ mod clock;
 mod const_value;
 mod memory;
 mod module_serde;
+mod probe;
 mod register;
 mod toggle_pin;
 
@@ -17,6 +18,7 @@ pub use clock::*;
 pub use const_value::*;
 pub use memory::*;
 pub use module_serde::*;
+pub use probe::*;
 pub use register::*;
 pub use toggle_pin::*;
 

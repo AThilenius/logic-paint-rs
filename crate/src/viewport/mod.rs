@@ -243,11 +243,14 @@ impl Viewport {
 
                     // Delete selection
                     if self.input_state.key_code_clicked == "KeyD" {
-                        self.mouse_follow_buffer = Some(
-                            self.active_buffer
-                                .clone_selection(&self.selection, self.input_state.cell),
-                        );
+                        if !self.input_state.shift {
+                            self.mouse_follow_buffer = Some(
+                                self.active_buffer
+                                    .clone_selection(&self.selection, self.input_state.cell),
+                            );
+                        }
                         clear_both_in_selection(&mut self.active_buffer, &self.selection);
+                        self.selection = Default::default();
                         self.notify_js_on_change();
                     }
 

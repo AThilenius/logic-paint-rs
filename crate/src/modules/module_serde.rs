@@ -7,7 +7,8 @@ use crate::{
     coords::CellCoord,
     modules::{
         Clock, ClockComponent, ConstValue, ConstValueComponent, Memory, MemoryComponent, Module,
-        Register, RegisterComponent, RootedModule, TogglePin, TogglePinComponent,
+        Probe, ProbeComponent, Register, RegisterComponent, RootedModule, TogglePin,
+        TogglePinComponent,
     },
 };
 
@@ -19,39 +20,18 @@ pub struct ModuleSerde {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum ModuleSerdeData {
-    Memory(MemorySerdeData),
-    Register(RegisterSerdeData),
-    TogglePin(TogglePinSerdeData),
-    Clock(ClockSerdeData),
-    ConstValue(ConstValueSerdeData),
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct MemorySerdeData {}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct RegisterSerdeData {
-    pub bus_width: usize,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct TogglePinSerdeData {
-    pub initially_high: Option<bool>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ClockSerdeData {}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ConstValueSerdeData {
-    pub bus_width: usize,
-    pub value: i32,
+    Memory {},
+    Register { bus_width: usize },
+    TogglePin { initially_high: Option<bool> },
+    Clock {},
+    ConstValue { bus_width: usize, value: i32 },
+    Probe { bus_width: usize },
 }
 
 impl ModuleSerde {
     pub fn instantiate(&self) -> RootedModule {
         match self.module {
-            ModuleSerdeData::Memory(MemorySerdeData {}) => {
+            ModuleSerdeData::Memory {} => {
                 let module = Rc::new(RefCell::new(Memory::new()));
 
                 RootedModule {
@@ -61,7 +41,7 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
-            ModuleSerdeData::Register(RegisterSerdeData { bus_width }) => {
+            ModuleSerdeData::Register { bus_width } => {
                 let module = Rc::new(RefCell::new(Register::new(bus_width)));
 
                 RootedModule {
@@ -71,7 +51,7 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
-            ModuleSerdeData::TogglePin(TogglePinSerdeData { initially_high }) => {
+            ModuleSerdeData::TogglePin { initially_high } => {
                 let module = Rc::new(RefCell::new(TogglePin::new(
                     initially_high.unwrap_or_default(),
                 )));
@@ -83,7 +63,7 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
-            ModuleSerdeData::Clock(_) => {
+            ModuleSerdeData::Clock {} => {
                 let module = Rc::new(RefCell::new(Clock::new()));
 
                 RootedModule {
@@ -93,13 +73,23 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
-            ModuleSerdeData::ConstValue(ConstValueSerdeData { bus_width, value }) => {
+            ModuleSerdeData::ConstValue { bus_width, value } => {
                 let module = Rc::new(RefCell::new(ConstValue::new(bus_width, value)));
 
                 RootedModule {
                     root: self.root,
                     module: module.clone(),
                     html: html! { <ConstValueComponent data={module.clone()} /> },
+                    module_serde: self.clone(),
+                }
+            }
+            ModuleSerdeData::Probe { bus_width } => {
+                let module = Rc::new(RefCell::new(Probe::new(bus_width)));
+
+                RootedModule {
+                    root: self.root,
+                    module: module.clone(),
+                    html: html! { <ProbeComponent data={module.clone()} /> },
                     module_serde: self.clone(),
                 }
             }
@@ -111,17 +101,16 @@ impl ModuleSerde {
 impl Into<Box<dyn Module>> for ModuleSerde {
     fn into(self) -> Box<dyn Module> {
         match self.module {
-            ModuleSerdeData::Memory(MemorySerdeData {}) => Box::new(Memory::new()),
-            ModuleSerdeData::Register(RegisterSerdeData { bus_width }) => {
-                Box::new(Register::new(bus_width))
-            }
-            ModuleSerdeData::TogglePin(TogglePinSerdeData { initially_high }) => {
+            ModuleSerdeData::Memory {} => Box::new(Memory::new()),
+            ModuleSerdeData::Register { bus_width } => Box::new(Register::new(bus_width)),
+            ModuleSerdeData::TogglePin { initially_high } => {
                 Box::new(TogglePin::new(initially_high.unwrap_or_default()))
             }
-            ModuleSerdeData::Clock(_) => Box::new(Clock::new()),
-            ModuleSerdeData::ConstValue(ConstValueSerdeData { bus_width, value }) => {
+            ModuleSerdeData::Clock {} => Box::new(Clock::new()),
+            ModuleSerdeData::ConstValue { bus_width, value } => {
                 Box::new(ConstValue::new(bus_width, value))
             }
+            ModuleSerdeData::Probe { bus_width } => Box::new(Probe::new(bus_width)),
         }
     }
 }
