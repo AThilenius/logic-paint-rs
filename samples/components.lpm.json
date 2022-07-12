@@ -74,14 +74,18 @@
     },
     {
       "root": [112, -36],
-      "module": { "TogglePin": { "label": "EN|CLK" } }
+      "module": { "TogglePin": { "label": "EN & CLK" } }
     },
     {
-      "root": [112, -39],
+      "root": [112, -37],
+      "module": { "TogglePin": { "label": "EN-OUT" } }
+    },
+    {
+      "root": [112, -40],
       "module": { "ConstValue": { "bus_width": 8, "value": 220 } }
     },
     {
-      "root": [140, -39],
+      "root": [146, -40],
       "module": { "Probe": { "bus_width": 8 } }
     }
   ]
