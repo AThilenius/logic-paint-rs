@@ -318,6 +318,10 @@ impl Viewport {
                 }
             }
         }
+
+        if self.input_state.key_code_clicked == "KeyF" {
+            self.active_buffer.fix_all_cells();
+        }
     }
 
     fn dispatch_paint_input_state(&mut self) {

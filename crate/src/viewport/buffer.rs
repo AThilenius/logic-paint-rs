@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use glam::{IVec2, UVec2};
+use itertools::Itertools;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
@@ -152,6 +153,18 @@ impl Buffer {
         }
     }
 
+    pub fn fix_all_cells(&mut self) {
+        let chunk_coords = self.chunks.keys().cloned().collect_vec();
+        for chunk_coord in chunk_coords {
+            let chunk_first_cell = chunk_coord.first_cell_coord().0;
+            for y in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    self.fix_cell(CellCoord(IVec2::new(x as i32, y as i32) + chunk_first_cell));
+                }
+            }
+        }
+    }
+
     fn fix_cell(&mut self, cell_coord: CellCoord) {
         // Follow broken connection directions and connect them, if able. The following
         // connections will be made (every other connection will be dropped):
@@ -167,6 +180,11 @@ impl Buffer {
         // Otherwise the connection is culled.
 
         let orig_upc = self.get_cell(cell_coord);
+
+        if orig_upc == Default::default() {
+            return;
+        }
+
         let mut cell: NormalizedCell = orig_upc.into();
 
         // Handle metal (which is simple).
