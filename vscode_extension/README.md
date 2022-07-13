@@ -25,7 +25,7 @@ the editor window. It has 4 primary modes:
 - `Visual` (the starting mode) lets you select, copy, paste and delete cells.
 - `Silicon` paints (or removes) both N and P type silicon doping onto the
   substrate.
-- `Metal` paints (or removes) a metal layer as via placements.
+- `Metal` paints (or removes) a metal layer and via placements.
 - `Execution` compiles logic and prepares to execute it.
 
 ### Visual Mode
@@ -53,7 +53,7 @@ mode you can perform the following actions:
 - `Shift+S+8` and `Shift+8`
   - Like VIM, there is a special register for copying/pasting into the system
     clipboard, the `*` register. This register will behave like the numbered
-    registers, apart from the fact that it will always contains the
+    registers, apart from the fact that it will always contain the
     system-clipboard value.
 
 ### Silicon Mode
