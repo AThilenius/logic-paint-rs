@@ -34,11 +34,11 @@
     },
     {
       "root": [48, -9],
-      "module": { "ConstValue": { "bus_width": 8, "value": 120 } }
+      "module": { "ConstValue": { "bus_width": 8, "value": 200 } }
     },
     {
       "root": [48, -25],
-      "module": { "ConstValue": { "bus_width": 8, "value": -40 } }
+      "module": { "ConstValue": { "bus_width": 8, "value": 60 } }
     },
     {
       "root": [88, -9],
@@ -69,6 +69,22 @@
       "module": { "TogglePin": { "label": "S" } }
     },
     {
+      "root": [112, -22],
+      "module": { "TogglePin": { "label": "J" } }
+    },
+    {
+      "root": [112, -23],
+      "module": { "TogglePin": { "label": "K" } }
+    },
+    {
+      "root": [112, -24],
+      "module": { "TogglePin": { "label": "CLK" } }
+    },
+    {
+      "root": [112, -25],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
       "root": [112, -35],
       "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
     },
@@ -87,6 +103,26 @@
     {
       "root": [146, -40],
       "module": { "Probe": { "bus_width": 8 } }
+    },
+    {
+      "root": [157, 4],
+      "module": { "TogglePin": { "label": "CLR" } }
+    },
+    {
+      "root": [157, 3],
+      "module": { "TogglePin": { "label": "EN" } }
+    },
+    {
+      "root": [157, 2],
+      "module": { "TogglePin": { "label": "CLK" } }
+    },
+    {
+      "root": [157, -4],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [157, -7],
+      "module": { "Probe": { "bus_width": 4 } }
     }
   ]
 }
