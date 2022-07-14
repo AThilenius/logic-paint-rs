@@ -423,7 +423,7 @@ pub fn clear_border_of_selection(buffer: &mut Buffer, selection: &Selection) {
     clear_metal(buffer, (ll.x..ur.x).map(|x| CellCoord(IVec2::new(x, ll.y))));
     clear_metal(
         buffer,
-        (ll.x..ur.x).map(|x| CellCoord(IVec2::new(x, ur.y) - 1)),
+        (ll.x..ur.x).map(|x| CellCoord(IVec2::new(x, ur.y - 1))),
     );
     clear_metal(buffer, (ll.y..ur.y).map(|y| CellCoord(IVec2::new(ll.x, y))));
     clear_metal(

@@ -28,7 +28,10 @@ pub enum ModuleSerdeData {
         label: Option<String>,
         initially_high: Option<bool>,
     },
-    Clock {},
+    Clock {
+        start_delay: Option<usize>,
+        devisor: Option<usize>,
+    },
     ConstValue {
         bus_width: usize,
         value: i32,
@@ -77,8 +80,14 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
-            ModuleSerdeData::Clock {} => {
-                let module = Rc::new(RefCell::new(Clock::new()));
+            ModuleSerdeData::Clock {
+                start_delay,
+                devisor,
+            } => {
+                let module = Rc::new(RefCell::new(Clock::new(
+                    start_delay.unwrap_or(4),
+                    devisor.unwrap_or(4),
+                )));
 
                 RootedModule {
                     root: self.root,
@@ -121,7 +130,10 @@ impl Into<Box<dyn Module>> for ModuleSerde {
                 label,
                 initially_high,
             } => Box::new(TogglePin::new(label, initially_high.unwrap_or_default())),
-            ModuleSerdeData::Clock {} => Box::new(Clock::new()),
+            ModuleSerdeData::Clock {
+                start_delay,
+                devisor,
+            } => Box::new(Clock::new(start_delay.unwrap_or(4), devisor.unwrap_or(4))),
             ModuleSerdeData::ConstValue { bus_width, value } => {
                 Box::new(ConstValue::new(*bus_width, *value))
             }

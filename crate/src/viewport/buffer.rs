@@ -5,7 +5,6 @@ use itertools::Itertools;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
-    log,
     modules::{Pin, RootedModule},
     upc::{Bit, Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,

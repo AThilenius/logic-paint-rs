@@ -5,12 +5,16 @@ use crate::modules::{Module, Pin};
 
 pub struct Clock {
     pub pin: Pin,
+    delay: usize,
+    devisor: usize,
 }
 
 impl Clock {
-    pub fn new() -> Self {
+    pub fn new(start_delay: usize, devisor: usize) -> Self {
         Self {
             pin: Pin::new(0, 0, false, "CLK", false),
+            delay: start_delay,
+            devisor,
         }
     }
 }
@@ -21,6 +25,12 @@ impl Module for Clock {
     }
 
     fn clock(&mut self, _time: f64) {
+        if self.delay > 0 {
+            self.delay -= 1;
+            return;
+        }
+
+        self.delay = self.devisor;
         self.pin.output_high = !self.pin.output_high;
     }
 }
