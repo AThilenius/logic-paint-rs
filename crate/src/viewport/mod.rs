@@ -207,6 +207,11 @@ impl Viewport {
                         self.ephemeral_buffer = None;
                     }
 
+                    // KeyR will rotate the mouse-follow buffer
+                    if self.input_state.key_code_clicked == "KeyR" {
+                        self.mouse_follow_buffer = Some(mouse_follow_buffer.rotate_to_new());
+                    }
+
                     // Hitting KeyS + any of the named register keys will save the mouse-follow
                     // buffer into the named register.
                     if self.input_state.key_codes_down.contains("KeyS") {

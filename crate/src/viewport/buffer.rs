@@ -146,6 +146,27 @@ impl Buffer {
         self.set_modules(buffer.rooted_modules.values().cloned());
     }
 
+    pub fn rotate_to_new(&self) -> Buffer {
+        let mut buffer = Buffer::default();
+
+        for (chunk_coord, chunk) in &self.chunks {
+            for y in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    let local_coord = LocalCoord(UVec2::new(x as u32, y as u32));
+                    let c = local_coord.to_cell_coord(chunk_coord).0;
+
+                    // Rotate coordinates around the origin.
+                    buffer.set_cell(
+                        CellCoord(IVec2::new(c.y, -c.x)),
+                        chunk.get_cell(local_coord).rotate(),
+                    );
+                }
+            }
+        }
+
+        buffer
+    }
+
     pub fn clock_modules(&mut self, time: f64) {
         for (_, rooted_module) in self.rooted_modules.iter_mut() {
             rooted_module.module.borrow_mut().clock(time);

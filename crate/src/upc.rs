@@ -39,6 +39,47 @@ impl UPC {
     pub fn is_mosfet(&self) -> bool {
         self.get_bit(Bit::MOSFET_HORIZONTAL) || self.get_bit(Bit::MOSFET_VERTICAL)
     }
+
+    pub fn rotate(&self) -> UPC {
+        let mut upc = self.clone();
+        Bit::set(
+            &mut upc,
+            Bit::MOSFET_HORIZONTAL,
+            self.get_bit(Bit::MOSFET_VERTICAL),
+        );
+        Bit::set(
+            &mut upc,
+            Bit::MOSFET_VERTICAL,
+            self.get_bit(Bit::MOSFET_HORIZONTAL),
+        );
+
+        Bit::set(&mut upc, Bit::SI_DIR_UP, self.get_bit(Bit::SI_DIR_LEFT));
+        Bit::set(&mut upc, Bit::SI_DIR_RIGHT, self.get_bit(Bit::SI_DIR_UP));
+        Bit::set(&mut upc, Bit::SI_DIR_DOWN, self.get_bit(Bit::SI_DIR_RIGHT));
+        Bit::set(&mut upc, Bit::SI_DIR_LEFT, self.get_bit(Bit::SI_DIR_DOWN));
+
+        Bit::set(
+            &mut upc,
+            Bit::METAL_DIR_UP,
+            self.get_bit(Bit::METAL_DIR_LEFT),
+        );
+        Bit::set(
+            &mut upc,
+            Bit::METAL_DIR_RIGHT,
+            self.get_bit(Bit::METAL_DIR_UP),
+        );
+        Bit::set(
+            &mut upc,
+            Bit::METAL_DIR_DOWN,
+            self.get_bit(Bit::METAL_DIR_RIGHT),
+        );
+        Bit::set(
+            &mut upc,
+            Bit::METAL_DIR_LEFT,
+            self.get_bit(Bit::METAL_DIR_DOWN),
+        );
+        upc
+    }
 }
 
 #[allow(non_camel_case_types)]
