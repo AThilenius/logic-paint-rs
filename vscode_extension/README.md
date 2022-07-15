@@ -50,6 +50,7 @@ mode you can perform the following actions:
   will behave like the numbered registers, apart from the fact that it will
   always contain the system-clipboard value.
 - **`R`** while the mouse-follow buffer is active to rotate it.
+- **`M`** while the mouse-follow buffer is active to mirror it about the X axis.
 
 ### Visual Mouse-follow Buffer
 
@@ -66,7 +67,8 @@ cells that claim to connect with a neighbor who doesn't connect back) and these
 broken connections will be 'stitched together' on-paste, when possible. The
 mouse-buffer is ephemeral and can be cleared at any time by clicking `ESC` or
 `RMB`. Additionally, clicking `R` will rotate the mouse-follow buffer 90 degrees
-clockwise.
+clockwise, and `M` will mirror it across the X axis (use `R`, `R`, `M` to mirror
+about the X axis).
 
 ## Silicon Mode (`Q`)
 

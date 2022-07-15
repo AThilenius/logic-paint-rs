@@ -146,8 +146,8 @@ impl Buffer {
         self.set_modules(buffer.rooted_modules.values().cloned());
     }
 
-    pub fn rotate_to_new(&self) -> Buffer {
-        let mut buffer = Buffer::default();
+    pub fn rotate_to_new(&self) -> Self {
+        let mut buffer = Self::default();
 
         for (chunk_coord, chunk) in &self.chunks {
             for y in 0..CHUNK_SIZE {
@@ -159,6 +159,27 @@ impl Buffer {
                     buffer.set_cell(
                         CellCoord(IVec2::new(c.y, -c.x)),
                         chunk.get_cell(local_coord).rotate(),
+                    );
+                }
+            }
+        }
+
+        buffer
+    }
+
+    pub fn mirror_to_new(&self) -> Self {
+        let mut buffer = Self::default();
+
+        for (chunk_coord, chunk) in &self.chunks {
+            for y in 0..CHUNK_SIZE {
+                for x in 0..CHUNK_SIZE {
+                    let local_coord = LocalCoord(UVec2::new(x as u32, y as u32));
+                    let c = local_coord.to_cell_coord(chunk_coord).0;
+
+                    // Mirror around the x axis (flip Y values).
+                    buffer.set_cell(
+                        CellCoord(IVec2::new(c.x, -c.y)),
+                        chunk.get_cell(local_coord).mirror(),
                     );
                 }
             }

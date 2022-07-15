@@ -78,6 +78,27 @@ impl UPC {
             Bit::METAL_DIR_LEFT,
             self.get_bit(Bit::METAL_DIR_DOWN),
         );
+
+        upc
+    }
+
+    pub fn mirror(&self) -> UPC {
+        let mut upc = self.clone();
+
+        Bit::set(&mut upc, Bit::SI_DIR_UP, self.get_bit(Bit::SI_DIR_DOWN));
+        Bit::set(&mut upc, Bit::SI_DIR_DOWN, self.get_bit(Bit::SI_DIR_UP));
+
+        Bit::set(
+            &mut upc,
+            Bit::METAL_DIR_UP,
+            self.get_bit(Bit::METAL_DIR_DOWN),
+        );
+        Bit::set(
+            &mut upc,
+            Bit::METAL_DIR_DOWN,
+            self.get_bit(Bit::METAL_DIR_UP),
+        );
+
         upc
     }
 }

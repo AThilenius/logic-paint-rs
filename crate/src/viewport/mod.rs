@@ -212,6 +212,11 @@ impl Viewport {
                         self.mouse_follow_buffer = Some(mouse_follow_buffer.rotate_to_new());
                     }
 
+                    // KeyM will mirror the mouse-follow buffer
+                    if self.input_state.key_code_clicked == "KeyM" {
+                        self.mouse_follow_buffer = Some(mouse_follow_buffer.mirror_to_new());
+                    }
+
                     // Hitting KeyS + any of the named register keys will save the mouse-follow
                     // buffer into the named register.
                     if self.input_state.key_codes_down.contains("KeyS") {
