@@ -1,12 +1,37 @@
 {
   "modules": [
     {
-      "root": [0, 0],
-      "module": { "ConstValue": { "bus_width": 8, "value": 4 } }
+      "root": [-68, 4],
+      "module": { "Value": { "bus_width": 8, "value": 0, "out_en": true } }
     },
     {
-      "root": [0, -10],
-      "module": { "ConstValue": { "bus_width": 8, "value": 33 } }
+      "root": [-68, -8],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [-68, -10],
+      "module": { "TogglePin": { "label": "CLK" } }
+    },
+    {
+      "root": [-68, 10],
+      "module": { "Value": { "bus_width": 1, "value": 0 } }
+    },
+
+    {
+      "root": [-68, 153],
+      "module": { "Value": { "bus_width": 8, "value": 0, "out_en": true } }
+    },
+    {
+      "root": [-68, 141],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [-68, 139],
+      "module": { "TogglePin": { "label": "CLK" } }
+    },
+    {
+      "root": [-68, 166],
+      "module": { "Value": { "bus_width": 8, "value": 0 } }
     }
   ]
 }

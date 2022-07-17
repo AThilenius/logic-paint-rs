@@ -2,7 +2,7 @@
   "modules": [
     {
       "root": [0, 81],
-      "module": { "TogglePin": { "label": "IN" } }
+      "module": { "TogglePin": { "label": "MSB-IN" } }
     },
     {
       "root": [0, 77],
@@ -18,6 +18,34 @@
     },
     {
       "root": [0, 70],
+      "module": { "TogglePin": { "label": "LSB-OUT" } }
+    },
+    {
+      "root": [0, 61],
+      "module": { "TogglePin": { "label": "MSB-OUT" } }
+    },
+    {
+      "root": [0, 50],
+      "module": { "TogglePin": { "label": "MSB-IN" } }
+    },
+    {
+      "root": [122, 81],
+      "module": { "TogglePin": { "label": "IN" } }
+    },
+    {
+      "root": [122, 77],
+      "module": { "TogglePin": { "label": "EN" } }
+    },
+    {
+      "root": [122, 75],
+      "module": { "Clock": { "devisor": 2 } }
+    },
+    {
+      "root": [122, 73],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [122, 70],
       "module": { "TogglePin": { "label": "OUT" } }
     },
     {
@@ -54,15 +82,15 @@
     },
     {
       "root": [48, -9],
-      "module": { "ConstValue": { "bus_width": 8, "value": 200 } }
+      "module": { "Value": { "bus_width": 8, "value": 200, "out_en": true } }
     },
     {
       "root": [48, -25],
-      "module": { "ConstValue": { "bus_width": 8, "value": 60 } }
+      "module": { "Value": { "bus_width": 8, "value": 60, "out_en": true } }
     },
     {
       "root": [88, -9],
-      "module": { "Probe": { "bus_width": 8 } }
+      "module": { "Value": { "bus_width": 8 } }
     },
     {
       "root": [112, 4],
@@ -105,24 +133,12 @@
       "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
     },
     {
-      "root": [112, -35],
-      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
-    },
-    {
-      "root": [112, -36],
-      "module": { "TogglePin": { "label": "EN & CLK" } }
-    },
-    {
-      "root": [112, -37],
-      "module": { "TogglePin": { "label": "EN-OUT" } }
-    },
-    {
       "root": [112, -40],
-      "module": { "ConstValue": { "bus_width": 8, "value": 220 } }
+      "module": { "Value": { "bus_width": 7, "value": 16, "out_en": true } }
     },
     {
-      "root": [146, -40],
-      "module": { "Probe": { "bus_width": 8 } }
+      "root": [112, -110],
+      "module": { "Value": { "bus_width": 4, "value": 4, "out_en": true } }
     },
     {
       "root": [157, 4],
@@ -142,7 +158,7 @@
     },
     {
       "root": [157, -7],
-      "module": { "Probe": { "bus_width": 4 } }
+      "module": { "Value": { "bus_width": 4, "value": 0 } }
     }
   ]
 }

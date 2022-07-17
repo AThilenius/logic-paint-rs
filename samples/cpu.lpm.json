@@ -1,0 +1,24 @@
+{
+  "modules": [
+    {
+      "root": [5, 145],
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+    },
+    {
+      "root": [-14, 145],
+      "module": { "Clock": { "devisor": 2 } }
+    },
+    {
+      "root": [77, 124],
+      "module": { "TogglePin": { "label": "COUNT-EN" } }
+    },
+    {
+      "root": [77, 121],
+      "module": { "TogglePin": { "label": "IN" } }
+    },
+    {
+      "root": [77, 120],
+      "module": { "TogglePin": { "label": "OUT" } }
+    }
+  ]
+}
