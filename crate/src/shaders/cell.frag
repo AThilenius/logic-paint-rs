@@ -133,7 +133,7 @@ void main() {
         cursor_coord.y == cell_coord.y;
 
     bool metal_connection = connection(
-        0.3,
+        0.35,
         tile_uv,
         metal_dir_up,
         metal_dir_right,

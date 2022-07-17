@@ -49,6 +49,7 @@
     "ondragover",
     "ondrop",
     "onfocus",
+    "oninput",
     "onkeydown",
     "onkeypress",
     "onkeyup",

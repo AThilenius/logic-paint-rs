@@ -6,9 +6,8 @@ use yew::html;
 use crate::{
     coords::CellCoord,
     modules::{
-        Clock, ClockComponent, ConstValue, ConstValueComponent, Memory, MemoryComponent, Module,
-        Probe, ProbeComponent, Register, RegisterComponent, RootedModule, TogglePin,
-        TogglePinComponent,
+        Clock, ClockComponent, ConstValueComponent, Memory, MemoryComponent, Module, Register,
+        RegisterComponent, RootedModule, TogglePin, TogglePinComponent, Value,
     },
 };
 
@@ -32,12 +31,11 @@ pub enum ModuleSerdeData {
         start_delay: Option<usize>,
         devisor: Option<usize>,
     },
-    ConstValue {
+    Value {
         bus_width: usize,
-        value: i32,
-    },
-    Probe {
-        bus_width: usize,
+        value: Option<i32>,
+        spacing: Option<usize>,
+        out_en: Option<bool>,
     },
 }
 
@@ -96,23 +94,23 @@ impl ModuleSerde {
                     module_serde: self.clone(),
                 }
             }
-            ModuleSerdeData::ConstValue { bus_width, value } => {
-                let module = Rc::new(RefCell::new(ConstValue::new(*bus_width, *value)));
+            ModuleSerdeData::Value {
+                bus_width,
+                value,
+                spacing,
+                out_en,
+            } => {
+                let module = Rc::new(RefCell::new(Value::new(
+                    *bus_width,
+                    value.unwrap_or(0),
+                    spacing.unwrap_or(1),
+                    out_en.unwrap_or(false),
+                )));
 
                 RootedModule {
                     root: self.root,
                     module: module.clone(),
                     html: html! { <ConstValueComponent data={module.clone()} /> },
-                    module_serde: self.clone(),
-                }
-            }
-            ModuleSerdeData::Probe { bus_width } => {
-                let module = Rc::new(RefCell::new(Probe::new(*bus_width)));
-
-                RootedModule {
-                    root: self.root,
-                    module: module.clone(),
-                    html: html! { <ProbeComponent data={module.clone()} /> },
                     module_serde: self.clone(),
                 }
             }
@@ -134,10 +132,17 @@ impl Into<Box<dyn Module>> for ModuleSerde {
                 start_delay,
                 devisor,
             } => Box::new(Clock::new(start_delay.unwrap_or(4), devisor.unwrap_or(4))),
-            ModuleSerdeData::ConstValue { bus_width, value } => {
-                Box::new(ConstValue::new(*bus_width, *value))
-            }
-            ModuleSerdeData::Probe { bus_width } => Box::new(Probe::new(*bus_width)),
+            ModuleSerdeData::Value {
+                bus_width,
+                value,
+                spacing,
+                out_en,
+            } => Box::new(Value::new(
+                *bus_width,
+                value.unwrap_or(0),
+                spacing.unwrap_or(1),
+                out_en.unwrap_or(false),
+            )),
         }
     }
 }
