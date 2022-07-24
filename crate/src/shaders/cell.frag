@@ -32,7 +32,14 @@ uniform ivec2 cursor_coord;
 
 out vec4 out_color;
 
-bool connection(float l, vec2 texel_uv, bool up, bool right, bool down, bool left) {
+bool connection(
+    float l,
+    vec2 texel_uv,
+    bool up,
+    bool right,
+    bool down,
+    bool left
+) {
     // Configure
     float h = 1.0 - l;
 

@@ -121,16 +121,12 @@
       "module": { "TogglePin": { "label": "J" } }
     },
     {
-      "root": [112, -23],
-      "module": { "TogglePin": { "label": "K" } }
-    },
-    {
       "root": [112, -24],
-      "module": { "TogglePin": { "label": "CLK" } }
+      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
     },
     {
-      "root": [112, -25],
-      "module": { "TogglePin": { "initially_high": true, "label": "VCC" } }
+      "root": [112, -26],
+      "module": { "TogglePin": { "label": "K" } }
     },
     {
       "root": [112, -40],

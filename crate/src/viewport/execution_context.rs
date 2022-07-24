@@ -16,6 +16,7 @@ pub struct ExecutionContext {
     pub is_mid_clock_cycle: bool,
     compiler_results: CompilerResults,
     rooted_modules: Vec<RootedModule>,
+    first_tick: bool,
 }
 
 #[derive(Default)]
@@ -45,6 +46,7 @@ impl ExecutionContext {
                 trace_states,
             },
             is_mid_clock_cycle: false,
+            first_tick: true,
         }
     }
 
@@ -117,22 +119,25 @@ impl ExecutionContext {
 
         // Pull modules for OUTPUT state (input state is updates at the end of a tick) and write
         // their value to the corresponding trace.
-        for rooted_module in self.rooted_modules.iter() {
-            for pin in rooted_module.module.borrow().get_pins() {
-                let pin_coord = pin.coord_offset.to_cell_coord(rooted_module.root);
-                let trace = *self
-                    .compiler_results
-                    .trace_lookup_by_atom
-                    .get(&Atom {
-                        coord: pin_coord,
-                        part: CellPart::Metal,
-                    })
-                    .unwrap_throw();
+        if !self.first_tick {
+            for rooted_module in self.rooted_modules.iter() {
+                for pin in rooted_module.module.borrow().get_pins() {
+                    let pin_coord = pin.coord_offset.to_cell_coord(rooted_module.root);
+                    let trace = *self
+                        .compiler_results
+                        .trace_lookup_by_atom
+                        .get(&Atom {
+                            coord: pin_coord,
+                            part: CellPart::Metal,
+                        })
+                        .unwrap_throw();
 
-                self.state.trace_states[trace] |= pin.output_high;
+                    self.state.trace_states[trace] |= pin.output_high;
+                }
             }
         }
 
+        self.first_tick = false;
         self.is_mid_clock_cycle = true;
     }
 
