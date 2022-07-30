@@ -50,3 +50,9 @@ body {
   left: 20px;
   color: darkgray;
 }
+
+.lp-label-input>input {
+  position: fixed;
+  left: 0;
+  top: 0;
+}

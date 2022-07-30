@@ -4,7 +4,6 @@ mod coords;
 mod dom;
 mod logic_paint;
 mod modules;
-mod substrate;
 mod upc;
 mod utils;
 mod viewport;

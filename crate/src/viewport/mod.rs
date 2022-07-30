@@ -6,6 +6,7 @@ pub mod compiler;
 pub mod editor_state;
 pub mod execution_context;
 pub mod input;
+mod label_builder;
 
 use glam::Vec2;
 use gloo::{events::EventListener, utils::document};
@@ -26,6 +27,8 @@ use crate::{
     },
     wgl2::RenderContext,
 };
+
+use self::label_builder::LabelBuilder;
 
 pub struct Viewport {
     pub editor_state: EditorState,
@@ -93,6 +96,10 @@ pub enum Mode {
     /// (T): Enter manual-mode, ticks once.
     /// (P): Enter manual-mode
     Execute(Execution),
+
+    /// (Enter) Starts Label mode.
+    /// (ESC, Enter, Primary, Secondary) Leaves label model.
+    Label(LabelBuilder),
 }
 
 pub struct Execution {
@@ -166,19 +173,24 @@ impl Viewport {
             render_context.set_cursor_coord(self.input_state.cell);
         }
 
-        // Let the camera take all events beyond that.
-        if self.editor_state.camera.handle_input(&self.input_state) {
-            // Let JS know the camera changed.
-            if let Some(editor_state_callback) = &self.on_editor_state_callback {
-                let json =
-                    serde_json::to_string_pretty(&SerdeEditorState::from(&self.editor_state))
-                        .unwrap_throw();
-                let js_str = JsValue::from(&json);
-                let _ = editor_state_callback.call1(&JsValue::null(), &js_str);
-            }
+        // Let the camera take all events beyond that. However, we need to suppress space when in
+        // label mode.
+        if !(matches!(self.mode, Mode::Label(_))
+            && self.input_state.key_codes_down.contains("Space"))
+        {
+            if self.editor_state.camera.handle_input(&self.input_state) {
+                // Let JS know the camera changed.
+                if let Some(editor_state_callback) = &self.on_editor_state_callback {
+                    let json =
+                        serde_json::to_string_pretty(&SerdeEditorState::from(&self.editor_state))
+                            .unwrap_throw();
+                    let js_str = JsValue::from(&json);
+                    let _ = editor_state_callback.call1(&JsValue::null(), &js_str);
+                }
 
-            // Then early return.
-            return;
+                // Then early return.
+                return;
+            }
         }
 
         // Check if a named register was clicked (we use this in multiple places).
@@ -188,33 +200,47 @@ impl Viewport {
             .filter(|c| self.input_state.key_clicked == *c)
             .next();
 
-        // Keybinds: Esc => Visual, D => PaintSi, F => PaintMetallic
+        // Escape is a global keybind, it always brings us back to Visual mode
         if self.input_state.key_code_clicked == "Escape" {
             self.mode = Mode::Visual;
             self.editor_state.selection = Default::default();
-            self.mouse_follow_buffer = None;
             self.ephemeral_buffer = None;
-        } else if self.input_state.key_code_clicked == "KeyQ" {
-            self.mode = Mode::PaintSi;
-            self.editor_state.selection = Default::default();
             self.mouse_follow_buffer = None;
-        } else if self.input_state.key_code_clicked == "KeyW" {
-            self.mode = Mode::PaintMetallic;
-            self.editor_state.selection = Default::default();
-            self.mouse_follow_buffer = None;
-        } else if self.input_state.key_code_clicked == "KeyE"
-            && !matches!(self.mode, Mode::Execute(..))
-        {
-            self.mode = Mode::Execute(Execution {
-                manual: true,
-                context: ExecutionContext::compile_from_buffer(&self.active_buffer),
-            });
-            self.editor_state.selection = Default::default();
-            self.mouse_follow_buffer = None;
+        }
+
+        // The rest of the keybinds only make sense when not typing a label.
+        if !matches!(self.mode, Mode::Label(..)) {
+            // Enter => Label, Esc => Visual, D => PaintSi, F => PaintMetallic
+            if self.input_state.key_code_clicked == "Enter" {
+                self.mode = Mode::Label(LabelBuilder::default());
+                self.editor_state.selection = Default::default();
+                self.ephemeral_buffer = None;
+
+                // Return so that we don't send the initial enter to the builder
+                return;
+            } else if self.input_state.key_code_clicked == "KeyQ" {
+                self.mode = Mode::PaintSi;
+                self.editor_state.selection = Default::default();
+                self.mouse_follow_buffer = None;
+            } else if self.input_state.key_code_clicked == "KeyW" {
+                self.mode = Mode::PaintMetallic;
+                self.editor_state.selection = Default::default();
+                self.mouse_follow_buffer = None;
+            } else if self.input_state.key_code_clicked == "KeyE"
+                && !matches!(self.mode, Mode::Execute(..))
+            {
+                self.mode = Mode::Execute(Execution {
+                    manual: true,
+                    context: ExecutionContext::compile_from_buffer(&self.active_buffer),
+                });
+                self.editor_state.selection = Default::default();
+                self.mouse_follow_buffer = None;
+            }
         }
 
         match &mut self.mode {
             Mode::Visual => {
+                // TODO: Get rid of this clone call.
                 if let Some(mouse_follow_buffer) = self.mouse_follow_buffer.clone() {
                     // Handle placing the mouse follow buffer.
                     if self.input_state.primary_clicked {
@@ -326,8 +352,8 @@ impl Viewport {
                         // Hitting any of the named register keys (while not holding KeyS) will load
                         // the register into the mouse-follow buffer.
                         if let Some(named_register) = named_register_clicked {
-                            // If it's the clipboard register then we have to request the clipboard from
-                            // JS and wait for it to come back. Sucks.
+                            // If it's the clipboard register then we have to request the clipboard
+                            // from JS and wait for it to come back. Sucks.
                             if named_register == "*" {
                                 self.notify_js_request_clipboard();
                             } else if let Some(buffer) =
@@ -359,6 +385,20 @@ impl Viewport {
                     context.tick_once();
                 } else if self.input_state.key_code_clicked == "KeyP" {
                     *manual = true;
+                }
+            }
+            Mode::Label(label_builder) => {
+                label_builder.dispatch_input(&self.input_state);
+                self.mouse_follow_buffer = Some(label_builder.render_to_buffer(true));
+
+                // Handle placing the text.
+                if self.input_state.primary_clicked {
+                    self.active_buffer.paste_at(
+                        self.input_state.cell,
+                        &label_builder.render_to_buffer(false),
+                    );
+
+                    self.notify_js_on_change();
                 }
             }
         }
@@ -578,6 +618,7 @@ impl Component for Viewport {
                             </span>
                         )
                     }
+                    Mode::Label(..) => html!(<span style="color: yellow;">{"Label"}</span>),
                 }
             }
             </div>
@@ -601,6 +642,7 @@ impl Component for Viewport {
                                     Mode::Visual => "cell",
                                     Mode::PaintMetallic | Mode::PaintSi => "crosshair",
                                     Mode::Execute(..) => "default",
+                                    Mode::Label(..) => "copy",
                                 }
                             }
                         };

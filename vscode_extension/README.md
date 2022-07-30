@@ -27,6 +27,7 @@ the editor window. It has 4 primary modes:
   substrate.
 - `Metal` paints (or removes) a metal layer and via placements.
 - `Execution` compiles logic and prepares to execute it.
+- `Label` create a text label using Silicon paint.
 
 ## Visual Mode (`ESC`)
 
@@ -103,6 +104,13 @@ will be added later for faster running.
 - **`P`** Pauses run mode.
 - **`T`** Executes a single simulation 'tick'. This is mostly for debugging
   Logic Paint itself, as ticks have very little parallel with propagation delay.
+
+## Label Mode (`Enter`)
+
+Useful tool to quickly create text labels in Silicon. Enter the label mode by
+hitting `Enter`, then type your text. The text will be rendered to the mouse
+follow buffer. Clicking `LMB` will place a copy of the text (without the cursor)
+onto the primary buffer. Click `ESC` to exit label mode.
 
 ## Modules
 

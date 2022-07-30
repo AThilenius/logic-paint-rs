@@ -2,6 +2,7 @@
   "cSpell.words": [
     "affinitize",
     "arrayvec",
+    "autofocus",
     "bitor",
     "Bitstream",
     "blit",
@@ -68,6 +69,7 @@
     "raycast",
     "repr",
     "rustc",
+    "signum",
     "smallvec",
     "submap",
     "tabindex",

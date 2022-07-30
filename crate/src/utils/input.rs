@@ -7,8 +7,9 @@ use yew::prelude::*;
 
 #[derive(Clone, PartialEq, Properties)]
 pub struct Props {
-    pub disabled: bool,
-    pub value: String,
+    pub id: Option<String>,
+    pub disabled: Option<bool>,
+    pub value: Option<String>,
     pub on_change: Callback<String>,
 }
 
@@ -24,16 +25,31 @@ fn get_value_from_input_event(e: InputEvent) -> String {
 #[function_component(TextInput)]
 pub fn text_input(props: &Props) -> Html {
     let Props {
+        id,
         disabled,
         value,
         on_change,
     } = props.clone();
 
-    let oninput = Callback::from(move |input_event: InputEvent| {
-        on_change.emit(get_value_from_input_event(input_event));
-    });
+    let internal_value = use_state(|| "".to_owned());
+
+    let oninput = {
+        let value = value.clone();
+        let internal_value = internal_value.clone();
+
+        Callback::from(move |input_event: InputEvent| {
+            let str = get_value_from_input_event(input_event);
+            if value.is_none() {
+                internal_value.set(str.clone());
+            }
+            on_change.emit(str);
+        })
+    };
+
+    let disabled = disabled.unwrap_or_default();
+    let value = value.unwrap_or((*internal_value).clone());
 
     html! {
-        <input type="text" {disabled} {value} {oninput} />
+        <input {id} type="text" {disabled} {value} {oninput} />
     }
 }
