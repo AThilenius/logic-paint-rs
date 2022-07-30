@@ -1,8 +1,9 @@
 use glam::IVec2;
+use serde::{Deserialize, Serialize};
 
 use crate::coords::CellCoord;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Selection {
     // The lower left point in the selection, inclusively.
     pub lower_left: CellCoord,

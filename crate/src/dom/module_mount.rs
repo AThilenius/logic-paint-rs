@@ -10,7 +10,7 @@ pub struct ModuleMount;
 pub struct ModuleProps {
     pub root: CellCoord,
     pub pins: Vec<Pin>,
-    #[prop_or(Camera::new())]
+    #[prop_or(Camera::default())]
     pub camera: Camera,
     pub module_html: Html,
 }

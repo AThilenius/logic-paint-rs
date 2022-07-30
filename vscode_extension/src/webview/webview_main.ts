@@ -18,6 +18,10 @@ async function main() {
     });
   };
 
+  const onLpUpdatedEditorState = (editorStateString: string) => {
+    vscode.setState({ editorStateString });
+  };
+
   const onLpRequestedClipboard = () => {
     vscode.postMessage({
       type: 'REQUEST_CLIPBOARD',
@@ -34,6 +38,7 @@ async function main() {
   const logicPaint = new LogicPaint(
     document.getElementById('root') as HTMLCanvasElement,
     onLpUpdatedBlueprint,
+    onLpUpdatedEditorState,
     onLpRequestedClipboard,
     onLpSetClipboard
   );
@@ -56,10 +61,6 @@ async function main() {
           console.log(err);
         }
 
-        // Then persist state information.
-        // This state is returned in the call to `vscode.getState` below when a webview is reloaded.
-        // vscode.setState({ blueprintString });
-
         return;
       }
       case 'RETURN_REQUEST_CLIPBOARD': {
@@ -72,14 +73,10 @@ async function main() {
     }
   });
 
-  // const state = vscode.getState();
-
-  // if (state?.blueprintString) {
-  //   logicPaint.set_partial_blueprint_from_json_string(state.blueprintString);
-  // }
-
-  // DEV
-  (window as any).logicPaint = logicPaint;
+  const state = vscode.getState();
+  if (state?.editorStateString) {
+    logicPaint.set_editor_state_from_json_string(state.editorStateString);
+  }
 
   vscode.postMessage({
     type: 'READY',

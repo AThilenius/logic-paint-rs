@@ -2,9 +2,8 @@ use wasm_bindgen::{prelude::wasm_bindgen, UnwrapThrowExt};
 use web_sys::Element;
 use yew::prelude::*;
 
-use crate::{
-    blueprint::Blueprint,
-    viewport::{Msg as YewViewportMsg, Viewport},
+use crate::viewport::{
+    blueprint::Blueprint, editor_state::SerdeEditorState, Msg as YewViewportMsg, Viewport,
 };
 
 #[wasm_bindgen]
@@ -18,6 +17,7 @@ impl LogicPaint {
     pub fn new(
         root: Element,
         on_edit_callback: &js_sys::Function,
+        on_editor_state_callback: &js_sys::Function,
         request_clipboard: &js_sys::Function,
         set_clipboard: &js_sys::Function,
     ) -> LogicPaint {
@@ -27,6 +27,7 @@ impl LogicPaint {
         let handle = yew::start_app_in_element::<Viewport>(root);
         handle.send_message(YewViewportMsg::SetJsCallbacks {
             on_edit_callback: on_edit_callback.clone(),
+            on_editor_state_callback: on_editor_state_callback.clone(),
             request_clipboard: request_clipboard.clone(),
             set_clipboard: set_clipboard.clone(),
         });
@@ -54,8 +55,24 @@ impl LogicPaint {
         }
     }
 
-    pub fn get_blueprint_as_json_string(&mut self) -> String {
+    pub fn get_blueprint_as_json_string(&self) -> String {
         let component = self.handle.get_component().unwrap_throw();
         serde_json::to_string_pretty(&Blueprint::from(&component.active_buffer)).unwrap_throw()
+    }
+
+    pub fn set_editor_state_from_json_string(&mut self, data: &str) -> Option<String> {
+        if let Ok(serde_editor_state) = serde_json::from_str::<SerdeEditorState>(data) {
+            self.handle
+                .send_message(YewViewportMsg::SetEditorState(serde_editor_state.into()));
+            None
+        } else {
+            Some("Failed to deserialize JSON, or structure is invalid.".to_owned())
+        }
+    }
+
+    pub fn get_editor_state(&self) -> String {
+        let component = self.handle.get_component().unwrap_throw();
+        serde_json::to_string_pretty(&SerdeEditorState::from(&component.editor_state))
+            .unwrap_throw()
     }
 }

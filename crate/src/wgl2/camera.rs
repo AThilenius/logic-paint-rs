@@ -17,11 +17,27 @@ pub struct Camera {
     drag_world_anchor: Option<Vec2>,
 }
 
-impl Camera {
-    pub fn new() -> Self {
+impl Default for Camera {
+    fn default() -> Self {
         let mut camera = Self {
             translation: Vec2::ZERO,
             scale: 1.0,
+            pixel_ratio: 1.0,
+            size: Vec2::ONE,
+            proj_matrix: Default::default(),
+            drag_world_anchor: None,
+        };
+
+        camera.update_proj_matrix();
+        camera
+    }
+}
+
+impl Camera {
+    pub fn new_translation_scale(translation: Vec2, scale: f32) -> Self {
+        let mut camera = Self {
+            translation,
+            scale,
             pixel_ratio: 1.0,
             size: Vec2::ONE,
             proj_matrix: Default::default(),

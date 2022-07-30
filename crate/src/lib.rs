@@ -1,6 +1,5 @@
 use wasm_bindgen::prelude::*;
 
-mod blueprint;
 mod coords;
 mod dom;
 mod logic_paint;
