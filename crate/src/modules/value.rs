@@ -15,11 +15,11 @@ use super::ConcreteModule;
 pub struct Value {
     pub root: CellCoord,
     pub bus_width: usize,
-    pub value: i32,
+    pub value: i64,
     pub spacing: usize,
 
     #[serde(skip)]
-    pub value_in: i32,
+    pub value_in: i64,
 }
 
 impl Default for Value {
@@ -52,7 +52,7 @@ impl Module for Value {
             false,
         );
 
-        let unsigned = unsafe { std::mem::transmute::<i32, u32>(self.value) };
+        let unsigned = unsafe { std::mem::transmute::<i64, u64>(self.value) };
         for i in 0..self.bus_width {
             pins[i].output_high = (unsigned >> i) & 1 > 0;
         }
@@ -61,7 +61,7 @@ impl Module for Value {
     }
 
     fn set_pins(&mut self, pins: &Vec<Pin>) {
-        let mut unsigned = 0_u32;
+        let mut unsigned = 0_u64;
 
         for i in 0..self.bus_width {
             if pins[i].input_high {
@@ -69,7 +69,7 @@ impl Module for Value {
             }
         }
 
-        self.value_in = unsafe { std::mem::transmute::<u32, i32>(unsigned) };
+        self.value_in = unsafe { std::mem::transmute::<u64, i64>(unsigned) };
     }
 }
 
@@ -140,18 +140,6 @@ pub fn value_component(props: &Props) -> Html {
                         pin.coord_offset.0.x as f32 * 31.25,
                         -pin.coord_offset.0.y as f32 * 31.25,
                     )}
-                    onclick={
-                        let value = value.clone();
-                        let update_self = update_self.clone();
-                        Callback::from(move |_| {
-                            update_self.emit((
-                                value.get_root(),
-                                Some(ConcreteModule::Value(Value {
-                                value: value.value ^ (1 << i),
-                                ..(value)
-                            }))));
-                        })
-                    }
                 >
                     {
                         if pin.output_high {
@@ -164,11 +152,25 @@ pub fn value_component(props: &Props) -> Html {
                             html!()
                         }
                     }
-                    <div class="lp-cell-center">
+                    <div
+                        class={classes!("lp-cell-center", "lp-pointer-events")}
+                        onclick={
+                            let value = value.clone();
+                            let update_self = update_self.clone();
+                            Callback::from(move |_| {
+                                update_self.emit((
+                                    value.get_root(),
+                                    Some(ConcreteModule::Value(Value {
+                                    value: value.value ^ (1 << i),
+                                    ..(value)
+                                }))));
+                            })
+                        }
+                    >
                         <div class="lp-pin-div" />
                     </div>
                     <div
-                        class="lp-cell-center"
+                        class={classes!("lp-cell-center")}
                         style={format!(
                             "transform: translate({}px, 0);",
                             if pin.right_align { "31.25" } else { "-31.25" }
@@ -184,8 +186,8 @@ pub fn value_component(props: &Props) -> Html {
     html! {
         <CellOffset camera={camera.clone()} root={value.root} >
             <LocalCellOffset amount={IVec2::new(0, 1)}>
-                <div class="lp-cell-center">
-                    {format!("{}", value.value)}
+                <div class={classes!("lp-cell-center")}>
+                    {format!("{}", value.value | value.value_in)}
                 </div>
             </LocalCellOffset>
             {pin_html}
@@ -193,7 +195,7 @@ pub fn value_component(props: &Props) -> Html {
                 if *edit_mode {
                     html! {
                         <div
-                            class="lp-module-edit-mode-div"
+                            class={classes!("lp-module-edit-mode-div", "lp-pointer-events")}
                             onclick={
                                 let show_settings = show_settings.clone();
                                 Callback::from(move |_| show_settings.set(!*show_settings))
@@ -210,10 +212,9 @@ pub fn value_component(props: &Props) -> Html {
                 if *edit_mode && *show_settings {
                     html! {
                         <LocalCellOffset amount={IVec2::new(1, 0)}>
-                            <div class="lp-settings-panel">
+                            <div class={classes!("lp-settings-panel", "lp-pointer-events")}>
                                 <div style="
                                     background: red;
-                                    user-select: none;
                                     margin-bottom: 4px;
                                     padding: 0 2px;"
                                     onclick={delete_on_change}>

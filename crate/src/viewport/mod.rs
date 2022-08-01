@@ -123,7 +123,9 @@ impl Viewport {
             if !execution.manual {
                 // Update modules.
                 self.active_buffer.clock_modules(time);
-                execution.context.clock_once();
+                execution
+                    .context
+                    .clock_once(&mut self.active_buffer.modules);
             }
             execution.context.update_buffer_mask();
         }
@@ -399,14 +401,14 @@ impl Viewport {
                 } else if self.input_state.key_code_clicked == "KeyC" {
                     *manual = true;
                     self.active_buffer.clock_modules(self.time);
-                    context.clock_once();
+                    context.clock_once(&mut self.active_buffer.modules);
                 } else if self.input_state.key_code_clicked == "KeyT" {
                     *manual = true;
                     // Only clock modules if we are between clock cycles.
                     if !context.is_mid_clock_cycle {
                         self.active_buffer.clock_modules(self.time);
                     }
-                    context.tick_once();
+                    context.tick_once(&mut self.active_buffer.modules);
                 } else if self.input_state.key_code_clicked == "KeyP" {
                     *manual = true;
                 }
@@ -723,6 +725,11 @@ impl Component for Viewport {
             </div>
         );
 
+        let no_module_pointer_events = (matches!(self.mode, Mode::ModuleEdit(..))
+            && self.mouse_follow_buffer.is_some())
+            || (!matches!(self.mode, Mode::ModuleEdit(..))
+                && !matches!(self.mode, Mode::Execute(..)));
+
         html! {
             <div class="lp-viewport">
                 <canvas
@@ -732,6 +739,7 @@ impl Component for Viewport {
                     {oncontextmenu}
                     {onwheel}
                     ref={self.canvas.clone()}
+                    class="lp-pointer-events"
                     style={
                         let cursor = {
                             if self.input_state.key_codes_down.contains("Space") {
@@ -767,25 +775,13 @@ impl Component for Viewport {
                         }
                     </div>
                 </div>
-                <span
-                    style={
-                        if matches!(self.mode, Mode::PaintSi)
-                            || matches!(self.mode, Mode::PaintMetallic) {
-                            "pointer-events: none;"
-                        } else {
-                            ""
-                        }
+                {
+                    if no_module_pointer_events {
+                        html!(<span class="lp-no-pointer-events">{modules_html}</span>)
+                    } else {
+                        modules_html
                     }
-                >
-                    {
-                        if matches!(self.mode, Mode::ModuleEdit(..))
-                           && self.mouse_follow_buffer.is_some() {
-                            html!(<span class="lp-no-pointer-events">{modules_html}</span>)
-                        } else {
-                            modules_html
-                        }
-                    }
-                </span>
+                }
             </div>
         }
     }

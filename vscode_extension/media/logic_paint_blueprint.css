@@ -8,6 +8,12 @@ body {
   font-weight: 100;
 }
 
+span,
+div {
+  pointer-events: none;
+  user-select: none;
+}
+
 .sample-mount {
   width: 100vw;
   height: 100vh;
@@ -50,7 +56,6 @@ body {
   line-height: 31.25px;
   position: absolute;
   text-align: center;
-  user-select: none;
   width: 31.25px;
 }
 
@@ -64,8 +69,14 @@ body {
   padding-left: 3px;
 }
 
+.lp-no-pointer-events,
 .lp-no-pointer-events * {
-  pointer-events: none;
+  pointer-events: none !important;
+}
+
+.lp-pointer-events,
+.lp-pointer-events * {
+  pointer-events: auto;
 }
 
 .lp-settings-panel {

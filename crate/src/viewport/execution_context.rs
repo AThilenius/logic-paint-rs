@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use crate::{
+    coords::CellCoord,
     modules::{ConcreteModule, Module, Pin},
     viewport::{
         buffer::Buffer,
@@ -13,7 +16,6 @@ pub struct ExecutionContext {
     pub state: SimState,
     pub is_mid_clock_cycle: bool,
     compiler_results: CompilerResults,
-    modules: Vec<ConcreteModule>,
     first_tick: bool,
 }
 
@@ -30,13 +32,11 @@ impl ExecutionContext {
         let compiler_results = CompilerResults::from_buffer(&buffer);
         let gate_states = vec![false; compiler_results.gates.len()];
         let trace_states = vec![false; compiler_results.traces.len()];
-        let modules = buffer.modules.values().cloned().collect();
 
         Self {
             max_ticks_per_clock: 100_000,
             buffer_mask: Default::default(),
             compiler_results,
-            modules,
             state: SimState {
                 tick_count: 0,
                 clock_count: 0,
@@ -48,9 +48,9 @@ impl ExecutionContext {
         }
     }
 
-    pub fn clock_once(&mut self) {
+    pub fn clock_once(&mut self, modules: &mut HashMap<CellCoord, ConcreteModule>) {
         if !self.is_mid_clock_cycle {
-            self.run_begin_clock_cycle();
+            self.run_begin_clock_cycle(modules);
         }
 
         for _ in 0..self.max_ticks_per_clock {
@@ -59,18 +59,18 @@ impl ExecutionContext {
             }
         }
 
-        self.run_complete_clock_cycle();
+        self.run_complete_clock_cycle(modules);
     }
 
-    pub fn tick_once(&mut self) {
+    pub fn tick_once(&mut self, modules: &mut HashMap<CellCoord, ConcreteModule>) {
         if !self.is_mid_clock_cycle {
-            self.run_begin_clock_cycle();
+            self.run_begin_clock_cycle(modules);
         }
 
         let change = self.run_tick_once();
 
         if !change {
-            self.run_complete_clock_cycle();
+            self.run_complete_clock_cycle(modules);
         }
     }
 
@@ -109,7 +109,7 @@ impl ExecutionContext {
     }
 
     /// Starts a clock cycle by resetting trace states and re-polling module outputs.
-    fn run_begin_clock_cycle(&mut self) {
+    fn run_begin_clock_cycle(&mut self, modules: &HashMap<CellCoord, ConcreteModule>) {
         // Gate states roll over from the previous step, trace states are reset each step.
         for state in self.state.trace_states.iter_mut() {
             *state = false;
@@ -118,7 +118,7 @@ impl ExecutionContext {
         // Pull modules for OUTPUT state (input state is updates at the end of a tick) and write
         // their value to the corresponding trace.
         if !self.first_tick {
-            for module in self.modules.iter() {
+            for (_, module) in modules.iter() {
                 for pin in module.get_pins() {
                     let pin_coord = pin.coord_offset.to_cell_coord(module.get_root());
                     let trace = *self
@@ -162,7 +162,7 @@ impl ExecutionContext {
         change
     }
 
-    fn run_complete_clock_cycle(&mut self) {
+    fn run_complete_clock_cycle(&mut self, modules: &mut HashMap<CellCoord, ConcreteModule>) {
         // Update gate states
         for (i, gate) in self.compiler_results.gates.iter().enumerate() {
             let base = self.state.trace_states[gate.base_trace];
@@ -171,10 +171,9 @@ impl ExecutionContext {
         }
 
         // Update module inputs. First immutably collect their values.
-        let module_pin_states = self
-            .modules
+        let module_pin_states = modules
             .iter()
-            .map(|module| {
+            .map(|(_, module)| {
                 module
                     .get_pins()
                     .iter()
@@ -196,7 +195,7 @@ impl ExecutionContext {
             .collect::<Vec<_>>();
 
         // Then write them to modules
-        for (i, module) in self.modules.iter_mut().enumerate() {
+        for (i, (_, module)) in modules.iter_mut().enumerate() {
             module.set_pin_states(&module_pin_states[i]);
         }
 
