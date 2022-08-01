@@ -110,7 +110,7 @@ impl Camera {
         // Handle scroll zooming around the world anchor under the mouse.
         let origin_world = self.project_screen_point_to_world(input.screen_point);
         self.scale += self.scale * input.scroll_delta_y;
-        self.scale = f32::clamp(self.scale, 0.02, 10.0);
+        self.scale = f32::clamp(self.scale, 0.04, 40.0);
         let new_world_point = self.project_screen_point_to_world(input.screen_point);
         self.translation += origin_world - new_world_point;
 

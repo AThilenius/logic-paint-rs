@@ -146,14 +146,20 @@ Logic Paint pulls that off by rendering cells exclusively in a fragment shader
 irrespective of the number of cells being drawn (modulo data transfer during
 simulation). It's not an exaggeration to say that the renderer can handle
 **billions** of populated cells on modern GPUs, it's limited only by your GPUs
-memory, where each cell takes up 4 bytes of data. The core of the application
-is written in Rust, and compiled to WebAssembly. Right out of the box this gives
-you some immense performance wins, but more importantly it allows for directly
-memory manipulation and blitting which in tern allows for very fast designs.
+memory, where each cell takes up 4 bytes of data. However, the culling and sync
+code on my machine starts to chug at around 2 million cells. But I've done zero
+optimizations on it.
+
+The core of the application is written in Rust, and compiled to WebAssembly.
+Right out of the box this gives you some immense performance wins, but more
+importantly it allows for directly memory manipulation and blitting which in
+tern allows for very fast designs.
 
 ## Pics or it didn't happen
 
 This is about a half million cells, rendering at 4K and taking only 2-3ms per
 frame. More cells wouldn't slow down rendering though, it would only create
-sampling artifacts and a colorful view.
+sampling artifacts and a colorful view. I get to about 2 million cells before
+the CPU-side of rendering calls start to chug. At 7 million cells I'm at 80ms
+frames.
 ![Scale](../misc/screenshots/logic-paint-scale.png)

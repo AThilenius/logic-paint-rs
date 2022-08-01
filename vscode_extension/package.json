@@ -19,7 +19,7 @@
     "build": "yarn build:wasm && yarn build:webview && yarn build:extension",
     "build:webview": "vite build",
     "build:extension": "tsup src/extension/extension_main.ts --external vscode",
-    "build:wasm": "wasm-pack build ../crate --target web --dev",
+    "build:wasm": "wasm-pack build ../crate --target web --release",
     "vscode:prepublish": "yarn build"
   },
   "engines": {
