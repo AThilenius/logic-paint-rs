@@ -1,5 +1,4 @@
 use wasm_bindgen::JsCast;
-use wasm_bindgen::UnwrapThrowExt;
 use web_sys::Event;
 use web_sys::HtmlInputElement;
 use web_sys::InputEvent;
@@ -7,16 +6,21 @@ use yew::prelude::*;
 
 #[derive(Clone, PartialEq, Properties)]
 pub struct Props {
-    pub id: Option<String>,
     pub disabled: Option<bool>,
     pub value: Option<String>,
     pub on_change: Callback<String>,
+    pub label: Option<String>,
+    pub width: Option<f32>,
 }
 
 fn get_value_from_input_event(e: InputEvent) -> String {
-    let event: Event = e.dyn_into().unwrap_throw();
-    let event_target = event.target().unwrap_throw();
-    let target: HtmlInputElement = event_target.dyn_into().unwrap_throw();
+    let event: Event = e.dyn_into().expect("Failed to dyn_into case InputEvent");
+    let event_target = event
+        .target()
+        .expect("Failed to get target from input event");
+    let target: HtmlInputElement = event_target
+        .dyn_into()
+        .expect("Failed to dyn_into HtmlInputElement");
     web_sys::console::log_1(&target.value().into());
     target.value()
 }
@@ -25,10 +29,11 @@ fn get_value_from_input_event(e: InputEvent) -> String {
 #[function_component(TextInput)]
 pub fn text_input(props: &Props) -> Html {
     let Props {
-        id,
         disabled,
         value,
         on_change,
+        label,
+        width,
     } = props.clone();
 
     let internal_value = use_state(|| "".to_owned());
@@ -50,6 +55,28 @@ pub fn text_input(props: &Props) -> Html {
     let value = value.unwrap_or((*internal_value).clone());
 
     html! {
-        <input {id} type="text" {disabled} {value} {oninput} />
+        <div>
+            {
+                if let Some(label) = label {
+                    html!(<label for="input-tag" style="margin-right: 10px;">{label}</label>)
+                } else {
+                    html!()
+                }
+            }
+            <input
+                id="input-tag"
+                type="text"
+                style={
+                    if let Some(width) = width {
+                        format!("width: {}px", width)
+                    } else {
+                        "".to_owned()
+                    }
+                }
+                {disabled}
+                {value}
+                {oninput}
+            />
+        </div>
     }
 }

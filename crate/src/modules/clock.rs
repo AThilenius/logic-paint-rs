@@ -1,27 +1,48 @@
+use glam::IVec2;
+use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, rc::Rc};
 use yew::prelude::*;
 
-use crate::modules::{Module, Pin};
+use crate::{
+    coords::CellCoord,
+    modules::{Module, Pin},
+};
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Clock {
-    pub pin: Pin,
-    delay: usize,
-    devisor: usize,
+    pub root: CellCoord,
+    pub delay: usize,
+    pub devisor: usize,
+
+    #[serde(skip)]
+    high: bool,
+
+    #[serde(skip)]
+    pub edit_mode: bool,
 }
 
-impl Clock {
-    pub fn new(start_delay: usize, devisor: usize) -> Self {
+impl Default for Clock {
+    fn default() -> Self {
         Self {
-            pin: Pin::new(0, 0, false, "CLK", false),
-            delay: start_delay,
-            devisor,
+            root: CellCoord(IVec2::ZERO),
+            high: false,
+            delay: 1,
+            devisor: 1,
+            edit_mode: false,
         }
     }
 }
 
 impl Module for Clock {
+    fn get_root(&self) -> CellCoord {
+        self.root
+    }
+    fn set_edit_mode(&mut self, edit_mode: bool) {
+        self.edit_mode = edit_mode;
+    }
+
     fn get_pins(&self) -> Vec<Pin> {
-        vec![self.pin.clone()]
+        vec![Pin::new(0, 0, false, "CLK", false)]
     }
 
     fn clock(&mut self, _time: f64) {
@@ -31,7 +52,7 @@ impl Module for Clock {
         }
 
         self.delay = self.devisor;
-        self.pin.output_high = !self.pin.output_high;
+        self.high = !self.high;
     }
 }
 

@@ -1,23 +1,18 @@
+use std::collections::HashMap;
+
 use crate::{
-    coords::ChunkCoord,
-    modules::ModuleSerde,
+    coords::{CellCoord, ChunkCoord},
+    modules::ConcreteModule,
     upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
     viewport::buffer::{Buffer, BufferChunk},
 };
 
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::UnwrapThrowExt;
 
 #[derive(Serialize, Deserialize)]
 pub struct Blueprint {
-    chunks: Option<Vec<CellChunk>>,
-    modules: Option<Vec<ModuleSerde>>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct CellChunk {
-    chunk_coord: ChunkCoord,
-    cells: String,
+    chunks: HashMap<ChunkCoord, String>,
+    modules: HashMap<CellCoord, ConcreteModule>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -27,67 +22,49 @@ struct Cell {
     flags_2: u8,
 }
 
-impl Blueprint {
-    pub fn into_buffer_from_partial(&self, existing_buffer: &Buffer) -> Option<Buffer> {
-        if self.chunks.is_none() && self.modules.is_none() {
-            return None;
-        }
-
+impl From<Blueprint> for Buffer {
+    fn from(blueprint: Blueprint) -> Self {
         let mut buffer = Buffer::default();
 
-        if let Some(chunks) = &self.chunks {
-            for chunk in chunks {
-                let cells: Vec<Cell> = {
-                    if let Ok(bin) = base64::decode(&chunk.cells) {
-                        if let Ok(cells) = bincode::deserialize(&bin) {
-                            cells
-                        } else {
-                            continue;
-                        }
+        for (chunk_coord, cells) in blueprint.chunks {
+            let cells: Vec<Cell> = {
+                if let Ok(bin) = base64::decode(cells) {
+                    if let Ok(cells) = bincode::deserialize(&bin) {
+                        cells
                     } else {
                         continue;
                     }
-                };
-
-                let mut buffer_chunk = BufferChunk::default();
-                buffer_chunk.cell_count = cells.len();
-
-                for cell in cells.iter() {
-                    let mut upc_bytes = vec![0u8; UPC_BYTE_LEN];
-                    upc_bytes[0] = cell.flags_1;
-                    upc_bytes[1] = cell.flags_2;
-
-                    let byte_idx = (cell.upc_idx as usize) << LOG_UPC_BYTE_LEN;
-                    buffer_chunk.cells[byte_idx] = cell.flags_1;
-                    buffer_chunk.cells[byte_idx + 1] = cell.flags_2;
+                } else {
+                    continue;
                 }
+            };
 
-                buffer.chunks.insert(chunk.chunk_coord, buffer_chunk);
+            let mut buffer_chunk = BufferChunk::default();
+            buffer_chunk.cell_count = cells.len();
+
+            for cell in cells.iter() {
+                let mut upc_bytes = vec![0u8; UPC_BYTE_LEN];
+                upc_bytes[0] = cell.flags_1;
+                upc_bytes[1] = cell.flags_2;
+
+                let byte_idx = (cell.upc_idx as usize) << LOG_UPC_BYTE_LEN;
+                buffer_chunk.cells[byte_idx] = cell.flags_1;
+                buffer_chunk.cells[byte_idx + 1] = cell.flags_2;
             }
-        } else {
-            // Copy from existing buffer, without IO pins.
-            for (chunk_coord, buffer_chunk) in &existing_buffer.chunks {
-                buffer
-                    .chunks
-                    .insert(*chunk_coord, buffer_chunk.clone_without_io_pins_set());
-            }
+
+            buffer.chunks.insert(chunk_coord, buffer_chunk);
         }
 
-        // Set the modules. This will also (re)set the module IO pins.
-        if let Some(modules) = &self.modules {
-            buffer.set_modules(modules.iter().map(|s| s.instantiate()));
-        } else {
-            // Re-set the original modules to set the IO pins.
-            buffer.set_modules(existing_buffer.rooted_modules.values().cloned());
-        }
+        // Set the modules.
+        buffer.modules = blueprint.modules;
 
-        Some(buffer)
+        buffer
     }
 }
 
 impl From<&Buffer> for Blueprint {
     fn from(buffer: &Buffer) -> Self {
-        let mut chunks = Vec::new();
+        let mut chunks = HashMap::new();
 
         for (chunk_coord, chunk) in &buffer.chunks {
             let mut cells = Vec::new();
@@ -111,22 +88,18 @@ impl From<&Buffer> for Blueprint {
             }
 
             if cells.len() > 0 {
-                chunks.push(CellChunk {
-                    chunk_coord: *chunk_coord,
-                    cells: base64::encode(bincode::serialize(&cells).unwrap_throw()),
-                });
+                chunks.insert(
+                    chunk_coord.clone(),
+                    base64::encode(
+                        bincode::serialize(&cells).expect("Failed to bincode serialize cells"),
+                    ),
+                );
             }
         }
 
         Self {
-            chunks: Some(chunks),
-            modules: Some(
-                buffer
-                    .rooted_modules
-                    .values()
-                    .map(|a| a.module_serde.clone())
-                    .collect(),
-            ),
+            chunks: chunks,
+            modules: buffer.modules.clone(),
         }
     }
 }

@@ -14,7 +14,6 @@ uniform ivec2 chunk_start_cell_offset;
 uniform vec4 n_color;
 uniform vec4 p_color;
 uniform vec3 metal_color;
-uniform vec3 io_color;
 uniform vec3 active_color;
 uniform vec3 grid_color;
 uniform vec3 background_color;
@@ -118,9 +117,6 @@ void main() {
     bool metal_dir_left = (cells.g & (1u << 3u)) > 0u;
     bool via = (cells.g & (1u << 2u)) > 0u;
 
-    bool is_io = (cells.b & (1u << 7u)) > 0u;
-    bool is_root = (cells.b & (1u << 6u)) > 0u;
-
     // Derrived values
     bool is_mosfet = mosfet_horizontal || mosfet_vertical;
 
@@ -206,15 +202,6 @@ void main() {
     );
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 
-    vec2 io_dist = tile_uv - vec2(0.5);
-    float io_blend = 1.0 - smoothstep(
-        0.1,
-        0.3,
-        dot(io_dist, io_dist) * 8.0
-    );
-    io_blend = is_io ? io_blend : 0.0;
-
-
     vec3 via_color = mix(si_color, vec3(1.0), 1.0);
     vec2 via_dist = tile_uv - vec2(0.5);
     float via_blend = 1.0 - smoothstep(
@@ -250,9 +237,6 @@ void main() {
 
     // Vias are on or off.
     color = mix(color, via_color, via_blend);
-
-    // I/O pins are drawn like Vias
-    color = mix(color, io_color, io_blend);
 
     // Cell selection highlights the whole cell
     color = mix(

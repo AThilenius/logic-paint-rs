@@ -36,15 +36,25 @@ export class LogicPaintBlueprintEditorProvider
     webviewPanel.webview.options = { enableScripts: true };
     webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
 
-    const documentName = path.basename(
-      document.uri.path,
-      path.extname(document.uri.path)
-    );
-    const documentDirectory = path.dirname(document.uri.path);
-    const modulesFileName = `${documentName}.lpm.json`;
-    const modulesFilePath = Uri.file(
-      path.join(documentDirectory, modulesFileName)
-    );
+    // Migrate from old format.
+    let text = document.getText();
+    const obj = JSON.parse(text);
+
+    if (Array.isArray(obj.chunks)) {
+      const chunks: { [key: string]: string } = {};
+      for (const chunk of obj.chunks) {
+        chunks[`${chunk.chunk_coord[0]}:${chunk.chunk_coord[1]}`] = chunk.cells;
+      }
+
+      obj.chunks = chunks;
+      obj.modules = {};
+
+      const edit = new WorkspaceEdit();
+      text = JSON.stringify(obj, null, 2);
+      edit.replace(document.uri, new Range(0, 0, document.lineCount, 0), text);
+
+      workspace.applyEdit(edit);
+    }
 
     disposableArray.push(
       workspace.onDidChangeTextDocument((e) => {
@@ -57,52 +67,12 @@ export class LogicPaintBlueprintEditorProvider
       })
     );
 
-    const filesystemWatcher = workspace.createFileSystemWatcher(
-      new RelativePattern(
-        workspace.getWorkspaceFolder(Uri.joinPath(document.uri, '../'))!,
-        `{${documentName}.lpbp,${modulesFileName}}`
-      )
-    );
-    disposableArray.push(filesystemWatcher);
-
-    const fsOnChange = async (uri: Uri) => {
-      // Both the *.lpbp and *.lpm.json files will trigger a 'blueprint set' on
-      // the viewport.
-      if (
-        uri.toString() === modulesFilePath.toString() ||
-        uri.toString() === document.uri.toString()
-      ) {
-        const doc = await workspace.openTextDocument(uri);
-        webviewPanel.webview.postMessage({
-          type: 'SET_BLUEPRINT_STRING',
-          blueprintString: doc.getText(),
-        });
-      }
-    };
-
-    filesystemWatcher.onDidChange(fsOnChange);
-    filesystemWatcher.onDidCreate(fsOnChange);
-    filesystemWatcher.onDidDelete(fsOnChange);
-
     // Receive message from the webview.
     disposableArray.push(
       webviewPanel.webview.onDidReceiveMessage(async (e) => {
         switch (e.type) {
           case 'READY': {
-            // Try to load the lp-modules.json file. Ignore if it doesn't exist.
-            try {
-              await workspace.fs.stat(modulesFilePath);
-              const doc = await workspace.openTextDocument(modulesFilePath);
-
-              webviewPanel.webview.postMessage({
-                type: 'SET_BLUEPRINT_STRING',
-                blueprintString: doc.getText(),
-              });
-            } catch {
-              // Ignore
-            }
-
-            // Also update chunks.
+            // Update the Blueprint
             webviewPanel.webview.postMessage({
               type: 'SET_BLUEPRINT_STRING',
               blueprintString: document.getText(),
@@ -110,18 +80,12 @@ export class LogicPaintBlueprintEditorProvider
             return;
           }
           case 'SET_BLUEPRINT_STRING': {
-            // Remove module info from the Blueprint.
-            let jsonString = e.blueprintString;
-            const blueprint = JSON.parse(jsonString);
-            delete blueprint.modules;
-            jsonString = JSON.stringify(blueprint, null, 2);
-
-            // Then apply the edit.
             const edit = new WorkspaceEdit();
+            const json = e.blueprintString;
             edit.replace(
               document.uri,
               new Range(0, 0, document.lineCount, 0),
-              jsonString
+              json
             );
 
             workspace.applyEdit(edit);

@@ -5,15 +5,15 @@ use itertools::Itertools;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
-    modules::{Pin, RootedModule},
-    upc::{Bit, Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
+    modules::{ConcreteModule, Module},
+    upc::{Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,
 };
 
 #[derive(Default, Clone)]
 pub struct Buffer {
     pub chunks: HashMap<ChunkCoord, BufferChunk>,
-    pub rooted_modules: HashMap<CellCoord, RootedModule>,
+    pub modules: HashMap<CellCoord, ConcreteModule>,
 }
 
 #[derive(Clone)]
@@ -52,53 +52,31 @@ impl Buffer {
             .set_cell(coord, cell);
     }
 
-    pub fn set_modules<'a, T>(&mut self, rooted_modules: T)
-    where
-        T: IntoIterator<Item = RootedModule>,
-    {
-        for rooted_module in rooted_modules.into_iter() {
-            let anchor_coord = rooted_module.root;
-            let mut upc = self.get_cell(anchor_coord);
-            upc.set_bit(Bit::MODULE_ROOT);
-            self.set_cell(anchor_coord, upc);
-
-            for Pin { coord_offset, .. } in rooted_module.module.borrow().get_pins() {
-                let pin_coord = coord_offset.to_cell_coord(anchor_coord);
-                let mut upc = self.get_cell(pin_coord);
-                upc.set_bit(Bit::IO);
-                self.set_cell(pin_coord, upc);
-            }
-
-            self.rooted_modules
-                .insert(anchor_coord, rooted_module.clone());
-        }
-    }
-
-    pub fn clone_selection(&self, selection: &Selection, root: CellCoord) -> Buffer {
+    pub fn clone_selection(&self, selection: &Selection, anchor: CellCoord) -> Buffer {
         let mut buffer = Buffer::default();
         let ll = selection.lower_left.0;
         let ur = selection.upper_right.0;
 
+        // Clone cells.
         for y in ll.y..ur.y {
             for x in ll.x..ur.x {
                 let from_cell_coord = CellCoord(IVec2::new(x, y));
-                let to_cell_coord = CellCoord(IVec2::new(x, y) - root.0);
+                let to_cell_coord = CellCoord(IVec2::new(x, y) - anchor.0);
                 let cell = self.get_cell(from_cell_coord);
                 buffer.set_cell(to_cell_coord, cell);
             }
         }
 
-        // Then test and copy each module root that is in the selection
-        buffer.set_modules(
-            self.rooted_modules
-                .values()
-                .filter(|m| selection.test_cell_in_selection(m.root))
-                .map(|m| {
-                    let mut module = m.clone();
-                    module.root.0 -= root.0;
-                    module
-                }),
-        );
+        // Clone module roots within selection.
+        for (module_root, module) in &self.modules {
+            if selection.test_cell_in_selection(*module_root) {
+                // Offset the module root by the clone anchor.
+                let new_root = CellCoord(module_root.0 - anchor.0);
+                let mut new_module = module.clone();
+                new_module.set_root(new_root);
+                buffer.modules.insert(new_root, new_module);
+            }
+        }
 
         buffer
     }
@@ -108,6 +86,7 @@ impl Buffer {
         let mut ll = IVec2::new(i32::MAX, i32::MAX);
         let mut ur = IVec2::new(i32::MIN, i32::MIN);
 
+        // Paste cells
         for (chunk_coord, chunk) in &buffer.chunks {
             let target_first_cell_offset = chunk_coord.first_cell_coord().0 + cell_coord.0;
 
@@ -132,6 +111,14 @@ impl Buffer {
             }
         }
 
+        // Paste modules
+        for (root, module) in &buffer.modules {
+            let new_root = CellCoord(root.0 + cell_coord.0);
+            let mut new_module = module.clone();
+            new_module.set_root(new_root);
+            self.modules.insert(new_root, new_module);
+        }
+
         // Then go through the outline of the bounding rect and fix any broken cells.
         for x in ll.x..(ur.x + 1) {
             self.fix_cell(CellCoord(IVec2::new(x, ll.y)));
@@ -142,8 +129,6 @@ impl Buffer {
             self.fix_cell(CellCoord(IVec2::new(ll.x, y)));
             self.fix_cell(CellCoord(IVec2::new(ur.x, y)));
         }
-
-        self.set_modules(buffer.rooted_modules.values().cloned());
     }
 
     pub fn rotate_to_new(&self) -> Self {
@@ -163,6 +148,8 @@ impl Buffer {
                 }
             }
         }
+
+        // Todo: modules can't be rotated. That's not great UX though.
 
         buffer
     }
@@ -185,12 +172,14 @@ impl Buffer {
             }
         }
 
+        // Todo: modules can't be mirrored. That's not great UX though.
+
         buffer
     }
 
     pub fn clock_modules(&mut self, time: f64) {
-        for (_, rooted_module) in self.rooted_modules.iter_mut() {
-            rooted_module.module.borrow_mut().clock(time);
+        for (_, module) in self.modules.iter_mut() {
+            module.clock(time);
         }
     }
 
@@ -349,7 +338,7 @@ impl BufferChunk {
     }
 
     #[inline(always)]
-    pub fn set_cell<T>(&mut self, c: T, mut cell: UPC)
+    pub fn set_cell<T>(&mut self, c: T, cell: UPC)
     where
         T: Into<LocalCoord>,
     {
@@ -358,17 +347,7 @@ impl BufferChunk {
         let slice = &mut self.cells[idx..idx + UPC_BYTE_LEN];
         let existing = UPC::from_slice(slice);
 
-        // ModuleRoot and IO bits cannot be un-set. (They are unset by creating an entirely new
-        // Buffer). So make sure Cell sets them if the previous cell had them.
-        if existing.get_bit(Bit::IO) {
-            cell.set_bit(Bit::IO);
-        }
-
-        if existing.get_bit(Bit::MODULE_ROOT) {
-            cell.set_bit(Bit::MODULE_ROOT);
-        }
-
-        // Track cell count as well.
+        // Track cell count.
         if existing == Default::default() && cell != Default::default() {
             self.cell_count += 1;
         } else if existing != Default::default() && cell == Default::default() {
@@ -376,29 +355,6 @@ impl BufferChunk {
         }
 
         slice.copy_from_slice(&cell.0);
-    }
-
-    pub fn clone_without_io_pins_set(&self) -> Self {
-        let mut chunk = Self::default();
-        chunk.cell_count = self.cell_count;
-
-        for i in 0..(CHUNK_SIZE * CHUNK_SIZE) {
-            let idx = i << LOG_UPC_BYTE_LEN;
-            let src = &self.cells[idx..idx + UPC_BYTE_LEN];
-            let target = &mut chunk.cells[idx..idx + UPC_BYTE_LEN];
-            let orig_cell = UPC::from_slice(src);
-
-            let mut cell = orig_cell;
-            cell.clear_bit(Bit::IO);
-            cell.clear_bit(Bit::MODULE_ROOT);
-            target.copy_from_slice(&cell.0);
-
-            if orig_cell != Default::default() && cell == Default::default() {
-                chunk.cell_count -= 1;
-            }
-        }
-
-        chunk
     }
 }
 

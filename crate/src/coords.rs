@@ -1,5 +1,5 @@
 use glam::{IVec2, UVec2};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::upc::LOG_UPC_BYTE_LEN;
 
@@ -8,10 +8,10 @@ pub(crate) const LOG_CHUNK_SIZE: usize = 5;
 const UPPER_MASK: i32 = !((CHUNK_SIZE as i32) - 1);
 const LOWER_MASK: usize = CHUNK_SIZE - 1;
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct CellCoord(pub IVec2);
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct ChunkCoord(pub IVec2);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -25,6 +25,72 @@ pub enum Coord {
     Cell(IVec2),
     Chunk(IVec2),
     Local(UVec2),
+}
+
+impl Serialize for CellCoord {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{}:{}", self.0.x, self.0.y))
+    }
+}
+
+impl<'de> Deserialize<'de> for CellCoord {
+    fn deserialize<D>(deserializer: D) -> Result<CellCoord, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let str = String::deserialize(deserializer)?;
+        let splits: Vec<_> = str.split(":").collect();
+
+        if splits.len() != 2 {
+            return Err(serde::de::Error::custom(
+                "Invalid CellCoord format, expected 123:123",
+            ));
+        }
+
+        let x = splits[0].parse::<i32>().map_err(serde::de::Error::custom)?;
+        let y = splits[1].parse::<i32>().map_err(serde::de::Error::custom)?;
+
+        Ok(Self(IVec2::new(x, y)))
+    }
+}
+
+impl Serialize for ChunkCoord {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{}:{}", self.0.x, self.0.y))
+    }
+}
+
+impl<'de> Deserialize<'de> for ChunkCoord {
+    fn deserialize<D>(deserializer: D) -> Result<ChunkCoord, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let str = String::deserialize(deserializer)?;
+        let splits: Vec<_> = str.split(":").collect();
+
+        if splits.len() != 2 {
+            return Err(serde::de::Error::custom(
+                "Invalid CellCoord format, expected 123:123",
+            ));
+        }
+
+        let x = splits[0].parse::<i32>().map_err(serde::de::Error::custom)?;
+        let y = splits[1].parse::<i32>().map_err(serde::de::Error::custom)?;
+
+        Ok(Self(IVec2::new(x, y)))
+    }
+}
+
+impl From<CellCoord> for u64 {
+    fn from(cell_coord: CellCoord) -> Self {
+        (cell_coord.0.y as u64) << 32 | (cell_coord.0.x as u64)
+    }
 }
 
 impl From<(i32, i32)> for CellCoord {
@@ -125,5 +191,11 @@ impl LocalCoord {
 impl CellCoordOffset {
     pub fn to_cell_coord(&self, anchor: CellCoord) -> CellCoord {
         CellCoord(anchor.0 + self.0)
+    }
+}
+
+impl From<CellCoordOffset> for u64 {
+    fn from(offset: CellCoordOffset) -> Self {
+        (offset.0.y as u64) << 32 | (offset.0.x as u64)
     }
 }

@@ -119,8 +119,6 @@ pub enum Bit {
     METAL_DIR_DOWN,
     METAL_DIR_LEFT,
     VIA,
-    IO,
-    MODULE_ROOT,
 }
 
 impl Bit {
@@ -143,9 +141,6 @@ impl Bit {
             Bit::METAL_DIR_DOWN => upc[1] & (1 << 4) > 0,
             Bit::METAL_DIR_LEFT => upc[1] & (1 << 3) > 0,
             Bit::VIA => upc[1] & (1 << 2) > 0,
-
-            Bit::IO => upc[2] & (1 << 7) > 0,
-            Bit::MODULE_ROOT => upc[2] & (1 << 6) > 0,
         }
     }
 
@@ -169,9 +164,6 @@ impl Bit {
                 Bit::METAL_DIR_DOWN => upc[1] |= 1 << 4,
                 Bit::METAL_DIR_LEFT => upc[1] |= 1 << 3,
                 Bit::VIA => upc[1] |= 1 << 2,
-
-                Bit::IO => upc[2] |= 1 << 7,
-                Bit::MODULE_ROOT => upc[2] |= 1 << 6,
             }
         } else {
             match bit {
@@ -190,9 +182,6 @@ impl Bit {
                 Bit::METAL_DIR_DOWN => upc[1] &= !(1 << 4),
                 Bit::METAL_DIR_LEFT => upc[1] &= !(1 << 3),
                 Bit::VIA => upc[1] &= !(1 << 2),
-
-                Bit::IO => upc[2] &= !(1 << 7),
-                Bit::MODULE_ROOT => upc[2] &= !(1 << 6),
             }
         }
     }
@@ -205,7 +194,6 @@ impl Bit {
 pub struct NormalizedCell {
     pub metal: Metal,
     pub si: Silicon,
-    pub module_root: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -290,8 +278,6 @@ impl From<UPC> for NormalizedCell {
             };
         }
 
-        cell.module_root = upc.get_bit(Bit::MODULE_ROOT);
-
         cell
     }
 }
@@ -360,8 +346,6 @@ impl From<NormalizedCell> for UPC {
             }
             Silicon::None => {}
         }
-
-        Bit::set(&mut upc, Bit::MODULE_ROOT, cell.module_root);
 
         upc
     }

@@ -21,8 +21,7 @@ impl Default for LabelBuilder {
             if let Ok(bp) =
                 serde_json::from_str::<Blueprint>(include_str!("../../templates/font_file.lpbp"))
             {
-                bp.into_buffer_from_partial(&Buffer::default())
-                    .unwrap_or_default()
+                bp.into()
             } else {
                 log!("Failed to deserialize JSON, or structure is invalid.");
                 Buffer::default()

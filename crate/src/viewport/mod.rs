@@ -8,14 +8,16 @@ pub mod execution_context;
 pub mod input;
 mod label_builder;
 
-use glam::Vec2;
+use glam::{IVec2, Vec2};
 use gloo::{events::EventListener, utils::document};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
 
 use crate::{
-    dom::{DomIntervalHooks, ModuleMount, RawInput},
+    coords::CellCoord,
+    dom::{DomIntervalHooks, RawInput},
+    modules::{ConcreteModule, Module, ValueComponent},
     utils::Selection,
     viewport::{
         blueprint::Blueprint,
@@ -56,12 +58,13 @@ pub enum Msg {
         request_clipboard: js_sys::Function,
         set_clipboard: js_sys::Function,
     },
-    SetBlueprintPartial(Blueprint),
+    SetBlueprint(Blueprint),
     SetEditorState(EditorState),
     SetClipboard(Blueprint),
     RawInput(RawInput),
     Render(f64),
     SetFocus(bool),
+    SetModule((CellCoord, Option<ConcreteModule>)),
 }
 
 pub enum Mode {
@@ -100,6 +103,9 @@ pub enum Mode {
     /// (Enter) Starts Label mode.
     /// (ESC, Enter, Primary, Secondary) Leaves label model.
     Label(LabelBuilder),
+
+    /// (M) Module mode
+    ModuleEdit(Option<ConcreteModule>),
 }
 
 pub struct Execution {
@@ -131,10 +137,10 @@ impl Viewport {
             canvas.set_height(h);
         }
 
-        self.editor_state.camera.update(
-            window().unwrap().device_pixel_ratio() as f32,
-            Vec2::new(w as f32, h as f32),
-        );
+        // let dpr = window().unwrap().device_pixel_ratio() as f32;
+        let size = Vec2::new(w as f32, h as f32);
+        // let scaled_size = size * dpr;
+        self.editor_state.camera.update(size);
 
         // Redraw the mouse-follow buffer to the ephemeral buffer each frame.
         if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
@@ -163,7 +169,7 @@ impl Viewport {
                     mask,
                     &self.editor_state.camera,
                 )
-                .unwrap_throw();
+                .expect("Failed to draw render context");
         }
     }
 
@@ -183,7 +189,7 @@ impl Viewport {
                 if let Some(editor_state_callback) = &self.on_editor_state_callback {
                     let json =
                         serde_json::to_string_pretty(&SerdeEditorState::from(&self.editor_state))
-                            .unwrap_throw();
+                            .expect("Failed to serialize SerdeEditorState");
                     let js_str = JsValue::from(&json);
                     let _ = editor_state_callback.call1(&JsValue::null(), &js_str);
                 }
@@ -235,35 +241,49 @@ impl Viewport {
                 });
                 self.editor_state.selection = Default::default();
                 self.mouse_follow_buffer = None;
+            } else if self.input_state.key_code_clicked == "KeyM"
+                && !matches!(self.mode, Mode::ModuleEdit(..))
+            {
+                self.mode = Mode::ModuleEdit(None);
+                self.editor_state.selection = Default::default();
+                self.mouse_follow_buffer = None;
+                return;
             }
         }
+
+        let mut set_mouse_follow_buffer = false;
+        let mut new_mouse_follow_buffer = None;
+        let mut notify_js = false;
 
         match &mut self.mode {
             Mode::Visual => {
                 // TODO: Get rid of this clone call.
-                if let Some(mouse_follow_buffer) = self.mouse_follow_buffer.clone() {
+                if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
                     // Handle placing the mouse follow buffer.
                     if self.input_state.primary_clicked {
                         self.active_buffer
                             .paste_at(self.input_state.cell, &mouse_follow_buffer);
 
-                        self.notify_js_on_change();
+                        notify_js = true;
                     }
 
                     // Right click (and ESC) clears the mouse follow buffer.
                     if self.input_state.secondary {
-                        self.mouse_follow_buffer = None;
+                        set_mouse_follow_buffer = true;
+                        new_mouse_follow_buffer = None;
                         self.ephemeral_buffer = None;
                     }
 
                     // KeyR will rotate the mouse-follow buffer
                     if self.input_state.key_code_clicked == "KeyR" {
-                        self.mouse_follow_buffer = Some(mouse_follow_buffer.rotate_to_new());
+                        set_mouse_follow_buffer = true;
+                        new_mouse_follow_buffer = Some(mouse_follow_buffer.rotate_to_new());
                     }
 
                     // KeyM will mirror the mouse-follow buffer
                     if self.input_state.key_code_clicked == "KeyM" {
-                        self.mouse_follow_buffer = Some(mouse_follow_buffer.mirror_to_new());
+                        set_mouse_follow_buffer = true;
+                        new_mouse_follow_buffer = Some(mouse_follow_buffer.mirror_to_new());
                     }
 
                     // Hitting KeyS + any of the named register keys will save the mouse-follow
@@ -285,7 +305,8 @@ impl Viewport {
                         // register, if it exists.
                         if let Some(named_register) = &named_register_clicked {
                             if let Some(buffer) = self.editor_state.registers.get(named_register) {
-                                self.mouse_follow_buffer = Some(buffer.clone());
+                                set_mouse_follow_buffer = true;
+                                new_mouse_follow_buffer = Some(buffer.clone());
                             }
                         }
                     }
@@ -304,7 +325,8 @@ impl Viewport {
                     // Delete selection
                     if self.input_state.key_code_clicked == "KeyD" {
                         if !self.input_state.shift {
-                            self.mouse_follow_buffer = Some(self.active_buffer.clone_selection(
+                            set_mouse_follow_buffer = true;
+                            new_mouse_follow_buffer = Some(self.active_buffer.clone_selection(
                                 &self.editor_state.selection,
                                 self.input_state.cell,
                             ));
@@ -314,12 +336,13 @@ impl Viewport {
                             &self.editor_state.selection,
                         );
                         self.editor_state.selection = Default::default();
-                        self.notify_js_on_change();
+                        notify_js = true;
                     }
 
                     // Yank selection to mouse-follow buffer
                     if self.input_state.key_code_clicked == "KeyY" {
-                        self.mouse_follow_buffer =
+                        set_mouse_follow_buffer = true;
+                        new_mouse_follow_buffer =
                             Some(self.active_buffer.clone_selection(
                                 &self.editor_state.selection,
                                 self.input_state.cell,
@@ -359,7 +382,8 @@ impl Viewport {
                             } else if let Some(buffer) =
                                 self.editor_state.registers.get(&named_register)
                             {
-                                self.mouse_follow_buffer = Some(buffer.clone());
+                                set_mouse_follow_buffer = true;
+                                new_mouse_follow_buffer = Some(buffer.clone());
                             }
                             self.editor_state.selection = Default::default();
                         }
@@ -389,7 +413,8 @@ impl Viewport {
             }
             Mode::Label(label_builder) => {
                 label_builder.dispatch_input(&self.input_state);
-                self.mouse_follow_buffer = Some(label_builder.render_to_buffer(true));
+                set_mouse_follow_buffer = true;
+                new_mouse_follow_buffer = Some(label_builder.render_to_buffer(true));
 
                 // Handle placing the text.
                 if self.input_state.primary_clicked {
@@ -398,9 +423,55 @@ impl Viewport {
                         &label_builder.render_to_buffer(false),
                     );
 
-                    self.notify_js_on_change();
+                    notify_js = true;
                 }
             }
+            Mode::ModuleEdit(module) => {
+                if let Some(module) = module {
+                    // Click to place module
+                    if self.input_state.primary_clicked {
+                        let mut module = module.clone();
+                        module.set_root(self.input_state.cell);
+
+                        self.active_buffer
+                            .modules
+                            .insert(self.input_state.cell, module);
+
+                        notify_js = true;
+                    }
+                }
+
+                // Tab to cycle module types
+                if self.input_state.key_code_clicked == "KeyM" {
+                    *module = match module {
+                        // Some(ConcreteModule::Clock(_)) => {
+                        //     Some(ConcreteModule::Value(Default::default()))
+                        // }
+                        Some(ConcreteModule::Value(_)) => None,
+                        // None => Some(ConcreteModule::Clock(Default::default())),
+                        None => Some(ConcreteModule::Value(Default::default())),
+                    };
+
+                    let mut buffer = Buffer::default();
+                    if let Some(module) = module {
+                        let cell_zero = CellCoord(IVec2::ZERO);
+                        let mut module = module.clone();
+                        module.set_root(cell_zero);
+                        buffer.modules.insert(cell_zero, module);
+                    }
+
+                    set_mouse_follow_buffer = true;
+                    new_mouse_follow_buffer = Some(buffer);
+                }
+            }
+        }
+
+        if set_mouse_follow_buffer {
+            self.mouse_follow_buffer = new_mouse_follow_buffer;
+        }
+
+        if notify_js {
+            self.notify_js_on_change();
         }
 
         if self.input_state.key_code_clicked == "KeyF" {
@@ -469,8 +540,8 @@ impl Viewport {
 
     fn notify_js_on_change(&self) {
         if let Some(on_edit_callback) = self.on_edit_callback.as_ref() {
-            let json =
-                serde_json::to_string_pretty(&Blueprint::from(&self.active_buffer)).unwrap_throw();
+            let json = serde_json::to_string_pretty(&Blueprint::from(&self.active_buffer))
+                .expect("Failed to serialize Blueprint");
             let js_str = JsValue::from(&json);
             let _ = on_edit_callback.call1(&JsValue::null(), &js_str);
         }
@@ -484,7 +555,8 @@ impl Viewport {
 
     fn notify_js_set_clipboard(&self, buffer: &Buffer) {
         if let Some(set_clipboard) = self.set_clipboard.as_ref() {
-            let json = serde_json::to_string_pretty(&Blueprint::from(buffer)).unwrap_throw();
+            let json = serde_json::to_string_pretty(&Blueprint::from(buffer))
+                .expect("Failed to serialize Blueprint");
             let js_str = JsValue::from(&json);
             let _ = set_clipboard.call1(&JsValue::null(), &js_str);
         }
@@ -533,20 +605,17 @@ impl Component for Viewport {
                 self.request_clipboard = Some(request_clipboard);
                 self.set_clipboard = Some(set_clipboard);
             }
-            Msg::SetBlueprintPartial(blueprint) => {
-                if let Some(new_buffer) = blueprint.into_buffer_from_partial(&self.active_buffer) {
-                    self.active_buffer = new_buffer;
-                }
+            Msg::SetBlueprint(blueprint) => {
+                self.active_buffer = blueprint.into();
             }
             Msg::SetEditorState(editor_state) => {
                 self.editor_state = editor_state;
             }
             Msg::SetClipboard(blueprint) => {
-                if let Some(buffer) = blueprint.into_buffer_from_partial(&Buffer::default()) {
-                    self.mode = Mode::Visual;
-                    self.mouse_follow_buffer = Some(buffer.clone());
-                    self.editor_state.registers.insert("*".to_owned(), buffer);
-                }
+                let buffer: Buffer = blueprint.into();
+                self.mode = Mode::Visual;
+                self.mouse_follow_buffer = Some(buffer.clone());
+                self.editor_state.registers.insert("*".to_owned(), buffer);
             }
             Msg::Render(time) => {
                 self.draw(time);
@@ -555,6 +624,15 @@ impl Component for Viewport {
                 if !focused && !matches!(self.mode, Mode::Execute(_)) {
                     self.mode = Mode::Visual;
                 }
+            }
+            Msg::SetModule((root, concrete_module)) => {
+                if let Some(concrete_module) = concrete_module {
+                    self.active_buffer.modules.insert(root, concrete_module);
+                } else {
+                    self.active_buffer.modules.remove(&root);
+                }
+
+                self.notify_js_on_change();
             }
             Msg::None => {}
         }
@@ -579,19 +657,29 @@ impl Component for Viewport {
             Msg::None
         });
 
-        let modules_html = self
-            .active_buffer
-            .rooted_modules
-            .values()
-            .map(|m| {
-                let pins = m.module.borrow().get_pins();
-                html! {
-                    <ModuleMount
-                        camera={self.editor_state.camera.clone()}
-                        root={m.root}
-                        pins={pins}
-                        module_html={m.html.clone()}
-                    />
+        let mut modules = self.active_buffer.modules.clone();
+
+        if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
+            for (mut root, mut module) in mouse_follow_buffer.modules.clone() {
+                root.0 += self.input_state.cell.0;
+                module.set_root(root);
+                modules.insert(root, module);
+            }
+        }
+
+        let modules_html = modules
+            .into_iter()
+            .map(|(_, module)| match module {
+                ConcreteModule::Value(value) => {
+                    html! {
+                        <ValueComponent
+                            key={u64::from(value.get_root())}
+                            {value}
+                            camera={self.editor_state.camera.clone()}
+                            update_self={ctx.link().callback(Msg::SetModule)}
+                            edit_mode={matches!(self.mode, Mode::ModuleEdit(..))}
+                        />
+                    }
                 }
             })
             .collect::<Html>();
@@ -619,6 +707,17 @@ impl Component for Viewport {
                         )
                     }
                     Mode::Label(..) => html!(<span style="color: yellow;">{"Label"}</span>),
+                    Mode::ModuleEdit(None) => html!(<span style="color: purple;">{"Module [None]"}</span>),
+                    Mode::ModuleEdit(Some(module)) => html! {
+                        <span style="color: purple;">
+                        {
+                            format!("Module [{}]", match module {
+                                // ConcreteModule::Clock(_) => "Clock",
+                                ConcreteModule::Value(_) => "Value",
+                            })
+                        }
+                        </span>
+                    },
                 }
             }
             </div>
@@ -641,8 +740,8 @@ impl Component for Viewport {
                                 match self.mode {
                                     Mode::Visual => "cell",
                                     Mode::PaintMetallic | Mode::PaintSi => "crosshair",
-                                    Mode::Execute(..) => "default",
-                                    Mode::Label(..) => "copy",
+                                    Mode::Execute(..) | Mode::ModuleEdit(None) => "default",
+                                    Mode::Label(..) | Mode::ModuleEdit(Some(..)) => "copy",
                                 }
                             }
                         };
@@ -678,7 +777,14 @@ impl Component for Viewport {
                         }
                     }
                 >
-                    { modules_html }
+                    {
+                        if matches!(self.mode, Mode::ModuleEdit(..))
+                           && self.mouse_follow_buffer.is_some() {
+                            html!(<span class="lp-no-pointer-events">{modules_html}</span>)
+                        } else {
+                            modules_html
+                        }
+                    }
                 </span>
             </div>
         }
@@ -697,7 +803,7 @@ impl Component for Viewport {
             DomIntervalHooks::new(move |time| {
                 link.send_message(Msg::Render(time));
             })
-            .unwrap_throw(),
+            .expect("Failed to construct DomIntervalEvents"),
         );
 
         let window = window().unwrap();
@@ -705,13 +811,17 @@ impl Component for Viewport {
 
         let link = ctx.link().clone();
         let key_down = EventListener::new(&document, "keydown", move |event| {
-            let event = event.dyn_ref::<web_sys::KeyboardEvent>().unwrap_throw();
+            let event = event
+                .dyn_ref::<web_sys::KeyboardEvent>()
+                .expect("Failed to cast keydown event");
             link.send_message(Msg::RawInput(RawInput::KeyDown(event.clone())));
         });
 
         let link = ctx.link().clone();
         let key_up = EventListener::new(&document, "keyup", move |event| {
-            let event = event.dyn_ref::<web_sys::KeyboardEvent>().unwrap_throw();
+            let event = event
+                .dyn_ref::<web_sys::KeyboardEvent>()
+                .expect("Failed to cast keyup event.");
             link.send_message(Msg::RawInput(RawInput::KeyUp(event.clone())));
         });
 

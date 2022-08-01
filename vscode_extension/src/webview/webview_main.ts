@@ -51,11 +51,10 @@ async function main() {
         let blueprintString: string = message.blueprintString;
 
         if (!blueprintString.trim().length) {
-          blueprintString = '{}';
+          blueprintString = '{"chunks":[], "modules":[]}';
         }
 
-        const err =
-          logicPaint.set_partial_blueprint_from_json_string(blueprintString);
+        const err = logicPaint.set_blueprint_from_json_string(blueprintString);
 
         if (err) {
           console.log(err);

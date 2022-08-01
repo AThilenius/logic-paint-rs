@@ -1,7 +1,5 @@
-use wasm_bindgen::UnwrapThrowExt;
-
 use crate::{
-    modules::{Pin, RootedModule},
+    modules::{ConcreteModule, Module, Pin},
     viewport::{
         buffer::Buffer,
         buffer_mask::{BufferMask, MASK_BYTE_LEN},
@@ -15,7 +13,7 @@ pub struct ExecutionContext {
     pub state: SimState,
     pub is_mid_clock_cycle: bool,
     compiler_results: CompilerResults,
-    rooted_modules: Vec<RootedModule>,
+    modules: Vec<ConcreteModule>,
     first_tick: bool,
 }
 
@@ -32,13 +30,13 @@ impl ExecutionContext {
         let compiler_results = CompilerResults::from_buffer(&buffer);
         let gate_states = vec![false; compiler_results.gates.len()];
         let trace_states = vec![false; compiler_results.traces.len()];
-        let modules = buffer.rooted_modules.values().cloned().collect();
+        let modules = buffer.modules.values().cloned().collect();
 
         Self {
             max_ticks_per_clock: 100_000,
             buffer_mask: Default::default(),
             compiler_results,
-            rooted_modules: modules,
+            modules,
             state: SimState {
                 tick_count: 0,
                 clock_count: 0,
@@ -120,9 +118,9 @@ impl ExecutionContext {
         // Pull modules for OUTPUT state (input state is updates at the end of a tick) and write
         // their value to the corresponding trace.
         if !self.first_tick {
-            for rooted_module in self.rooted_modules.iter() {
-                for pin in rooted_module.module.borrow().get_pins() {
-                    let pin_coord = pin.coord_offset.to_cell_coord(rooted_module.root);
+            for module in self.modules.iter() {
+                for pin in module.get_pins() {
+                    let pin_coord = pin.coord_offset.to_cell_coord(module.get_root());
                     let trace = *self
                         .compiler_results
                         .trace_lookup_by_atom
@@ -130,7 +128,7 @@ impl ExecutionContext {
                             coord: pin_coord,
                             part: CellPart::Metal,
                         })
-                        .unwrap_throw();
+                        .expect("Failed to find associated trace from Atom");
 
                     self.state.trace_states[trace] |= pin.output_high;
                 }
@@ -174,16 +172,14 @@ impl ExecutionContext {
 
         // Update module inputs. First immutably collect their values.
         let module_pin_states = self
-            .rooted_modules
+            .modules
             .iter()
-            .map(|rooted_module| {
-                rooted_module
-                    .module
-                    .borrow()
+            .map(|module| {
+                module
                     .get_pins()
                     .iter()
                     .map(|Pin { coord_offset, .. }| {
-                        let pin_coord = coord_offset.to_cell_coord(rooted_module.root);
+                        let pin_coord = coord_offset.to_cell_coord(module.get_root());
                         let trace = *self
                             .compiler_results
                             .trace_lookup_by_atom
@@ -191,7 +187,7 @@ impl ExecutionContext {
                                 coord: pin_coord,
                                 part: CellPart::Metal,
                             })
-                            .unwrap_throw();
+                            .expect("Failed to get associated trace from Atom");
 
                         self.state.trace_states[trace]
                     })
@@ -200,8 +196,8 @@ impl ExecutionContext {
             .collect::<Vec<_>>();
 
         // Then write them to modules
-        for (i, rooted_module) in self.rooted_modules.iter_mut().enumerate() {
-            rooted_module.set_pin_states(&module_pin_states[i]);
+        for (i, module) in self.modules.iter_mut().enumerate() {
+            module.set_pin_states(&module_pin_states[i]);
         }
 
         self.state.clock_count += 1;

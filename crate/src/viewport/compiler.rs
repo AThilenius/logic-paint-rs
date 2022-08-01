@@ -75,7 +75,7 @@ impl CompilerResults {
         //
         // Ie. The edge set is a queue (breadth-first) and is seeded with I/O pins.
         let mut edge_set: VecDeque<Atom> = buffer
-            .rooted_modules
+            .modules
             .values()
             .flat_map(|m| m.get_pin_coords())
             .map(|coord| Atom {

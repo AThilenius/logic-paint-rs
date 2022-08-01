@@ -44,15 +44,8 @@ impl From<SerdeEditorState> for EditorState {
             ),
             registers: serde_editor_state
                 .registers
-                .iter()
-                .map(|(name, blueprint)| {
-                    (
-                        name.to_owned(),
-                        blueprint
-                            .into_buffer_from_partial(&Buffer::default())
-                            .unwrap_or_default(),
-                    )
-                })
+                .into_iter()
+                .map(|(name, blueprint)| (name.to_owned(), Buffer::from(blueprint)))
                 .collect(),
         }
     }

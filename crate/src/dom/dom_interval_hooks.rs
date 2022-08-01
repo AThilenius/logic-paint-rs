@@ -48,7 +48,11 @@ impl DomIntervalHooks {
                 )
                 .ok();
 
-            callback(time.as_f64().unwrap_throw() / 1000.0);
+            callback(
+                time.as_f64()
+                    .expect("Failed to convert JS time value to f64")
+                    / 1000.0,
+            );
         }) as Box<dyn FnMut(_)>));
 
         // Schedule the first frame.

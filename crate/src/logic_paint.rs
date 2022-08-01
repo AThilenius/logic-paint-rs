@@ -45,19 +45,17 @@ impl LogicPaint {
         }
     }
 
-    pub fn set_partial_blueprint_from_json_string(&mut self, data: &str) -> Option<String> {
+    pub fn set_blueprint_from_json_string(&mut self, data: &str) -> Option<String> {
         if let Ok(blueprint) = serde_json::from_str::<Blueprint>(data) {
             self.handle
-                .send_message(YewViewportMsg::SetBlueprintPartial(blueprint));
+                .send_message(YewViewportMsg::SetBlueprint(blueprint));
             None
         } else {
-            Some("Failed to deserialize JSON, or structure is invalid.".to_owned())
+            Some(format!(
+                "Failed to deserialize JSON, or structure is invalid: {}",
+                data
+            ))
         }
-    }
-
-    pub fn get_blueprint_as_json_string(&self) -> String {
-        let component = self.handle.get_component().unwrap_throw();
-        serde_json::to_string_pretty(&Blueprint::from(&component.active_buffer)).unwrap_throw()
     }
 
     pub fn set_editor_state_from_json_string(&mut self, data: &str) -> Option<String> {
@@ -71,8 +69,11 @@ impl LogicPaint {
     }
 
     pub fn get_editor_state(&self) -> String {
-        let component = self.handle.get_component().unwrap_throw();
+        let component = self
+            .handle
+            .get_component()
+            .expect("Failed to get Yew component");
         serde_json::to_string_pretty(&SerdeEditorState::from(&component.editor_state))
-            .unwrap_throw()
+            .expect("Failed to serialize SerdeEditorState")
     }
 }

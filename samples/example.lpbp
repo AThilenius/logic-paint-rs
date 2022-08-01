@@ -1,18 +1,26 @@
 {
-  "chunks": [
-    {
-      "chunk_coord": [
-        0,
-        -1
-      ],
-      "cells": "GQAAAAAAAADiAQCg4wEAqOQBAIgCAgCgAwIAqAQCAIgiAgCgIwIAqCQCAIhCAgCgQwIAqEQCAIhiAgCgYwIAqGQCAIiCAgCggwIAqIQCAIiiAgCgowIAqKQCAIjCAgCgwwIAqMQCAIjnA0gA"
+  "chunks": {
+    "0:-1": "IgAAAAAAAACqAgDAygIA0OoCANAKAwDQKgMA0EgDAKBJAwCoSgMA+EsDAKhMAwCIagMA0IADhQCBA4UAggOFAIMDhQCEA4kAigMAkJADjACRA4UAkgOFAJMDhQCUA4UAlQOFAJYDhQCXA4kApAOKALADigC3A4oAxAOKANADigDXA4oA5AOKAPADigD3A4oA",
+    "0:0": "DwAAAAAAAAAAAIUAAQCFAAIAhQADAIUABACDABAAhgARAIUAEgCFABMAhQAUAIUAFQCFABYAhQAXAIMAJwCIAEcAggA=",
+    "-1:-1": "BgAAAAAAAACdA4wAngOFAJ8DhQC9A4oA3QOKAP0DigA=",
+    "-1:0": "AwAAAAAAAAAdAIYAHgCFAB8AhQA="
+  },
+  "modules": {
+    "10:-6": {
+      "Value": {
+        "root": "10:-6",
+        "bus_width": 5,
+        "value": 2,
+        "spacing": 1
+      }
     },
-    {
-      "chunk_coord": [
-        0,
-        0
-      ],
-      "cells": "HwAAAAAAAAACAADgAwAAqAQAAKgFAACoBgCEjAcAawAiAADQIwCIpCQAAKglAACoJgAAqCcAQoxAAACgQQAAqEIAALhDAIqoRAAAyEcAiABjAIoAZAAAsGUAAKhmAESMZwCrAIAAAKCBAACoggAAqIMAgqyEAACohQAAqIYAAKiHAIKM"
+    "12:7": {
+      "Value": {
+        "root": "12:7",
+        "bus_width": 7,
+        "value": 0,
+        "spacing": 1
+      }
     }
-  ]
+  }
 }

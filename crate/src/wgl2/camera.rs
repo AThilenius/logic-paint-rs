@@ -13,7 +13,7 @@ pub struct Camera {
     pub scale: f32,
     pub size: Vec2,
     pub proj_matrix: Mat4,
-    pixel_ratio: f32,
+    pub px_per_cell: f32,
     drag_world_anchor: Option<Vec2>,
 }
 
@@ -22,10 +22,10 @@ impl Default for Camera {
         let mut camera = Self {
             translation: Vec2::ZERO,
             scale: 1.0,
-            pixel_ratio: 1.0,
             size: Vec2::ONE,
             proj_matrix: Default::default(),
             drag_world_anchor: None,
+            px_per_cell: 1.0,
         };
 
         camera.update_proj_matrix();
@@ -38,21 +38,28 @@ impl Camera {
         let mut camera = Self {
             translation,
             scale,
-            pixel_ratio: 1.0,
             size: Vec2::ONE,
             proj_matrix: Default::default(),
             drag_world_anchor: None,
+            px_per_cell: 1.0,
         };
 
         camera.update_proj_matrix();
         camera
     }
 
-    pub fn update(&mut self, pixel_ratio: f32, size: Vec2) {
-        if self.pixel_ratio != pixel_ratio || self.size != size {
-            self.pixel_ratio = pixel_ratio;
+    pub fn update(&mut self, size: Vec2) {
+        if !self.size.abs_diff_eq(size, f32::EPSILON) {
             self.size = size;
             self.update_proj_matrix();
+
+            // TODO: I don't understand where this number is coming from: 31.25
+            let old_scale = self.scale;
+            self.scale = 1.0;
+            self.px_per_cell = (self.project_cell_coord_to_screen_point(CellCoord(IVec2::ONE))
+                - self.project_cell_coord_to_screen_point(CellCoord(IVec2::ZERO)))
+            .x;
+            self.scale = old_scale;
         }
     }
 
@@ -95,7 +102,6 @@ impl Camera {
         let origin_world = self.project_screen_point_to_world(input.screen_point);
         self.scale += self.scale * input.scroll_delta_y;
         self.scale = f32::clamp(self.scale, 0.02, 10.0);
-        self.update_proj_matrix();
         let new_world_point = self.project_screen_point_to_world(input.screen_point);
         self.translation += origin_world - new_world_point;
 
@@ -169,12 +175,7 @@ impl Camera {
     }
 
     fn update_proj_matrix(&mut self) {
-        // Use a DPI-like scaling, so that the scale doesn't change with screen size, only the
-        // amount visible.
-
-        // TODO: Something is wrong with this scaling logic. Disabling it fixed the alignment issues
-        // with module DOM Nodes though.
-        let scale = 720.0 * 2.0; // * self.pixel_ratio;
+        let scale = 2000.0;
         let w = self.size.x / scale;
         let h = self.size.y / scale;
         self.proj_matrix = Mat4::orthographic_rh(-w, w, -h, h, 0.0, 1.0);
