@@ -21,7 +21,6 @@ fn get_value_from_input_event(e: InputEvent) -> String {
     let target: HtmlInputElement = event_target
         .dyn_into()
         .expect("Failed to dyn_into HtmlInputElement");
-    web_sys::console::log_1(&target.value().into());
     target.value()
 }
 
@@ -58,7 +57,7 @@ pub fn text_input(props: &Props) -> Html {
         <div>
             {
                 if let Some(label) = label {
-                    html!(<label for="input-tag" style="margin-right: 10px;">{label}</label>)
+                    html!(<label key={102} for="input-tag" style="margin-right: 10px;">{label}</label>)
                 } else {
                     html!()
                 }

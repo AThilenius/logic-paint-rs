@@ -1,14 +1,18 @@
 # Logic Paint
 
-## Files
+> Inspired by Zachtronic's KOHCTPYKTOP, Logic Paint allows you to edit and
+> simulate transistors, at scale.
 
-Logic Paint substrate blueprints are defined in (JSON encoded) files that end
-with the `.lpbp` (Logic Paint BluePrint) extension.
+![Register File](../misc/screenshots/logic-paint-register-file.png)
 
-Module configuration is done in raw JSON, in a file with the same name as the
-blueprint file, but ends in `.lpm.json` (Logic Paint Modules).
+# Getting Started
 
-## Standard Controls
+Install this VSCode extension and create a file with a `.lpbp` extension. Logic
+Paint uses a modal editor (like VIM). It is very powerful but does have a
+learning curve. Start by placing a module (see below) and drawing some N/P type
+silicon
+
+# Standard Controls
 
 The camera can be panned at any time (including while actively painting) by
 holding down the `Space` key. It can be zoomed at any time with the scroll
@@ -27,6 +31,7 @@ the editor window. It has 4 primary modes:
   substrate.
 - `Metal` paints (or removes) a metal layer and via placements.
 - `Execution` compiles logic and prepares to execute it.
+- `ModuleEdit` add, remove, and edit modules (I/O to/from the substrate).
 - `Label` create a text label using Silicon paint.
 
 ## Visual Mode (`ESC`)
@@ -105,6 +110,15 @@ will be added later for faster running.
 - **`T`** Executes a single simulation 'tick'. This is mostly for debugging
   Logic Paint itself, as ticks have very little parallel with propagation delay.
 
+## Module Edit (`M`)
+
+The module edit mode is used to place, remove and edit modules. These include
+clocks, const values, probes and large chunks of RAM. Access the editor by
+pressing `M` while in `Visual` mode. Pressing `M` again cycles through module
+types that can be placed. While in Module Edit mode, you can visually see module
+"roots", ie the cell where the module actually resides. Only one module can
+exist per root at a time.
+
 ## Label Mode (`Enter`)
 
 Useful tool to quickly create text labels in Silicon. Enter the label mode by
@@ -112,8 +126,34 @@ hitting `Enter`, then type your text. The text will be rendered to the mouse
 follow buffer. Clicking `LMB` will place a copy of the text (without the cursor)
 onto the primary buffer. Click `ESC` to exit label mode.
 
-## Modules
+# Scale and Performance
 
-Modules are configured in JSON (see above for file naming). The JSON file is an
-array of module parameters, including where they live in the blueprint. Saving
-this file will auto-update the modules in the blueprint if it's open.
+There are a handful of these projects out there, of note
+[PharoChipDesigner](https://github.com/pavel-krivanek/PharoChipDesigner) has a
+wonderful writeup on both digital circuitry and how this type of logic differs
+from real-world MOSFET/BJT/CMOS technology. Also of note is Andre's [Angular
+version](https://blog.tst.sh/kohctpyktop-2-electric-bogaloo/) as well as many
+more.
+
+I wanted to build an entire CPU in this type of format (currently in-progress).
+No existing project comes remotely close to the level or performance or scale I
+needed for that. My ideal was fixed-cost rendering, and the ability to handle
+millions of transistors. Additionally, I wanted a much more refined and
+functional suite of design tools.
+
+Logic Paint pulls that off by rendering cells exclusively in a fragment shader
+(on the GPU) meaning rendering is based only on the display resolution and is
+irrespective of the number of cells being drawn (modulo data transfer during
+simulation). It's not an exaggeration to say that the renderer can handle
+**billions** of populated cells on modern GPUs, it's limited only by your GPUs
+memory, where each cell takes up 4 bytes of data. The core of the application
+is written in Rust, and compiled to WebAssembly. Right out of the box this gives
+you some immense performance wins, but more importantly it allows for directly
+memory manipulation and blitting which in tern allows for very fast designs.
+
+## Pics or it didn't happen
+
+This is about a half million cells, rendering at 4K and taking only 2-3ms per
+frame. More cells wouldn't slow down rendering though, it would only create
+sampling artifacts and a colorful view.
+![Scale](../misc/screenshots/logic-paint-scale.png)

@@ -10,6 +10,7 @@ mod label_builder;
 
 use glam::{IVec2, Vec2};
 use gloo::{events::EventListener, utils::document};
+use itertools::Itertools;
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, HtmlCanvasElement};
 use yew::prelude::*;
@@ -17,7 +18,7 @@ use yew::prelude::*;
 use crate::{
     coords::CellCoord,
     dom::{DomIntervalHooks, RawInput},
-    modules::{ConcreteModule, Module, ValueComponent},
+    modules::{ClockComponent, ConcreteModule, Module, ValueComponent},
     utils::Selection,
     viewport::{
         blueprint::Blueprint,
@@ -64,7 +65,7 @@ pub enum Msg {
     RawInput(RawInput),
     Render(f64),
     SetFocus(bool),
-    SetModule((CellCoord, Option<ConcreteModule>)),
+    SetModule((bool, CellCoord, Option<ConcreteModule>)),
 }
 
 pub enum Mode {
@@ -446,12 +447,11 @@ impl Viewport {
                 // Tab to cycle module types
                 if self.input_state.key_code_clicked == "KeyM" {
                     *module = match module {
-                        // Some(ConcreteModule::Clock(_)) => {
-                        //     Some(ConcreteModule::Value(Default::default()))
-                        // }
+                        Some(ConcreteModule::Clock(_)) => {
+                            Some(ConcreteModule::Value(Default::default()))
+                        }
                         Some(ConcreteModule::Value(_)) => None,
-                        // None => Some(ConcreteModule::Clock(Default::default())),
-                        None => Some(ConcreteModule::Value(Default::default())),
+                        None => Some(ConcreteModule::Clock(Default::default())),
                     };
 
                     let mut buffer = Buffer::default();
@@ -623,18 +623,23 @@ impl Component for Viewport {
                 self.draw(time);
             }
             Msg::SetFocus(focused) => {
-                if !focused && !matches!(self.mode, Mode::Execute(_)) {
+                if !focused
+                    && !matches!(self.mode, Mode::Execute(..))
+                    && !matches!(self.mode, Mode::ModuleEdit(..))
+                {
                     self.mode = Mode::Visual;
                 }
             }
-            Msg::SetModule((root, concrete_module)) => {
+            Msg::SetModule((notify_js, root, concrete_module)) => {
                 if let Some(concrete_module) = concrete_module {
                     self.active_buffer.modules.insert(root, concrete_module);
                 } else {
                     self.active_buffer.modules.remove(&root);
                 }
 
-                self.notify_js_on_change();
+                if notify_js {
+                    self.notify_js_on_change();
+                }
             }
             Msg::None => {}
         }
@@ -669,14 +674,31 @@ impl Component for Viewport {
             }
         }
 
+        // Sorted order modules
+        let modules: Vec<_> = modules
+            .into_values()
+            .sorted_by(|a, b| u64::from(a.get_root()).cmp(&u64::from(b.get_root())))
+            .collect();
+
         let modules_html = modules
             .into_iter()
-            .map(|(_, module)| match module {
-                ConcreteModule::Value(value) => {
+            .map(|module| match module {
+                ConcreteModule::Value(module) => {
                     html! {
                         <ValueComponent
-                            key={u64::from(value.get_root())}
-                            {value}
+                            key={u64::from(module.get_root())}
+                            {module}
+                            camera={self.editor_state.camera.clone()}
+                            update_self={ctx.link().callback(Msg::SetModule)}
+                            edit_mode={matches!(self.mode, Mode::ModuleEdit(..))}
+                        />
+                    }
+                }
+                ConcreteModule::Clock(module) => {
+                    html! {
+                        <ClockComponent
+                            key={u64::from(module.get_root())}
+                            {module}
                             camera={self.editor_state.camera.clone()}
                             update_self={ctx.link().callback(Msg::SetModule)}
                             edit_mode={matches!(self.mode, Mode::ModuleEdit(..))}
@@ -714,7 +736,7 @@ impl Component for Viewport {
                         <span style="color: purple;">
                         {
                             format!("Module [{}]", match module {
-                                // ConcreteModule::Clock(_) => "Clock",
+                                ConcreteModule::Clock(_) => "Clock",
                                 ConcreteModule::Value(_) => "Value",
                             })
                         }
@@ -725,13 +747,11 @@ impl Component for Viewport {
             </div>
         );
 
-        let no_module_pointer_events = (matches!(self.mode, Mode::ModuleEdit(..))
-            && self.mouse_follow_buffer.is_some())
-            || (!matches!(self.mode, Mode::ModuleEdit(..))
-                && !matches!(self.mode, Mode::Execute(..)));
+        let allow_module_pointer_events =
+            matches!(self.mode, Mode::Execute(..)) || matches!(self.mode, Mode::ModuleEdit(None));
 
         html! {
-            <div class="lp-viewport">
+            <div key="lp-viewport" class="lp-viewport">
                 <canvas
                     {onmousedown}
                     {onmouseup}
@@ -776,10 +796,14 @@ impl Component for Viewport {
                     </div>
                 </div>
                 {
-                    if no_module_pointer_events {
-                        html!(<span class="lp-no-pointer-events">{modules_html}</span>)
-                    } else {
+                    if allow_module_pointer_events {
                         modules_html
+                    } else {
+                        html! {
+                            <span key="lp-no-pointer-modules" class="lp-no-pointer-events">
+                                {modules_html}
+                            </span>
+                        }
                     }
                 }
             </div>

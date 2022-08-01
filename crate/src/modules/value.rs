@@ -5,7 +5,10 @@ use yew::prelude::*;
 use crate::{
     coords::CellCoord,
     modules::{Module, Pin},
-    utils::{cell_offset::CellOffset, input::TextInput, local_cell_offset::LocalCellOffset},
+    utils::{
+        cell_offset::CellOffset, input::TextInput, local_cell_offset::LocalCellOffset,
+        standard_pin::StandardPin,
+    },
     wgl2::Camera,
 };
 
@@ -75,122 +78,81 @@ impl Module for Value {
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
-    pub value: Value,
+    pub module: Value,
     pub camera: Camera,
-    pub update_self: Callback<(CellCoord, Option<ConcreteModule>)>,
+    pub update_self: Callback<(bool, CellCoord, Option<ConcreteModule>)>,
     pub edit_mode: bool,
 }
 
 #[function_component(ValueComponent)]
 pub fn value_component(props: &Props) -> Html {
     let Props {
-        value,
+        module,
         camera,
         update_self,
         edit_mode,
     } = props;
+
     let show_settings = use_state(|| false);
 
     let bus_width_on_change = {
-        let value = value.clone();
+        let module = module.clone();
         let update_self = update_self.clone();
         Callback::from(move |e: String| {
             update_self.emit((
-                value.get_root(),
+                true,
+                module.get_root(),
                 Some(ConcreteModule::Value(Value {
-                    bus_width: e.parse::<usize>().unwrap_or(1).min(128),
-                    ..(value)
+                    bus_width: e.parse::<usize>().unwrap_or(1).min(64),
+                    ..(module)
                 })),
             ));
         })
     };
 
     let spacing_on_change = {
-        let value = value.clone();
+        let module = module.clone();
         let update_self = update_self.clone();
         Callback::from(move |e: String| {
             update_self.emit((
-                value.get_root(),
+                true,
+                module.get_root(),
                 Some(ConcreteModule::Value(Value {
                     spacing: e.parse::<usize>().unwrap_or(1).max(1).min(100),
-                    ..(value)
+                    ..(module)
                 })),
             ));
         })
     };
 
     let delete_on_change = {
-        let value = value.clone();
+        let module = module.clone();
         let update_self = update_self.clone();
         Callback::from(move |_| {
-            update_self.emit((value.get_root(), None));
+            update_self.emit((true, module.get_root(), None));
         })
     };
 
-    let pin_html = value
-        .get_pins()
-        .iter()
-        .enumerate()
-        .map(|(i, pin)| {
-            html! {
-                <div
-                    key={u64::from(pin.coord_offset)}
-                    style={format!(
-                        "transform: translate({}px, {}px);",
-                        pin.coord_offset.0.x as f32 * 31.25,
-                        -pin.coord_offset.0.y as f32 * 31.25,
-                    )}
-                >
-                    {
-                        if pin.output_high {
-                            html! {
-                                <div class="lp-cell-center">
-                                    <div class="lp-pin-output-div" />
-                                </div>
-                            }
-                        } else {
-                            html!()
-                        }
-                    }
-                    <div
-                        class={classes!("lp-cell-center", "lp-pointer-events")}
-                        onclick={
-                            let value = value.clone();
-                            let update_self = update_self.clone();
-                            Callback::from(move |_| {
-                                update_self.emit((
-                                    value.get_root(),
-                                    Some(ConcreteModule::Value(Value {
-                                    value: value.value ^ (1 << i),
-                                    ..(value)
-                                }))));
-                            })
-                        }
-                    >
-                        <div class="lp-pin-div" />
-                    </div>
-                    <div
-                        class={classes!("lp-cell-center")}
-                        style={format!(
-                            "transform: translate({}px, 0);",
-                            if pin.right_align { "31.25" } else { "-31.25" }
-                        )}
-                    >
-                        {pin.label.to_owned()}
-                    </div>
-                </div>
-            }
-        })
-        .collect::<Html>();
-
     html! {
-        <CellOffset camera={camera.clone()} root={value.root} >
+        <CellOffset camera={camera.clone()} root={module.root} >
             <LocalCellOffset amount={IVec2::new(0, 1)}>
                 <div class={classes!("lp-cell-center")}>
-                    {format!("{}", value.value | value.value_in)}
+                    {format!("{}", module.value | module.value_in)}
                 </div>
             </LocalCellOffset>
-            {pin_html}
+            <StandardPin pins={module.get_pins()} on_click={
+                let module = module.clone();
+                let update_self = update_self.clone();
+                Callback::from(move |i| {
+                    update_self.emit((
+                        false,
+                        module.get_root(),
+                        Some(ConcreteModule::Value(Value {
+                        value: module.value ^ (1_i64 << i),
+                        ..(module)
+                    }))));
+                })
+            } />
             {
                 if *edit_mode {
                     html! {
@@ -223,13 +185,13 @@ pub fn value_component(props: &Props) -> Html {
                                 <TextInput
                                     label="Bus Width"
                                     on_change={bus_width_on_change}
-                                    value={format!("{}", value.bus_width)}
+                                    value={format!("{}", module.bus_width)}
                                     width={24.0}
                                 />
                                 <TextInput
                                     label="Spacing"
                                     on_change={spacing_on_change}
-                                    value={format!("{}", value.spacing)}
+                                    value={format!("{}", module.spacing)}
                                     width={24.0}
                                 />
                             </div>

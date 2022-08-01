@@ -3,18 +3,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::coords::CellCoord;
 
-// mod clock;
+mod clock;
 mod pin;
 mod value;
 
-// pub use clock::*;
+pub use clock::*;
 pub use pin::*;
 pub use value::*;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[enum_dispatch(Module)]
 pub enum ConcreteModule {
-    // Clock(Clock),
+    Clock(Clock),
     Value(Value),
 }
 

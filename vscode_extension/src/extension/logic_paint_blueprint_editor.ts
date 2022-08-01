@@ -36,26 +36,6 @@ export class LogicPaintBlueprintEditorProvider
     webviewPanel.webview.options = { enableScripts: true };
     webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
 
-    // Migrate from old format.
-    let text = document.getText();
-    const obj = JSON.parse(text);
-
-    if (Array.isArray(obj.chunks)) {
-      const chunks: { [key: string]: string } = {};
-      for (const chunk of obj.chunks) {
-        chunks[`${chunk.chunk_coord[0]}:${chunk.chunk_coord[1]}`] = chunk.cells;
-      }
-
-      obj.chunks = chunks;
-      obj.modules = {};
-
-      const edit = new WorkspaceEdit();
-      text = JSON.stringify(obj, null, 2);
-      edit.replace(document.uri, new Range(0, 0, document.lineCount, 0), text);
-
-      workspace.applyEdit(edit);
-    }
-
     disposableArray.push(
       workspace.onDidChangeTextDocument((e) => {
         if (e.document.uri.toString() === document.uri.toString()) {

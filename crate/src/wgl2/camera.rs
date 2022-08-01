@@ -7,7 +7,7 @@ use crate::{
     viewport::input::InputState,
 };
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Camera {
     pub translation: Vec2,
     pub scale: f32,
@@ -15,6 +15,15 @@ pub struct Camera {
     pub proj_matrix: Mat4,
     pub px_per_cell: f32,
     drag_world_anchor: Option<Vec2>,
+}
+
+impl PartialEq for Camera {
+    fn eq(&self, other: &Self) -> bool {
+        self.translation
+            .abs_diff_eq(other.translation, f32::EPSILON)
+            && self.size.abs_diff_eq(other.size, f32::EPSILON)
+            && f32::abs(self.scale - other.scale) < f32::EPSILON
+    }
 }
 
 impl Default for Camera {
