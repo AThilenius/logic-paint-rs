@@ -110,11 +110,11 @@ will be added later for faster running.
 - **`T`** Executes a single simulation 'tick'. This is mostly for debugging
   Logic Paint itself, as ticks have very little parallel with propagation delay.
 
-## Module Edit (`M`)
+## Module Edit (`A`)
 
 The module edit mode is used to place, remove and edit modules. These include
 clocks, const values, probes and large chunks of RAM. Access the editor by
-pressing `M` while in `Visual` mode. Pressing `M` again cycles through module
+pressing `A` while in `Visual` mode. Pressing `A` again cycles through module
 types that can be placed. While in Module Edit mode, you can visually see module
 "roots", ie the cell where the module actually resides. Only one module can
 exist per root at a time.

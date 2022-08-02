@@ -195,6 +195,10 @@ impl Buffer {
         }
     }
 
+    pub fn cell_count(&self) -> usize {
+        self.chunks.values().map(|c| c.cell_count).sum()
+    }
+
     fn fix_cell(&mut self, cell_coord: CellCoord) {
         // Follow broken connection directions and connect them, if able. The following
         // connections will be made (every other connection will be dropped):

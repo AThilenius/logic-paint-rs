@@ -244,7 +244,7 @@ impl Viewport {
                 });
                 self.editor_state.selection = Default::default();
                 self.mouse_follow_buffer = None;
-            } else if self.input_state.key_code_clicked == "KeyM"
+            } else if self.input_state.key_code_clicked == "KeyA"
                 && !matches!(self.mode, Mode::ModuleEdit(..))
             {
                 self.mode = Mode::ModuleEdit(None);
@@ -445,7 +445,7 @@ impl Viewport {
                 }
 
                 // Tab to cycle module types
-                if self.input_state.key_code_clicked == "KeyM" {
+                if self.input_state.key_code_clicked == "KeyA" {
                     *module = match module {
                         Some(ConcreteModule::Clock(_)) => {
                             Some(ConcreteModule::Value(Default::default()))
@@ -780,6 +780,12 @@ impl Component for Viewport {
                 <div class="lp-info-panel">
                     {mode}
                     <div>{format!("Cursor: {}", self.input_state.cell.0)}</div>
+                    <div>{format!("Non-empty Cells: {}", self.active_buffer.cell_count())}</div>
+                    <div>{format!("Populated Chunks: {}", self.active_buffer.chunks.len())}</div>
+                    <div>{format!(
+                        "Visible Chunks: {}",
+                        self.editor_state.camera.get_visible_chunk_coords().len()
+                    )}</div>
                     <div>
                         {"Selection: "}
                         {

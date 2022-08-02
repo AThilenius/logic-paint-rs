@@ -7,7 +7,7 @@
   },
   "displayName": "Logic Paint",
   "description": "Custom editor for Logic Paint Blueprints",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "private": true,
   "license": "MIT",
   "icon": "media/logic-paint-icon.png",
