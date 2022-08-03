@@ -13,8 +13,9 @@ uniform usampler2D mask_texture_sampler;
 uniform ivec2 chunk_start_cell_offset;
 uniform vec4 n_color;
 uniform vec4 p_color;
-uniform vec3 metal_color;
 uniform vec3 active_color;
+uniform vec3 active_blend_strength_si_gate_metal;
+uniform vec3 metal_color;
 uniform vec3 grid_color;
 uniform vec3 background_color;
 uniform float grid_blend_strength;
@@ -180,10 +181,13 @@ void main() {
     bool si_active = mosfet_vertical
         ?  (tile_uv.x < 0.5 ? si_ul_active : si_dr_active)
         :  (tile_uv.y > 0.5 ? si_ul_active : si_dr_active);
+
+    vec3 stripe_stren = active_blend_strength_si_gate_metal * stripe_blend;
+
     si_color = mix(
         si_color,
         active_color,
-        si_active ? stripe_blend * 0.5 : 0.0
+        si_active ? stripe_stren.r : 0.0
     );
     float si_blend = (si_n || si_p) && si_connection ? 1.0 : 0.0;
 
@@ -191,14 +195,14 @@ void main() {
     gate_color = mix(
         gate_color,
         active_color,
-        gate_active ? stripe_blend * 0.5 : 0.0
+        gate_active ? stripe_stren.g : 0.0
     );
     float gate_blend = gate_connection ? 1.0 : 0.0;
 
     vec3 blended_metal_color = mix(
         metal_color,
         active_color,
-        metal_active ? stripe_blend * 0.5 : 0.0
+        metal_active ? stripe_stren.b : 0.0
     );
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 

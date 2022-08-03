@@ -1,4 +1,4 @@
-use wasm_bindgen::{prelude::wasm_bindgen, UnwrapThrowExt};
+use wasm_bindgen::prelude::wasm_bindgen;
 use web_sys::Element;
 use yew::prelude::*;
 

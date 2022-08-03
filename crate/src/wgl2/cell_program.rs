@@ -21,6 +21,7 @@ pub struct CellProgram {
     pub p_color: Uniform<Vec4>,
     pub metal_color: Uniform<Vec3>,
     pub active_color: Uniform<Vec3>,
+    pub active_blend_strength_si_gate_metal: Uniform<Vec3>,
     pub grid_color: Uniform<Vec3>,
     pub background_color: Uniform<Vec3>,
     pub grid_blend_strength: Uniform<f32>,
@@ -54,6 +55,8 @@ impl CellProgram {
         let p_color = Uniform::new(&ctx, &program, "p_color");
         let metal_color = Uniform::new(&ctx, &program, "metal_color");
         let active_color = Uniform::new(&ctx, &program, "active_color");
+        let active_blend_strength_si_gate_metal =
+            Uniform::new(&ctx, &program, "active_blend_strength_si_gate_metal");
         let grid_color = Uniform::new(&ctx, &program, "grid_color");
         let background_color = Uniform::new(&ctx, &program, "background_color");
         let grid_blend_strength = Uniform::new(&ctx, &program, "grid_blend_strength");
@@ -72,6 +75,7 @@ impl CellProgram {
         p_color.set(&ctx, Vec4::new(0.0, 0.87, 1.0, 1.0));
         metal_color.set(&ctx, Vec3::new(0.2, 0.2, 0.2));
         active_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
+        active_blend_strength_si_gate_metal.set(&ctx, Vec3::new(0.8, 0.8, 0.5));
         grid_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         background_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
         grid_blend_strength.set(&ctx, 0.065);
@@ -101,6 +105,7 @@ impl CellProgram {
             p_color,
             metal_color,
             active_color,
+            active_blend_strength_si_gate_metal,
             grid_color,
             background_color,
             grid_blend_strength,

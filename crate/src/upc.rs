@@ -31,11 +31,6 @@ impl UPC {
         Bit::set(self, bit, true);
     }
 
-    #[inline(always)]
-    pub fn clear_bit(&mut self, bit: Bit) {
-        Bit::set(self, bit, false);
-    }
-
     pub fn is_mosfet(&self) -> bool {
         self.get_bit(Bit::MOSFET_HORIZONTAL) || self.get_bit(Bit::MOSFET_VERTICAL)
     }
