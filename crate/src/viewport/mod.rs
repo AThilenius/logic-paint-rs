@@ -19,19 +19,22 @@ use crate::{
     coords::CellCoord,
     dom::{DomIntervalHooks, RawInput},
     modules::{ClockComponent, ConcreteModule, Module, ValueComponent},
+    upc::{NormalizedCell, Silicon},
     utils::Selection,
     viewport::{
         blueprint::Blueprint,
         brush::*,
         buffer::Buffer,
+        compiler::{Atom, CellPart},
         editor_state::{EditorState, SerdeEditorState},
         execution_context::ExecutionContext,
         input::InputState,
+        label_builder::LabelBuilder,
     },
     wgl2::RenderContext,
 };
 
-use self::label_builder::LabelBuilder;
+use self::buffer_mask::BufferMask;
 
 pub struct Viewport {
     pub editor_state: EditorState,
@@ -86,13 +89,13 @@ pub enum Mode {
     /// LMB: paint
     /// RMB || Shift+LMB: Via
     /// Ctrl+... to remove
-    PaintMetallic,
+    PaintMetallic(Option<Atom>),
 
     /// (D) Paints doped silicon
     /// LMB: paint N
     /// RMB || Shift+LMB paint P
     /// Ctrl+... to erase any type & mosfets
-    PaintSi,
+    PaintSi(Option<Atom>),
 
     /// (E) Enters execution mode
     /// (R): Run (for now just one clock per frame)
@@ -158,10 +161,19 @@ impl Viewport {
                 .as_ref()
                 .unwrap_or(&self.active_buffer);
 
-            let mask = if let Mode::Execute(execution) = &self.mode {
-                Some(&execution.context.buffer_mask)
-            } else {
-                None
+            let highlight_mask = {
+                match &self.mode {
+                    Mode::PaintSi(Some(atom)) | Mode::PaintMetallic(Some(atom)) => {
+                        let mask = BufferMask::from_highlight_trace(
+                            self.ephemeral_buffer
+                                .as_ref()
+                                .unwrap_or(&self.active_buffer),
+                            *atom,
+                        );
+                        Some(mask)
+                    }
+                    _ => None,
+                }
             };
 
             render_context
@@ -169,7 +181,11 @@ impl Viewport {
                     time,
                     buffer,
                     &self.editor_state.selection,
-                    mask,
+                    match (&highlight_mask, &self.mode) {
+                        (Some(highlight_mask), _) => Some(highlight_mask),
+                        (_, Mode::Execute(execution)) => Some(&execution.context.buffer_mask),
+                        _ => None,
+                    },
                     &self.editor_state.camera,
                 )
                 .expect("Failed to draw render context");
@@ -228,11 +244,11 @@ impl Viewport {
                 // Return so that we don't send the initial enter to the builder
                 return;
             } else if self.input_state.key_code_clicked == "KeyQ" {
-                self.mode = Mode::PaintSi;
+                self.mode = Mode::PaintSi(None);
                 self.editor_state.selection = Default::default();
                 self.mouse_follow_buffer = None;
             } else if self.input_state.key_code_clicked == "KeyW" {
-                self.mode = Mode::PaintMetallic;
+                self.mode = Mode::PaintMetallic(None);
                 self.editor_state.selection = Default::default();
                 self.mouse_follow_buffer = None;
             } else if self.input_state.key_code_clicked == "KeyE"
@@ -393,7 +409,7 @@ impl Viewport {
                     }
                 }
             }
-            Mode::PaintMetallic | Mode::PaintSi => {
+            Mode::PaintMetallic(_) | Mode::PaintSi(_) => {
                 self.dispatch_paint_input_state();
             }
             Mode::Execute(Execution { manual, context }) => {
@@ -504,8 +520,8 @@ impl Viewport {
         // from painting, so we handle it separately. These of we. The preverbal we. It's just me.
         if self.input_state.ctrl {
             match self.mode {
-                Mode::PaintMetallic => clear_metal(&mut buffer, path),
-                Mode::PaintSi => clear_si(&mut buffer, path),
+                Mode::PaintMetallic(_) => clear_metal(&mut buffer, path),
+                Mode::PaintSi(_) => clear_si(&mut buffer, path),
                 _ => {}
             }
         } else {
@@ -513,27 +529,63 @@ impl Viewport {
             // because they are so stupid-complicated.
             let mut from = None;
 
-            for cell_coord in path {
+            for cell_coord in &path {
                 match self.mode {
-                    Mode::PaintMetallic => {
+                    Mode::PaintMetallic(_) => {
                         // Primary paints metal, secondary places a Via (only once).
                         if self.input_state.primary {
-                            draw_metal(&mut buffer, from, cell_coord);
+                            draw_metal(&mut buffer, from, *cell_coord);
                         } else if self.input_state.secondary {
-                            draw_via(&mut buffer, from, cell_coord);
+                            draw_via(&mut buffer, from, *cell_coord);
                         }
                     }
-                    Mode::PaintSi => {
+                    Mode::PaintSi(_) => {
                         // Primary paints N-type, secondary paints P-type.
                         if self.input_state.primary {
-                            draw_si(&mut buffer, from, cell_coord, true);
+                            draw_si(&mut buffer, from, *cell_coord, true);
                         } else {
-                            draw_si(&mut buffer, from, cell_coord, false);
+                            draw_si(&mut buffer, from, *cell_coord, false);
                         }
                     }
                     _ => {}
                 }
-                from = Some(cell_coord);
+                from = Some(*cell_coord);
+            }
+
+            // Handle highlighting the trace as you draw.
+            match &mut self.mode {
+                Mode::PaintMetallic(atom) => {
+                    *atom = path.first().map(|c| Atom {
+                        coord: *c,
+                        part: CellPart::Metal,
+                    });
+                }
+                Mode::PaintSi(atom) => {
+                    *atom = None;
+                    if path.len() > 0 {
+                        let first = path[0];
+                        let first_cell = NormalizedCell::from(buffer.get_cell(path[0]));
+
+                        if let Silicon::NP { .. } = first_cell.si {
+                            *atom = Some(Atom {
+                                coord: first,
+                                part: CellPart::Si,
+                            });
+                        } else if path.len() > 1 {
+                            let second = path[1];
+                            let ec_up_left = first.0.x > second.0.x || first.0.y < second.0.y;
+                            *atom = Some(Atom {
+                                coord: first,
+                                part: if ec_up_left {
+                                    CellPart::EcUpLeft
+                                } else {
+                                    CellPart::EcDownRight
+                                },
+                            });
+                        }
+                    }
+                }
+                _ => {}
             }
         }
 
@@ -713,8 +765,8 @@ impl Component for Viewport {
             {
                 match &self.mode {
                     Mode::Visual => html!(<span style="color: darkgreen;">{"Visual"}</span>),
-                    Mode::PaintMetallic => html!(<span style="color: gray;">{"Metal"}</span>),
-                    Mode::PaintSi => html!(<span style="color: rgb(255, 0, 255);">{
+                    Mode::PaintMetallic(_) => html!(<span style="color: gray;">{"Metal"}</span>),
+                    Mode::PaintSi(_) => html!(<span style="color: rgb(255, 0, 255);">{
                         "Silicon"
                     }</span>),
                     Mode::Execute(Execution { manual, context }) => {
@@ -767,7 +819,7 @@ impl Component for Viewport {
                             } else {
                                 match self.mode {
                                     Mode::Visual => "cell",
-                                    Mode::PaintMetallic | Mode::PaintSi => "crosshair",
+                                    Mode::PaintMetallic(_) | Mode::PaintSi(_) => "crosshair",
                                     Mode::Execute(..) | Mode::ModuleEdit(None) => "default",
                                     Mode::Label(..) | Mode::ModuleEdit(Some(..)) => "copy",
                                 }
@@ -793,13 +845,37 @@ impl Component for Viewport {
                                 "None".to_owned()
                             } else {
                                 format!(
-                                    "{} -> {}",
+                                    "{} -> {} ({})",
                                     self.editor_state.selection.lower_left.0,
-                                    self.editor_state.selection.upper_right.0
+                                    self.editor_state.selection.upper_right.0,
+                                    self.editor_state.selection.upper_right.0 -
+                                    self.editor_state.selection.lower_left.0,
                                 )
                             }
                         }
                     </div>
+                    {
+                        if let Mode::Execute(execution_context) = &self.mode {
+                            html! {
+                                <>
+                                    <div>
+                                    {format!(
+                                        "Gates: {}",
+                                        execution_context.context.compiler_results.gates.len()
+                                    )}
+                                    </div>
+                                    <div>
+                                    {format!(
+                                        "Traces: {}",
+                                        execution_context.context.compiler_results.traces.len()
+                                    )}
+                                    </div>
+                                </>
+                            }
+                        } else {
+                            html!()
+                        }
+                    }
                 </div>
                 {
                     if allow_module_pointer_events {

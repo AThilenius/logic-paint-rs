@@ -15,7 +15,7 @@ pub struct ExecutionContext {
     pub buffer_mask: BufferMask,
     pub state: SimState,
     pub is_mid_clock_cycle: bool,
-    compiler_results: CompilerResults,
+    pub compiler_results: CompilerResults,
     first_tick: bool,
 }
 

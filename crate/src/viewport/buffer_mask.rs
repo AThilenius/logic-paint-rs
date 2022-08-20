@@ -1,6 +1,12 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use crate::coords::{ChunkCoord, CHUNK_SIZE};
+use crate::{
+    coords::{ChunkCoord, LocalCoord, CHUNK_SIZE},
+    viewport::{
+        compiler::{Atom, CellPart, CompilerResults},
+        Buffer,
+    },
+};
 
 /// Number of bytes used per cell in a BufferMask
 pub const MASK_BYTE_LEN: usize = 4;
@@ -15,6 +21,27 @@ pub struct BufferMask {
 
 #[allow(dead_code)]
 impl BufferMask {
+    pub fn from_highlight_trace(buffer: &Buffer, atom: Atom) -> BufferMask {
+        let mut buffer_mask = BufferMask::default();
+        let trace = CompilerResults::get_trace_atoms(buffer, atom);
+
+        for atom in trace {
+            let chunk_coord: ChunkCoord = atom.coord.into();
+            let local_coord: LocalCoord = atom.coord.into();
+
+            let chunk = buffer_mask.get_or_create_chunk_mut(chunk_coord);
+            let i = local_coord.to_upc_idx();
+            match atom.part {
+                CellPart::Metal => chunk.cells[i + 0] = 1,
+                CellPart::Si => chunk.cells[i + 1] = 1,
+                CellPart::EcUpLeft => chunk.cells[i + 2] = 1,
+                CellPart::EcDownRight => chunk.cells[i + 3] = 1,
+            }
+        }
+
+        buffer_mask
+    }
+
     pub fn get_chunk<T>(&self, c: T) -> Option<&BufferMaskChunk>
     where
         T: Into<ChunkCoord>,
