@@ -18,7 +18,7 @@ use yew::prelude::*;
 use crate::{
     coords::CellCoord,
     dom::{DomIntervalHooks, RawInput},
-    modules::{ClockComponent, ConcreteModule, Module, ValueComponent},
+    modules::{ClockComponent, ConcreteModule, MemoryComponent, Module, ValueComponent},
     upc::{NormalizedCell, Silicon},
     utils::Selection,
     viewport::{
@@ -466,7 +466,10 @@ impl Viewport {
                         Some(ConcreteModule::Clock(_)) => {
                             Some(ConcreteModule::Value(Default::default()))
                         }
-                        Some(ConcreteModule::Value(_)) => None,
+                        Some(ConcreteModule::Value(_)) => {
+                            Some(ConcreteModule::Memory(Default::default()))
+                        }
+                        Some(ConcreteModule::Memory(_)) => None,
                         None => Some(ConcreteModule::Clock(Default::default())),
                     };
 
@@ -757,6 +760,18 @@ impl Component for Viewport {
                         />
                     }
                 }
+                ConcreteModule::Memory(module) => {
+                    let root = module.get_root();
+                    html! {
+                        <MemoryComponent
+                            key={u64::from(root)}
+                            {module}
+                            camera={self.editor_state.camera.clone()}
+                            update_self={ctx.link().callback(Msg::SetModule)}
+                            edit_mode={matches!(self.mode, Mode::ModuleEdit(..))}
+                        />
+                    }
+                }
             })
             .collect::<Html>();
 
@@ -790,6 +805,7 @@ impl Component for Viewport {
                             format!("Module [{}]", match module {
                                 ConcreteModule::Clock(_) => "Clock",
                                 ConcreteModule::Value(_) => "Value",
+                                ConcreteModule::Memory(_) => "Memory",
                             })
                         }
                         </span>
