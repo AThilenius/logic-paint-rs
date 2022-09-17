@@ -19,7 +19,7 @@ use crate::{
     coords::CellCoord,
     dom::{DomIntervalHooks, RawInput},
     modules::{ClockComponent, ConcreteModule, MemoryComponent, Module, ValueComponent},
-    upc::{NormalizedCell, Silicon},
+    upc::{Metal, NormalizedCell, Placement, Silicon, UPC},
     utils::Selection,
     viewport::{
         blueprint::Blueprint,
@@ -64,7 +64,7 @@ pub enum Msg {
     },
     SetBlueprint(Blueprint),
     SetEditorState(EditorState),
-    SetClipboard(Blueprint),
+    SetClipboard(String),
     RawInput(RawInput),
     Render(f64),
     SetFocus(bool),
@@ -668,11 +668,124 @@ impl Component for Viewport {
             Msg::SetEditorState(editor_state) => {
                 self.editor_state = editor_state;
             }
-            Msg::SetClipboard(blueprint) => {
-                let buffer: Buffer = blueprint.into();
-                self.mode = Mode::Visual;
-                self.mouse_follow_buffer = Some(buffer.clone());
-                self.editor_state.registers.insert("*".to_owned(), buffer);
+            Msg::SetClipboard(data) => {
+                if let Ok(blueprint) = serde_json::from_str::<Blueprint>(&data) {
+                    let buffer: Buffer = blueprint.into();
+                    self.mode = Mode::Visual;
+                    self.mouse_follow_buffer = Some(buffer.clone());
+                    self.editor_state.registers.insert("*".to_owned(), buffer);
+                } else {
+                    // TODO: this is a total hack
+                    // Try to deserialize it as ROM data.
+                    if data
+                        .lines()
+                        .all(|line| line.chars().all(|char| char == '0' || char == '1'))
+                    {
+                        let mut buffer = Buffer::default();
+                        let height = data.lines().count() as i32;
+                        let width = data.lines().nth(0).unwrap().len() as i32;
+
+                        for y in 0..((height / 2) + 1) {
+                            for x in 0..width + 1 {
+                                brush::draw_si(
+                                    &mut buffer,
+                                    if x == 0 {
+                                        None
+                                    } else {
+                                        Some((x - 1, -y * 4).into())
+                                    },
+                                    (x, -y * 4).into(),
+                                    true,
+                                );
+                            }
+                        }
+
+                        let unconnected: UPC = NormalizedCell {
+                            metal: Metal::Trace {
+                                has_via: true,
+                                placement: Placement::CENTER,
+                            },
+                            si: Silicon::NP {
+                                is_n: true,
+                                placement: Placement::CENTER,
+                            },
+                        }
+                        .into();
+
+                        for y in 0..(height / 2) {
+                            for x in 0..width {
+                                buffer
+                                    .set_cell(CellCoord(IVec2::new(x, (-y * 4) - 2)), unconnected);
+                            }
+                        }
+
+                        for (y, line) in data.lines().enumerate() {
+                            for (x, char) in line.chars().enumerate() {
+                                let c_y = -(y as i32 * 2) - 1;
+                                if char == '1' {
+                                    brush::draw_si(
+                                        &mut buffer,
+                                        Some(CellCoord(IVec2::new(x as i32, c_y - 1))),
+                                        CellCoord(IVec2::new(x as i32, c_y)),
+                                        true,
+                                    );
+                                    brush::draw_si(
+                                        &mut buffer,
+                                        Some(CellCoord(IVec2::new(x as i32, c_y))),
+                                        CellCoord(IVec2::new(x as i32, c_y + 1)),
+                                        true,
+                                    );
+                                }
+                            }
+                        }
+
+                        for y in 0..height {
+                            for x in -1..width + 1 {
+                                brush::draw_si(
+                                    &mut buffer,
+                                    if x == -1 {
+                                        None
+                                    } else {
+                                        Some(CellCoord(IVec2::new(x - 1, -y * 2 - 1)))
+                                    },
+                                    CellCoord(IVec2::new(x, -y * 2 - 1)),
+                                    false,
+                                );
+                            }
+                        }
+
+                        for x in 0..width {
+                            for y in -1..height * 2 + 1 {
+                                brush::draw_metal(
+                                    &mut buffer,
+                                    if y == -1 {
+                                        None
+                                    } else {
+                                        Some(CellCoord(IVec2::new(x, -y + 1)))
+                                    },
+                                    CellCoord(IVec2::new(x, -y)),
+                                );
+                            }
+                        }
+
+                        // Trim the edges (leaving inner cells connected past their bounds)
+                        for x in -1..width + 1 {
+                            buffer.set_cell(CellCoord(IVec2::new(x, 1)), Default::default());
+                            buffer.set_cell(
+                                CellCoord(IVec2::new(x, -height * 2)),
+                                Default::default(),
+                            );
+                        }
+
+                        for y in -1..height * 2 + 1 {
+                            buffer.set_cell(CellCoord(IVec2::new(-1, -y)), Default::default());
+                            buffer.set_cell(CellCoord(IVec2::new(width, -y)), Default::default());
+                        }
+
+                        self.mode = Mode::Visual;
+                        self.mouse_follow_buffer = Some(buffer);
+                    }
+                }
             }
             Msg::Render(time) => {
                 self.draw(time);

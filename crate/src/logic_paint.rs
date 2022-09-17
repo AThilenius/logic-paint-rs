@@ -36,13 +36,9 @@ impl LogicPaint {
     }
 
     pub fn set_clipboard(&mut self, data: &str) -> Option<String> {
-        if let Ok(blueprint) = serde_json::from_str::<Blueprint>(data) {
-            self.handle
-                .send_message(YewViewportMsg::SetClipboard(blueprint));
-            None
-        } else {
-            Some("Failed to deserialize JSON, or structure is invalid.".to_owned())
-        }
+        self.handle
+            .send_message(YewViewportMsg::SetClipboard(data.to_owned()));
+        None
     }
 
     pub fn set_blueprint_from_json_string(&mut self, data: &str) -> Option<String> {
