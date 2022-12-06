@@ -1,9 +1,12 @@
 # Logic Paint
 
-> Inspired by Zachtronic's KOHCTPYKTOP, Logic Paint allows you to edit and
-> simulate transistors, at scale.
+Inspired by Zachtronic's KOHCTPYKTOP, Logic Paint allows you to edit and
+simulate transistors, at scale.
 
-![Register File](misc/screenshots/logic-paint-register-file.png)
+![Register File](misc/screenshots/logic-paint-cpu.png)
+
+_A 16-bit micro-coded CPU I built based in Logic Paint, on the LC-3B
+micro-architecture._
 
 # Getting Started
 
