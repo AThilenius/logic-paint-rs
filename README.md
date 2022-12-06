@@ -3,7 +3,7 @@
 > Inspired by Zachtronic's KOHCTPYKTOP, Logic Paint allows you to edit and
 > simulate transistors, at scale.
 
-![Register File](../misc/screenshots/logic-paint-register-file.png)
+![Register File](misc/screenshots/logic-paint-register-file.png)
 
 # Getting Started
 
