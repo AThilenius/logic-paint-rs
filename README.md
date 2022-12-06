@@ -7,10 +7,11 @@
 
 # Getting Started
 
-Install this VSCode extension and create a file with a `.lpbp` extension. Logic
-Paint uses a modal editor (like VIM). It is very powerful but does have a
-learning curve. Start by placing a module (see below) and drawing some N/P type
-silicon
+Install the [Logic Paint VSCode
+extension](https://marketplace.visualstudio.com/items?itemName=athilenius.logic-paint)
+and create a file with a `.lpbp` extension. Logic Paint uses a modal editor
+(like VIM). It is very powerful but does have a learning curve. Start by placing
+a module (see below) and drawing some N/P type silicon
 
 # Standard Controls
 
