@@ -1,0 +1,58 @@
+[package]
+name = "crate"
+version = "0.1.0"
+authors = ["Alec Thilenius <alec@thilenius.com>"]
+description = "A logic simulation library written in Rust, inspired by KOHCTPYKTOP."
+license = "MIT/Apache-2.0"
+repository = "https://gitlab.com/athilenius/logic-paint-rs"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+arrayvec = { version = "0.7.1", features = ["serde"] }
+base64 = "0.13.0"
+bincode = "1.3.1"
+console_error_panic_hook = { version = "0.1.6", optional = true }
+eframe = { version = "0.22.0", default-features = false, features = [ "default_fonts", "glow" ] }
+egui = "0.22.0"
+enum_dispatch = "0.3"
+futures = "0.3.17"
+generational-arena = "0.2.8"
+glam = { version = "0.21", features = ["serde", "bytemuck"] }
+gloo = "0.8.0"
+im = { version = "15.1", features = ["serde"] }
+itertools = "0.10.3"
+js-sys = "0.3.55"
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4.28"
+yew = "0.19.3"
+
+[dependencies.web-sys]
+version = "0.3.55"
+features = [
+  "Document",
+  "Element",
+  "HtmlCanvasElement",
+  "KeyboardEvent",
+  "MessageChannel",
+  "MessagePort",
+  "MouseEvent",
+  "Storage",
+  "WebGl2RenderingContext",
+  "WebGlBuffer",
+  "WebGlProgram",
+  "WebGlShader",
+  "WebGlTexture",
+  "WebGlUniformLocation",
+  "WebGlVertexArrayObject",
+  "WheelEvent",
+  "Window",
+  "console",
+]
