@@ -3,8 +3,9 @@
   "name": "@athilenius/logic-paint-dev-server",
   "version": "0.1.0",
   "scripts": {
-    "wasm": "wasm-pack build ../crate --target web --dev",
-    "build": "wasm-pack build ../crate --target web && vite build"
+    "wasm": "wasm-pack build ../crate --target web",
+    "build": "wasm-pack build ../crate --target web && vite build",
+    "dev": "vite"
   },
   "devDependencies": {
     "tslib": "^2.4.0",

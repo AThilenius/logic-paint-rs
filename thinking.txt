@@ -1,0 +1,56 @@
+Move it all over to the web, bayyybeee.
+
+I think the "best" way to go about this is to wrap all the WASM in JS, and
+handle website building from boring React. That also means I can use something
+pedestrian like PocketBase to handle DB, auth, et. al.
+
+So we'll have the Rust Crate which handles everything it normally does as of
+today. I'll have it directly hook as much of the DOM as it can (like clipboard
+access) so keep the JS surface area as small as I can.
+
+- Rust Crate
+  - Handles all the stuff it does today, plus automatic DOM hooks
+- JS Lib
+  - Wraps the Rust Crate in a pure-JS library
+- React lib
+  - Wraps the JS lib in React components
+- Site
+  - The logic-paint.com site.
+
+Rust Core Modifications
+  - Use egui for all UI. This is the big one.
+  - Handle directly binding the DOM for events like clipboard access.
+  - Stretch-goal: create a read-only mode
+  - Use atlas texture rendering to reduce draw calls
+  - Modules should be plugin based
+    - Use https://extism.org/ for the host/client interface, it looks promising
+    - Modules are registered by UUID, and can serialize what ever data they want
+    - Performance test this
+    - Just like there were before, they have a 'root' and N "pins" which contact
+      the metal layer.
+    - Might need to extend egui to handle the serialization layer. Should be
+      possible, their docs for 'implementing a backend' were pretty
+      straightforward. Capturing I/O might be a bit more tricky, but we'll see.
+
+General serialization strategy:
+  - Blueprints contain
+    - Chunk versions: (chunk_x, chunk_y, content_hash_xxh3)
+      - Chunk content is stored RLN, as a Base64.
+      - Content hash is made on the binary data before the Base64 encoding.
+    - Modules: (cell_root_x, cell_root_y, module_hash_xxh3)
+      - Module serialization is up to the module itself, any textual serializer
+        is acceptable.
+  - All hashes are XXH3 (128-bit) from https://github.com/DoumanAsh/xxhash-rust
+
+The JS lib needs to support
+  - Create a LogicPaintCanvas from an HTMLCanvas element. Hosts exactly one
+    Blueprint. Multi-panel can be supported with multiple instances, synced in
+    JS or via internet.
+  - Set it in preview (readonly) mode.
+  - Clearing of a Blueprint (resets the LogicPaintCanvas)
+  - Both overwrite and (stretch goal) additive setting of a Blueprint
+    - In overwrite mode any chunk provided in the Blueprint fully overwrites the
+      previous chunk.
+    - Stretch goal: in additive mode, it works the same way pasting does, where
+      only non-empty cells are added to each chunk
+  - Provide a hook for saving an update to the Blueprint
