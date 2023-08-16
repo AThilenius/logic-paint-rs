@@ -1,12 +1,27 @@
-Move it all over to the web, bayyybeee.
+Dev:
 
-I think the "best" way to go about this is to wrap all the WASM in JS, and
-handle website building from boring React. That also means I can use something
-pedestrian like PocketBase to handle DB, auth, et. al.
+In js-sys:
+npm run wasm
+npm run dev
 
-So we'll have the Rust Crate which handles everything it normally does as of
-today. I'll have it directly hook as much of the DOM as it can (like clipboard
-access) so keep the JS surface area as small as I can.
+Re-run `npm run wasm` to rebuild Rust `core`.
+
+
+Overview:
+  - Rust code is exclusively rendering, it has to be fed data and I/O events
+    manually. These include mouse input, keyboard, having blueprint updates,
+    clipboard operations, camera controls, and so on. That'll keep the WASM
+    teeny-tiny, which will allow me to use it directly for thumbnail previews.
+  - Might also be worth splitting out rendering from the primary logic, but
+    statically compile them together. This will make headless exploration of
+    blueprints much easier in the future. It might also make extension-based
+    modules/tool easier too.
+  - Modules and ideally tools should be extension based, running in their own
+    WASM modules. I might want to make this a stretch goal though.
+  - WASM gets wrapped in a "low-level" TS module which handles basic I/O and
+    canvas creation / resizing. It's an imperative API, not tied to any
+    rendering framework like Svelte/React.
+
 
 - Rust Crate
   - Handles all the stuff it does today, plus automatic DOM hooks
@@ -23,7 +38,8 @@ Rust Core Modifications
   - Stretch-goal: create a read-only mode
   - Use atlas texture rendering to reduce draw calls
   - Modules should be plugin based
-    - Use https://extism.org/ for the host/client interface, it looks promising
+    - Use Wasm Bindgen directly, like this:
+      https://rustwasm.github.io/wasm-bindgen/examples/wasm-in-wasm.html
     - Modules are registered by UUID, and can serialize what ever data they want
     - Performance test this
     - Just like there were before, they have a 'root' and N "pins" which contact
@@ -54,3 +70,8 @@ The JS lib needs to support
     - Stretch goal: in additive mode, it works the same way pasting does, where
       only non-empty cells are added to each chunk
   - Provide a hook for saving an update to the Blueprint
+
+Site
+  - Use PocketBase and Svelte!
+  - Blueprints can be stored directly in PocketBase, as B64 strings
+  - Use Google and Github for logins

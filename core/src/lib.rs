@@ -8,6 +8,13 @@ mod utils;
 mod viewport;
 mod wgl2;
 
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[wasm_bindgen]
+pub fn say_hello() {
+    log!("Hello, from Rust V2!");
+}
+
 // use wasm_bindgen::prelude::*;
 
 // #[wasm_bindgen(start)]

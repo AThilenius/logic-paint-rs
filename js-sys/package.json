@@ -1,0 +1,28 @@
+{
+  "name": "js-sys",
+  "version": "1.0.0",
+  "description": "The low-level JS wrapper around the Rust WASM logic-paint core",
+  "license": "MIT",
+  "homepage": "https://gitlab.com/athilenius/logic-paint-rs#readme",
+  "author": {
+    "name": "Alec Thilenius",
+    "email": "alec@thilenius.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitlab.com/athilenius/logic-paint-rs.git"
+  },
+  "scripts": {
+    "wasm": "wasm-pack build ../core --target web --release",
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "prettier": "^3.0.2",
+    "tslib": "^2.6.1",
+    "typescript": "^5.1.6",
+    "vite": "^4.4.9",
+    "vite-plugin-wasm-pack": "^0.1.12"
+  }
+}

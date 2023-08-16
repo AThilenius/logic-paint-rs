@@ -335,6 +335,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "base64",
+ "bincode",
+ "console_error_panic_hook",
+ "eframe",
+ "egui",
+ "enum_dispatch",
+ "futures",
+ "generational-arena",
+ "glam",
+ "gloo 0.8.0",
+ "im",
+ "itertools",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "yew",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -372,32 +398,6 @@ dependencies = [
  "bitflags",
  "core-foundation",
  "libc",
-]
-
-[[package]]
-name = "crate"
-version = "0.1.0"
-dependencies = [
- "arrayvec",
- "base64",
- "bincode",
- "console_error_panic_hook",
- "eframe",
- "egui",
- "enum_dispatch",
- "futures",
- "generational-arena",
- "glam",
- "gloo 0.8.0",
- "im",
- "itertools",
- "js-sys",
- "serde",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "yew",
 ]
 
 [[package]]

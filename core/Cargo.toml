@@ -1,5 +1,5 @@
 [package]
-name = "crate"
+name = "core"
 version = "0.1.0"
 authors = ["Alec Thilenius <alec@thilenius.com>"]
 description = "A logic simulation library written in Rust, inspired by KOHCTPYKTOP."
