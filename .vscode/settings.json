@@ -32,6 +32,7 @@
     "impls",
     "itertools",
     "ivec",
+    "keybinds",
     "keydown",
     "keyup",
     "lightgray",
@@ -98,4 +99,5 @@
   "rust-analyzer.check.noDefaultFeatures": true,
   "rust-analyzer.cargo.noDefaultFeatures": true,
   "rust-analyzer.cargo.target": "wasm32-unknown-unknown",
+  "rust-analyzer.showUnlinkedFileNotification": false,
 }
