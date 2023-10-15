@@ -84,22 +84,16 @@ impl<'a> LayoutNode<'a> {
         // Allow the node itself to use that value to compute it's own min size.
         self.min_size = self.node.min_content_size(&self.layout, children_min_size);
 
-        // Then finally add in margin, padding and border.
-        self.min_size = self.min_size
-            + self.layout.margin.sum()
-            + self.layout.padding.sum()
-            + self.layout.border.size.sum();
+        // Then finally add in margin and padding.
+        self.min_size = self.min_size + self.layout.margin.sum() + self.layout.padding.sum();
     }
 
     // Called AFTER compute_min_size, using the min_size to layout children in the correct position.
     fn layout_children(&mut self) {
         let column = self.layout.alignment == Alignment::Column;
 
-        // Margin, padding and border are subtracted from the available working area.
-        let working_area = self.rect.size
-            - self.layout.margin.sum()
-            - self.layout.padding.sum()
-            - self.layout.border.size.sum();
+        // Margin and padding are subtracted from the available working area.
+        let working_area = self.rect.size - self.layout.margin.sum() - self.layout.padding.sum();
 
         // We need to individually gather the min size for both fixed/auto children, and weighted
         // children. The min size for fixed/auto children is first subtracted from the working area,
@@ -172,8 +166,7 @@ impl<'a> LayoutNode<'a> {
             }
         }
 
-        let content_rect =
-            self.rect - self.layout.margin - self.layout.padding - self.layout.border.size;
+        let content_rect = self.rect - self.layout.margin - self.layout.padding;
         let mut cursor = content_rect.origin;
 
         for child in &mut self.children {
@@ -260,34 +253,6 @@ impl<'a> LayoutNode<'a> {
     }
 
     fn draw(&mut self, ctx: &CanvasRenderingContext2d) {
-        // Draw the background and border first.
-        ctx.set_stroke_style(
-            &format!(
-                "1px rgba({}, {}, {}, {})",
-                self.layout.border.color.r,
-                self.layout.border.color.g,
-                self.layout.border.color.b,
-                self.layout.border.color.a,
-            )
-            .into(),
-        );
-        ctx.stroke_rect(
-            self.rect.origin.left as f64,
-            self.rect.origin.top as f64,
-            self.rect.size.width as f64,
-            self.rect.size.height as f64,
-        );
-
-        if let Some(bg) = self.layout.background {
-            ctx.set_fill_style(&format!("rgba({}, {}, {}, {})", bg.r, bg.g, bg.b, bg.a).into());
-            ctx.fill_rect(
-                self.rect.origin.left as f64,
-                self.rect.origin.top as f64,
-                self.rect.size.width as f64,
-                self.rect.size.height as f64,
-            );
-        }
-
         self.node.draw(self.rect, ctx);
 
         // Then draw children

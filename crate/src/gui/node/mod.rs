@@ -2,6 +2,12 @@ use web_sys::CanvasRenderingContext2d;
 
 use crate::gui::types::{Layout, Length, Rect, Size};
 
+pub mod el;
+pub mod styled_el;
+
+pub use el::*;
+pub use styled_el::*;
+
 pub trait Node {
     fn layout(&self) -> Layout {
         Layout::default()

@@ -14,12 +14,12 @@ impl std::ops::Sub<BoxSize> for Rect {
     fn sub(self, rhs: BoxSize) -> Self::Output {
         Self {
             origin: Point {
-                top: self.origin.top + rhs.top,
-                left: self.origin.left + rhs.left,
+                top: self.origin.top + rhs.top(),
+                left: self.origin.left + rhs.left(),
             },
             size: Size {
-                width: self.size.width - rhs.left - rhs.right,
-                height: self.size.height - rhs.top - rhs.bottom,
+                width: self.size.width - rhs.left() - rhs.right(),
+                height: self.size.height - rhs.top() - rhs.bottom(),
             },
         }
     }

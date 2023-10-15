@@ -8,119 +8,141 @@ pub use types::*;
 
 use web_sys::CanvasRenderingContext2d;
 
+use node::El;
+
 pub struct DemoUi {
-    root: Element,
+    root: El,
 }
 
 impl DemoUi {
     pub fn new() -> Self {
         Self {
-            root: Element {
+            root: El {
                 layout: Layout {
-                    background: Some(Color::RED),
                     alignment: Alignment::Row,
                     // Width and height are set each frame.
                     ..Default::default()
                 },
                 children: vec![
                     // Left panel
-                    Box::new(Element {
+                    Box::new(StyledEl {
+                        background: Background::Color(Color::GREEN),
                         layout: Layout {
-                            background: Some(Color::GREEN),
                             width: Length::Pixels(100.0),
                             height: Length::Weighted(1.0),
                             ..Default::default()
                         },
                         children: vec![
                             // First row of the left panel.
-                            Box::new(Element {
+                            Box::new(StyledEl {
+                                background: Background::Color(Color::CYAN),
                                 layout: Layout {
-                                    background: Some(Color::CYAN),
                                     alignment: Alignment::Row,
                                     width: Length::Weighted(1.0),
                                     ..Default::default()
                                 },
                                 // Three equally weighted elements in a row.
                                 children: vec![
-                                    Box::new(Element {
+                                    Box::new(StyledEl {
+                                        background: Background::Color(Color::MAGENTA),
                                         layout: Layout {
-                                            background: Some(Color::MAGENTA),
                                             width: Length::Weighted(1.0),
                                             height: Length::Pixels(20.0),
                                             ..Default::default()
                                         },
                                         children: vec![],
+                                        ..Default::default()
                                     }),
-                                    Box::new(Element {
+                                    Box::new(StyledEl {
+                                        background: Background::Color(Color::PINK),
                                         layout: Layout {
-                                            background: Some(Color::PINK),
                                             width: Length::Weighted(1.0),
                                             height: Length::Pixels(40.0),
                                             ..Default::default()
                                         },
                                         children: vec![],
+                                        ..Default::default()
                                     }),
-                                    Box::new(Element {
+                                    Box::new(StyledEl {
+                                        background: Background::Color(Color::GOLD),
                                         layout: Layout {
-                                            background: Some(Color::GOLD),
                                             width: Length::Weighted(1.0),
                                             ..Default::default()
                                         },
                                         children: vec![
                                             // Three vertically stacked elements, each with a height
                                             // of 30 pixels.
-                                            Box::new(Element {
+                                            Box::new(StyledEl {
+                                                background: Background::Color(Color::RED),
+                                                border: Some(Border {
+                                                    size: BoxSize::Uniform(1.0),
+                                                    color: Color::WHITE,
+                                                    ..Default::default()
+                                                }),
                                                 layout: Layout {
-                                                    background: Some(Color::RED),
                                                     width: Length::Weighted(1.0),
                                                     height: Length::Pixels(30.0),
                                                     ..Default::default()
                                                 },
                                                 children: vec![],
+                                                ..Default::default()
                                             }),
-                                            Box::new(Element {
+                                            Box::new(StyledEl {
+                                                background: Background::Color(Color::GREEN),
                                                 layout: Layout {
-                                                    background: Some(Color::GREEN),
                                                     width: Length::Weighted(1.0),
                                                     height: Length::Pixels(30.0),
                                                     ..Default::default()
                                                 },
                                                 children: vec![],
+                                                ..Default::default()
                                             }),
-                                            Box::new(Element {
+                                            Box::new(StyledEl {
+                                                background: Background::Color(Color::BLUE),
+                                                border: Some(Border {
+                                                    radius: BorderRadius::Uniform(20.0),
+                                                    size: BoxSize::Uniform(2.0),
+                                                    color: Color::WHITE,
+                                                    ..Default::default()
+                                                }),
                                                 layout: Layout {
-                                                    background: Some(Color::BLUE),
                                                     width: Length::Weighted(1.0),
                                                     height: Length::Pixels(30.0),
                                                     ..Default::default()
                                                 },
                                                 children: vec![],
+                                                ..Default::default()
                                             }),
                                         ],
+                                        ..Default::default()
                                     }),
                                 ],
+                                ..Default::default()
                             }),
                         ],
+                        ..Default::default()
                     }),
                     // Center panel
-                    Box::new(Element {
+                    Box::new(StyledEl {
+                        background: Background::Color(Color::YELLOW),
                         layout: Layout {
-                            background: Some(Color::YELLOW),
                             width: Length::Weighted(1.0),
                             height: Length::Weighted(1.0),
                             ..Default::default()
                         },
                         children: vec![],
+                        ..Default::default()
                     }),
                     // Right panel
-                    Box::new(Element {
+                    Box::new(StyledEl {
+                        background: Background::Color(Color::ORANGE),
                         layout: Layout {
-                            background: Some(Color::ORANGE),
                             width: Length::Pixels(100.0),
                             height: Length::Weighted(1.0),
                             ..Default::default()
                         },
                         children: vec![],
+                        ..Default::default()
                     }),
                 ],
             },
@@ -150,20 +172,5 @@ impl DemoUi {
             size: Size { width, height },
         };
         layout.layout_and_draw(ctx);
-    }
-}
-
-struct Element {
-    layout: Layout,
-    children: Vec<Box<dyn Node>>,
-}
-
-impl Node for Element {
-    fn layout(&self) -> Layout {
-        self.layout
-    }
-
-    fn children(&self) -> Vec<&dyn Node> {
-        self.children.iter().map(|c| c.as_ref()).collect()
     }
 }

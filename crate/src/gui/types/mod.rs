@@ -1,4 +1,5 @@
 pub mod alignment;
+pub mod background;
 pub mod border;
 pub mod box_size;
 pub mod color;
@@ -10,6 +11,7 @@ pub mod rect;
 pub mod size;
 
 pub use alignment::*;
+pub use background::*;
 pub use border::*;
 pub use box_size::*;
 pub use color::*;
