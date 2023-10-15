@@ -1,0 +1,28 @@
+{
+  "name": "@athilenius/logic-paint-web",
+  "version": "0.0.1",
+  "description": "The host website for logic-paint.com",
+  "license": "MIT",
+  "homepage": "https://gitlab.com/athilenius/logic-paint-rs#readme",
+  "author": {
+    "name": "Alec Thilenius",
+    "email": "alec@thilenius.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitlab.com/athilenius/logic-paint-rs.git"
+  },
+  "scripts": {
+    "wasm": "wasm-pack build ../crate --target web --dev",
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.6",
+    "prettier": "^3.0.3",
+    "tslib": "^2.6.2",
+    "typescript": "^5.2.2",
+    "vite": "^4.4.11",
+    "vite-plugin-wasm-pack": "^0.1.12"
+  }
+}
