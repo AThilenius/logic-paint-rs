@@ -1,6 +1,11 @@
-mod sizing;
+mod layout_node;
+pub mod node;
+pub mod types;
 
-pub use sizing::*;
+pub use layout_node::*;
+pub use node::*;
+pub use types::*;
+
 use web_sys::CanvasRenderingContext2d;
 
 pub struct DemoUi {
@@ -138,11 +143,11 @@ impl DemoUi {
         // Layout and render the UI
         let mut layout = LayoutNode::new(&self.root);
         layout.rect = Rect {
-            origin: Point2D {
+            origin: Point {
                 left: 0.0,
                 top: 0.0,
             },
-            size: Size2D { width, height },
+            size: Size { width, height },
         };
         layout.layout_and_draw(ctx);
     }

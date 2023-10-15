@@ -33,8 +33,6 @@ pub fn spawn(parent: HtmlElement) -> Result<(), JsValue> {
 
     wasm_bindgen_futures::spawn_local(run(parent, event_loop, window, ui_ctx));
 
-    log!("Event loop exited?");
-
     Ok(())
 }
 
