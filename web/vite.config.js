@@ -3,11 +3,11 @@ import { defineConfig } from "vite";
 import wasmPack from "vite-plugin-wasm-pack";
 
 export default defineConfig({
-  plugins: [wasmPack("../crate")],
+  plugins: [wasmPack("../core")],
   resolve: { alias: { "~": resolve(__dirname, "./src") } },
   build: {
     watch: {
-      include: ["../crate/pkg/**/*"],
+      include: ["../core/pkg/**/*"],
     },
   },
 });

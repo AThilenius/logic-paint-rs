@@ -1,9 +1,18 @@
 /// Entry point for the dev site, used to develop/test the library.
-import init, { spawn } from "crate";
+import init, { Host } from "core";
 
 async function main() {
   await init();
-  spawn(document.getElementById("canvas-container")!);
+  const host = Host.from_parent_element(
+    document.getElementById("canvas-container")!
+  );
+
+  const frame = () => {
+    host.frame();
+    requestAnimationFrame(frame);
+  };
+
+  requestAnimationFrame(frame);
 }
 
 main();

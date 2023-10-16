@@ -13,7 +13,7 @@
     "url": "git+https://gitlab.com/athilenius/logic-paint-rs.git"
   },
   "scripts": {
-    "wasm": "wasm-pack build ../crate --target web --dev",
+    "wasm": "wasm-pack build ../core --target web --dev",
     "build": "vite build",
     "dev": "vite"
   },
