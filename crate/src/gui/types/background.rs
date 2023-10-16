@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
 use web_sys::CanvasRenderingContext2d;
 
 use crate::gui::types::{Border, BorderRadius, Color, Rect};
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum Background {
     None,
     Color(Color),

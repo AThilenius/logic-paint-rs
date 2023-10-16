@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::JsValue;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Color {
@@ -50,5 +51,9 @@ impl Color {
 
     pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
+    }
+
+    pub fn to_canvas_string(&self) -> JsValue {
+        format!("rgba({}, {}, {}, {})", self.r, self.g, self.b, self.a).into()
     }
 }

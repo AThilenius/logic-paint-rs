@@ -8,7 +8,9 @@ pub mod len;
 pub mod point;
 pub mod position;
 pub mod rect;
+pub mod render_op;
 pub mod size;
+pub mod text;
 
 pub use alignment::*;
 pub use background::*;
@@ -20,4 +22,6 @@ pub use len::*;
 pub use point::*;
 pub use position::*;
 pub use rect::*;
+pub use render_op::*;
 pub use size::*;
+pub use text::*;

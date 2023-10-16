@@ -7,7 +7,6 @@ use crate::gui::{
 };
 
 pub struct Node {
-    pub initialized: bool,
     pub layout: Layout,
     pub children: Vec<Node>,
     pub widget: Box<dyn Widget>,
@@ -58,11 +57,11 @@ impl Node {
         self
     }
 
-    pub fn prepare(&mut self, size: Size, ctx: CanvasRenderingContext2d) {
+    pub fn prepare(&mut self, size: Size) {
         self.layout.width = Len::Pixels(size.width);
         self.layout.height = Len::Pixels(size.height);
 
-        self.init_and_compute_min_size(ctx);
+        self.compute_min_size();
 
         // Reset our size to the desired root size.
         self.layout.rect = Rect {
@@ -86,25 +85,28 @@ impl Node {
         }
     }
 
-    pub fn draw(&self) {
-        self.widget.draw(&self.layout, &self.children);
+    pub fn draw(&self, ctx: &CanvasRenderingContext2d) {
+        let mut render_queue = Vec::new();
+        self.dispatch_draw_recursive(&mut render_queue);
+        for render_op in render_queue.drain(..) {
+            render_op.draw(ctx);
+        }
+    }
+
+    fn dispatch_draw_recursive(&self, render_queue: &mut Vec<crate::gui::types::RenderOp>) {
+        self.widget.draw(render_queue, &self.layout, &self.children);
 
         for child in &self.children {
-            child.draw();
+            child.dispatch_draw_recursive(render_queue);
         }
     }
 
     // Depth-first traversal of the layout tree to compute the `layout.rect.size` of all nodes. This
     // is later used layout all nodes.
-    fn init_and_compute_min_size(&mut self, ctx: CanvasRenderingContext2d) {
+    fn compute_min_size(&mut self) {
         // Children are always computed first.
         for child in &mut self.children {
-            child.init_and_compute_min_size(ctx.clone());
-        }
-
-        if !self.initialized {
-            self.widget.init(ctx);
-            self.initialized = true;
+            child.compute_min_size();
         }
 
         // Our layout.rect.size is the sum of our children's layout.rect.size for the major axis,
@@ -318,7 +320,6 @@ impl Node {
 impl Default for Node {
     fn default() -> Self {
         Self {
-            initialized: false,
             layout: Default::default(),
             children: vec![],
             widget: Box::new(El::default()),

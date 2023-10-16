@@ -1,19 +1,15 @@
-use web_sys::CanvasRenderingContext2d;
-
 use crate::gui::{
     node::Node,
-    types::{Layout, Len, Size},
+    types::{Layout, Len, RenderOp, Size},
 };
 
 pub trait Widget {
-    fn init(&mut self, ctx: CanvasRenderingContext2d) {}
-
     fn update(&mut self, layout: &mut Layout, children: &mut Vec<Node>) {
         let _ = layout;
         let _ = children;
     }
 
-    fn draw(&self, layout: &Layout, children: &Vec<Node>) {
+    fn draw(&self, render_queue: &mut Vec<RenderOp>, layout: &Layout, children: &Vec<Node>) {
         let _ = layout;
         let _ = children;
     }

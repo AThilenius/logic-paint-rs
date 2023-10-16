@@ -1,8 +1,6 @@
-use web_sys::CanvasRenderingContext2d;
-
 use crate::gui::{
     node::Node,
-    types::{Background, Border, Color, Layout},
+    types::{Background, Border, Color, Layout, RenderOp},
     widget::Widget,
 };
 
@@ -11,22 +9,15 @@ use crate::gui::{
 pub struct El {
     pub background: Background,
     pub border: Option<Border>,
-    ctx: Option<CanvasRenderingContext2d>,
 }
 
 impl Widget for El {
-    fn init(&mut self, ctx: CanvasRenderingContext2d) {
-        self.ctx = Some(ctx);
-    }
-
-    fn draw(&self, layout: &Layout, _children: &Vec<Node>) {
-        if let Some(ctx) = &self.ctx {
-            self.background.draw(layout.rect, self.border, &ctx);
-
-            if let Some(border) = &self.border {
-                border.draw(layout.rect, &ctx);
-            }
-        }
+    fn draw(&self, render_queue: &mut Vec<RenderOp>, layout: &Layout, _children: &Vec<Node>) {
+        render_queue.push(RenderOp::Rect {
+            rect: layout.rect,
+            border: self.border,
+            background: Some(self.background),
+        });
     }
 }
 

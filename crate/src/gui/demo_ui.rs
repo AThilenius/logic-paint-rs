@@ -4,7 +4,7 @@ use crate::gui::{
     el::El,
     label::Label,
     node::Node,
-    types::{Border, BoxSize, Color, Len, Size, ToPixels, ToWeighted},
+    types::{Color, Len, Size, Text, ToPixels, ToWeighted},
 };
 
 pub struct DemoUi {
@@ -13,34 +13,6 @@ pub struct DemoUi {
 
 impl DemoUi {
     pub fn new() -> Self {
-        // Self {
-        //     root: Node {
-        //         layout: Layout {
-        //             alignment: Alignment::Row,
-        //             ..Default::default()
-        //         },
-        //         widget: Box::new(El {
-        //             background: Background::Color(Color::RED),
-        //             ..Default::default()
-        //         }),
-        //         children: vec![
-        //             // Left panel
-        //             Node {
-        //                 layout: Layout {
-        //                     width: Length::Pixels(200.0),
-        //                     height: Length::Weighted(1.0),
-        //                     ..Default::default()
-        //                 },
-        //                 widget: Box::new(El {
-        //                     background: Background::Color(Color::GREEN),
-        //                     ..Default::default()
-        //                 }),
-        //                 children: vec![],
-        //             },
-        //         ],
-        //     },
-        // }
-
         let widget_row = Node::row(1.weighted(), Len::Auto)
             .with_widget(El::default().with_background_color(Color::CYAN))
             .with_child(
@@ -84,7 +56,12 @@ impl DemoUi {
             )
             .with_child(
                 Node::row(Len::Auto, Len::Auto)
-                    .with_widget(Label::new("Hello, world!".to_string())),
+                    .with_widget(Label {
+                            text: Text {
+                            text: "Hello, world!\nThis is a nice and long string to text the text sizing.\n|!@#$%^&*()\nAnd\nMore\nLines!\n\n\n- Foobar".to_string(),
+                            ..Default::default()
+                        }
+                    })
             );
 
         let app = Node::row(1.weighted(), 1.weighted())
@@ -106,7 +83,7 @@ impl DemoUi {
             height: ctx.canvas().unwrap().client_height() as f32,
         };
 
-        self.root.prepare(size, ctx.clone());
-        self.root.draw();
+        self.root.prepare(size);
+        self.root.draw(&ctx);
     }
 }
