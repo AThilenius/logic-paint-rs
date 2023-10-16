@@ -1,23 +1,22 @@
 use web_sys::CanvasRenderingContext2d;
 
-use crate::gui::types::{Layout, Length, Rect, Size};
+use crate::gui::{
+    node::Node,
+    types::{Layout, Len, Size},
+};
 
-pub mod el;
-pub mod styled_el;
+pub trait Widget {
+    fn init(&mut self, ctx: CanvasRenderingContext2d) {}
 
-pub use el::*;
-pub use styled_el::*;
-
-pub trait Node {
-    fn layout(&self) -> Layout {
-        Layout::default()
+    fn update(&mut self, layout: &mut Layout, children: &mut Vec<Node>) {
+        let _ = layout;
+        let _ = children;
     }
 
-    fn children(&self) -> Vec<&dyn Node> {
-        Vec::new()
+    fn draw(&self, layout: &Layout, children: &Vec<Node>) {
+        let _ = layout;
+        let _ = children;
     }
-
-    fn draw(&self, _rect: Rect, _ctx: &CanvasRenderingContext2d) {}
 
     /// Compute the minimum size of this node's content, ignoring margin, padding and border. By
     /// default it returns the fixed-size of the node for fixed-size, and the sum of all children's
@@ -25,12 +24,12 @@ pub trait Node {
     /// example basing the size on text layout.
     fn min_content_size(&self, layout: &Layout, children_min_size: Size) -> Size {
         Size {
-            width: if let Length::Pixels(size) = layout.width {
+            width: if let Len::Pixels(size) = layout.width {
                 size
             } else {
                 children_min_size.width
             },
-            height: if let Length::Pixels(size) = layout.height {
+            height: if let Len::Pixels(size) = layout.height {
                 size
             } else {
                 children_min_size.height

@@ -1,6 +1,6 @@
 use web_sys::CanvasRenderingContext2d;
 
-use super::{Border, BorderRadius, Color, Rect};
+use crate::gui::types::{Border, BorderRadius, Color, Rect};
 
 pub enum Background {
     None,

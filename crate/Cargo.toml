@@ -47,6 +47,7 @@ features = [
   "MessagePort",
   "MouseEvent",
   "Storage",
+  "TextMetrics",
   "WebGl2RenderingContext",
   "WebGlBuffer",
   "WebGlProgram",

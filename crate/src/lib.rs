@@ -162,7 +162,7 @@ async fn run(
 
     surface.configure(&device, &config);
 
-    let mut demo_ui = gui::DemoUi::new();
+    let mut demo_ui = gui::demo_ui::DemoUi::new();
 
     event_loop.run(move |event, _, control_flow| {
         // Have the closure take ownership of the resources.

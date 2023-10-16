@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{box_size::BoxSize, point::Point, Size};
+use crate::gui::types::{box_size::BoxSize, point::Point, Size};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct Rect {

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub enum Length {
+pub enum Len {
     // Size is determined by the sum of the desired sizes of its children.
     Auto,
 
@@ -14,7 +14,27 @@ pub enum Length {
     Weighted(f32),
 }
 
-impl Default for Length {
+pub trait ToPixels {
+    fn pixels(self) -> Len;
+}
+
+impl ToPixels for i32 {
+    fn pixels(self) -> Len {
+        Len::Pixels(self as f32)
+    }
+}
+
+pub trait ToWeighted {
+    fn weighted(self) -> Len;
+}
+
+impl ToWeighted for i32 {
+    fn weighted(self) -> Len {
+        Len::Weighted(self as f32)
+    }
+}
+
+impl Default for Len {
     fn default() -> Self {
         Self::Auto
     }

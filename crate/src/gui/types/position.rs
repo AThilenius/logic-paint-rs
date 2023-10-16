@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::point::Point;
+use crate::gui::types::point::Point;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum Position {

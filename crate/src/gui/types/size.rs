@@ -6,6 +6,13 @@ pub struct Size {
     pub height: f32,
 }
 
+impl Size {
+    pub const ZERO: Self = Self {
+        width: 0.0,
+        height: 0.0,
+    };
+}
+
 impl std::iter::Sum for Size {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::default(), |acc, size| acc + size)

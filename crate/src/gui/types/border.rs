@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use web_sys::CanvasRenderingContext2d;
 
-use super::{BoxSize, Color, Rect};
+use crate::gui::types::{BoxSize, Color, Rect};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct Border {

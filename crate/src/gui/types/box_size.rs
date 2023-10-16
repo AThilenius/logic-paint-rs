@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{point::Point, Size};
+use crate::gui::types::{point::Point, Size};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum BoxSize {
