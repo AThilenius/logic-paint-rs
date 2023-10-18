@@ -48,6 +48,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-plugin"
+version = "0.1.0"
+dependencies = [
+ "core",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,8 +1,22 @@
+use log::info;
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{CanvasRenderingContext2d, HtmlElement};
+use web_sys::{CanvasRenderingContext2d, HtmlElement, MessageEvent, MessagePort};
 
 mod gui;
 mod utils;
+
+#[wasm_bindgen]
+extern "C" {
+    pub type Plugin;
+
+    #[wasm_bindgen(structural, method)]
+    pub fn ping(this: &Plugin, msg: Vec<u8>) -> Vec<u8>;
+}
+
+#[wasm_bindgen]
+pub fn register_plugin(plugin: Plugin) {
+    let _ = plugin.ping(vec![42]);
+}
 
 #[wasm_bindgen]
 pub struct Host {
@@ -19,6 +33,20 @@ impl Host {
 
     pub fn frame(&mut self) {
         run(&self.parent, &self.ui_ctx.clone());
+    }
+
+    pub fn register_plugin_message_channel(&mut self, port: MessagePort) {
+        let callback = Closure::wrap(Box::new(move |event: MessageEvent| {
+            let data = event.data();
+            let data = data.as_string().unwrap();
+            info!("Received message: {}", data);
+        }) as Box<dyn FnMut(_)>);
+        port.set_onmessage(Some(callback.as_ref().unchecked_ref()));
+        callback.forget();
+
+        // Send ping to the plugin
+        info!("Sending ping to plugin...");
+        port.post_message(&JsValue::from_str("ping")).unwrap();
     }
 }
 
