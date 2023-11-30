@@ -8,7 +8,7 @@ use crate::gui::{
 };
 
 pub struct DemoUi {
-    root: Node,
+    pub root: Node,
 }
 
 impl DemoUi {

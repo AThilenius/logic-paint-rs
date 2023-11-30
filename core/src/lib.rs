@@ -1,5 +1,8 @@
+use log::info;
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{CanvasRenderingContext2d, HtmlElement};
+
+use crate::gui::types::Point;
 
 mod gui;
 mod utils;
@@ -8,17 +11,29 @@ mod utils;
 pub struct Host {
     parent: HtmlElement,
     ui_ctx: CanvasRenderingContext2d,
+    demo_ui: gui::demo_ui::DemoUi,
 }
 
 #[wasm_bindgen]
 impl Host {
     pub fn from_parent_element(parent: HtmlElement) -> Result<Host, JsValue> {
         let ui_ctx = spawn_ui_canvas(&parent.clone())?;
-        Ok(Host { parent, ui_ctx })
+        Ok(Host {
+            parent,
+            ui_ctx,
+            demo_ui: gui::demo_ui::DemoUi::new(),
+        })
     }
 
     pub fn frame(&mut self) {
-        run(&self.parent, &self.ui_ctx.clone());
+        run(&self.parent, &self.ui_ctx, &mut self.demo_ui);
+    }
+
+    pub fn mouse_move(&mut self, x: f64, y: f64) {
+        self.demo_ui.root.test_dispatch_move(Point {
+            left: x as f32,
+            top: y as f32,
+        });
     }
 }
 
@@ -35,6 +50,15 @@ fn spawn_ui_canvas(parent: &web_sys::HtmlElement) -> Result<CanvasRenderingConte
         .and_then(|doc| doc.create_element("canvas").ok())
         .and_then(|el| el.dyn_into::<web_sys::HtmlCanvasElement>().ok())
         .ok_or_else(|| JsValue::from_str("Failed to create canvas"))?;
+
+    // Register a mouse-move handler for the canvas element
+    let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+        let x = event.offset_x();
+        let y = event.offset_y();
+        info!("mouse move: {}, {}", x, y);
+    }) as Box<dyn FnMut(_)>);
+    canvas.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
+    closure.forget();
 
     parent.append_child(&canvas)?;
 
@@ -53,9 +77,11 @@ fn spawn_ui_canvas(parent: &web_sys::HtmlElement) -> Result<CanvasRenderingConte
     Ok(context)
 }
 
-fn run(parent: &HtmlElement, ui_ctx: &CanvasRenderingContext2d) {
-    let mut demo_ui = gui::demo_ui::DemoUi::new();
-
+fn run(
+    parent: &HtmlElement,
+    ui_ctx: &CanvasRenderingContext2d,
+    demo_ui: &mut gui::demo_ui::DemoUi,
+) {
     let canvas = ui_ctx.canvas().unwrap();
 
     // Resize the canvas to match the parent size, if needed.

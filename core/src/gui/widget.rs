@@ -1,15 +1,22 @@
 use crate::gui::{
     node::Node,
-    types::{Layout, Len, RenderOp, Size},
+    types::{Layout, Len, Point, RenderOp, Size},
 };
 
 pub trait Widget {
+    fn test_mouse_move(&mut self, layout: &mut Layout, children: &mut Vec<Node>, point: Point) {
+        let _ = layout;
+        let _ = children;
+        let _ = point;
+    }
+
     fn update(&mut self, layout: &mut Layout, children: &mut Vec<Node>) {
         let _ = layout;
         let _ = children;
     }
 
     fn draw(&self, render_queue: &mut Vec<RenderOp>, layout: &Layout, children: &Vec<Node>) {
+        let _ = render_queue;
         let _ = layout;
         let _ = children;
     }

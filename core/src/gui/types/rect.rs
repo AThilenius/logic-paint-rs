@@ -7,6 +7,14 @@ pub struct Rect {
     pub origin: Point,
     pub size: Size,
 }
+impl Rect {
+    pub fn contains(&self, point: Point) -> bool {
+        point.top >= self.origin.top
+            && point.top <= self.origin.top + self.size.height
+            && point.left >= self.origin.left
+            && point.left <= self.origin.left + self.size.width
+    }
+}
 
 impl std::ops::Sub<BoxSize> for Rect {
     type Output = Self;

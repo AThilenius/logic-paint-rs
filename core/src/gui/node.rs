@@ -13,6 +13,18 @@ pub struct Node {
 }
 
 impl Node {
+    // Find all the nodes under the mouse cursor and set their outlines to be red.
+    pub fn test_dispatch_move(&mut self, point: Point) {
+        for child in &mut self.children {
+            child.test_dispatch_move(point);
+        }
+
+        if self.layout.rect.contains(point) {
+            self.widget
+                .test_mouse_move(&mut self.layout, &mut self.children, point);
+        }
+    }
+
     pub fn row(width: Len, height: Len) -> Self {
         Self {
             layout: Layout {
@@ -99,6 +111,22 @@ impl Node {
         for child in &self.children {
             child.dispatch_draw_recursive(render_queue);
         }
+    }
+
+    // Returns all nodes that encompass the given point, organized from descendant to parent (front
+    // to back).
+    pub fn get_nodes_at_point(&self, point: Point) -> Vec<&Node> {
+        let mut nodes = Vec::new();
+
+        for child in &self.children {
+            nodes.append(&mut child.get_nodes_at_point(point));
+        }
+
+        if self.layout.rect.contains(point) {
+            nodes.push(self);
+        }
+
+        nodes
     }
 
     // Depth-first traversal of the layout tree to compute the `layout.rect.size` of all nodes. This

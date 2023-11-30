@@ -3,9 +3,13 @@ import init, { Host } from "core";
 
 async function main() {
   await init();
-  const host = Host.from_parent_element(
-    document.getElementById("canvas-container")!
-  );
+
+  const container = document.getElementById("canvas-container")!;
+  const host = Host.from_parent_element(container);
+
+  container.onmousemove = (e) => {
+    host.mouse_move(e.offsetX, e.offsetY);
+  };
 
   const frame = () => {
     host.frame();
