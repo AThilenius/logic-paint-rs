@@ -8,20 +8,125 @@
     <title>LogicPaint</title>
     <style>
       body {
+        padding: 0;
         margin: 0;
         overflow: hidden;
-        /* background-color: #080808; */
+        background-color: #080808;
+        /* font-size: var(--vscode-font-size); */
+        font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Inconsolata",
+          "Courier New", monospace;
+        font-weight: 100;
+      }
+
+      span,
+      div {
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .lp-mount {
+        width: 100vw;
+        height: 100vh;
       }
 
       .lp-viewport {
-        width: 100vw;
-        height: 100vh;
+        position: relative;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
+      }
+
+      *:focus {
+        outline: none !important;
+      }
+
+      .lp-viewport canvas {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+      }
+
+      .lp-info-panel {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: darkgray;
+      }
+
+      .lp-module-root {
+        position: fixed;
+      }
+
+      .lp-module-edit-mode-div {
+        background: red;
+        box-sizing: border-box;
+        color: white;
+        font-size: 1.8em;
+        height: 31.25px;
+        line-height: 31.25px;
+        position: absolute;
+        text-align: center;
+        width: 31.25px;
+      }
+
+      .lp-module-edit-mode-div:hover {
+        background: darkred;
+      }
+
+      .lp-pin-label {
+        position: absolute;
+        padding-right: 6px;
+        padding-left: 3px;
+      }
+
+      .lp-no-pointer-events,
+      .lp-no-pointer-events * {
+        pointer-events: none !important;
+      }
+
+      .lp-pointer-events,
+      .lp-pointer-events * {
+        pointer-events: auto;
+      }
+
+      .lp-settings-panel {
+        align-items: flex-end;
+        background: black;
+        border: 1px solid white;
+        display: flex;
+        flex-direction: column;
+        padding: 4px;
+        white-space: nowrap;
+      }
+
+      .lp-cell-center {
+        align-items: center;
+        box-sizing: border-box;
+        display: flex;
+        height: 31.25px;
+        justify-content: center;
+        line-height: 31.25px;
+        position: absolute;
+        text-align: center;
+        width: 31.25px;
+      }
+
+      .lp-pin-div {
+        width: 6px;
+        height: 6px;
+        background: white;
+      }
+
+      .lp-pin-output-div {
+        width: 18px;
+        height: 18px;
+        border: 2px solid white;
+        box-sizing: border-box;
       }
     </style>
   </head>
   <body>
-    <div id="canvas-container" class="lp-viewport"></div>
+    <div id="canvas-container" class="lp-mount"></div>
     <script type="module" src="src/main.ts"></script>
   </body>
 </html>
