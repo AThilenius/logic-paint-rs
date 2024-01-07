@@ -170,3 +170,10 @@ sampling artifacts and a colorful view. I get to about 2 million cells before
 the CPU-side of rendering calls start to chug. At 7 million cells I'm at 80ms
 frames.
 ![Scale](../misc/screenshots/logic-paint-scale.png)
+
+# License 🧾
+
+Axum-Connect is dual licensed (at your option)
+
+- MIT License ([LICENSE-MIT](LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
