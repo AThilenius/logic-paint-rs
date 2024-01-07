@@ -8,13 +8,16 @@ simulate transistors, at scale.
 _A 16-bit micro-coded CPU I built based in Logic Paint, on the LC-3B
 micro-architecture._
 
-# Getting Started
+# 2024 - Under Construction 🚧
 
-Install the [Logic Paint VSCode
-extension](https://marketplace.visualstudio.com/items?itemName=athilenius.logic-paint)
-and create a file with a `.lpbp` extension. Logic Paint uses a modal editor
-(like VIM). It is very powerful but does have a learning curve. Start by placing
-a module (see below) and drawing some N/P type silicon
+**We are moving to the web like it's 1999 😎**
+
+This project was originally designed to run as a vscode extension. Since then,
+vscode has made breaking changes. Also vscode extensions were never what I
+really wanted from this project. I'm currently in the middle of moving the whole
+thing over to a web interface, where you can explore other people's designs
+without needing an account, and make your own designs by logging in. I also have
+some exciting plans to support user-created plugins!
 
 # Standard Controls
 

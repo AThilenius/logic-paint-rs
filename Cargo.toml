@@ -1,5 +1,5 @@
 [package]
-name = "crate"
+name = "logic-paint-rs"
 version = "0.1.0"
 authors = ["Alec Thilenius <alec@thilenius.com>"]
 description = "A logic simulation library written in Rust, inspired by KOHCTPYKTOP."
@@ -22,7 +22,7 @@ enum_dispatch = "0.3"
 futures = "0.3.17"
 generational-arena = "0.2.8"
 glam = { version = "0.21", features = ["serde", "bytemuck"] }
-gloo="0.8.0"
+gloo = "0.8.0"
 im = { version = "15.1", features = ["serde"] }
 itertools = "0.10.3"
 js-sys = "0.3.55"
