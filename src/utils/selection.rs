@@ -1,9 +1,11 @@
 use glam::IVec2;
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 use crate::coords::CellCoord;
 
 #[derive(Clone, Serialize, Deserialize)]
+#[wasm_bindgen]
 pub struct Selection {
     // The lower left point in the selection, inclusively.
     pub lower_left: CellCoord,

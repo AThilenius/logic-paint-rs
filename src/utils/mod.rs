@@ -1,5 +1,4 @@
 pub use iter::*;
-pub use log::*;
 pub use selection::*;
 
 pub mod cell_offset;

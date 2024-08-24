@@ -44,7 +44,7 @@ impl InputState {
 
         // Process mouse moving
         match raw_input {
-            RawInput::MouseDown(e) | RawInput::MouseUp(e) | RawInput::MouseMove(e) => {
+            RawInput::Mouse(e) => {
                 let left_mouse = e.buttons() & 1 != 0;
                 let right_mouse = e.buttons() & 2 != 0;
                 let shift = e.shift_key();

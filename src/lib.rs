@@ -2,7 +2,6 @@ use wasm_bindgen::prelude::*;
 
 mod coords;
 mod dom;
-mod logic_paint;
 mod modules;
 mod upc;
 mod utils;

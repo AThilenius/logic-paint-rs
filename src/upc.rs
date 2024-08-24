@@ -2,6 +2,9 @@ use std::ops;
 
 use arrayvec::ArrayVec;
 use glam::IVec2;
+use serde::{Deserialize, Serialize};
+use tsify::Tsify;
+use wasm_bindgen::prelude::*;
 
 pub const UPC_BYTE_LEN: usize = 4;
 pub const LOG_UPC_BYTE_LEN: usize = 2;
@@ -11,7 +14,8 @@ pub const LOG_UPC_BYTE_LEN: usize = 2;
 /// Does not encode BufferMask data. The first 16 bits are also encoded as part of Blueprint
 /// serialization.
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
-pub struct UPC(pub [u8; UPC_BYTE_LEN]);
+#[wasm_bindgen]
+pub struct UPC(#[wasm_bindgen(skip)] pub [u8; UPC_BYTE_LEN]);
 
 impl UPC {
     #[inline]
@@ -95,6 +99,17 @@ impl UPC {
         );
 
         upc
+    }
+}
+
+#[wasm_bindgen]
+impl UPC {
+    pub fn normalize(self) -> NormalizedCell {
+        self.into()
+    }
+
+    pub fn denormalize(upc: UPC) -> Self {
+        upc.into()
     }
 }
 
@@ -186,12 +201,15 @@ impl Bit {
 /// cells it's easier to deal with the cell as a single struct, instead of as a collection of [0, 4]
 /// Atoms. NormalizedCells should be treated as transient and not stored anywhere.
 #[derive(Clone, Copy, Default, Debug, Eq, PartialEq)]
+#[wasm_bindgen]
 pub struct NormalizedCell {
     pub metal: Metal,
     pub si: Silicon,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Tsify, Clone, Copy, Debug, Eq, PartialEq)]
+#[serde(tag = "type", content = "data")]
+#[tsify(into_wasm_abi, from_wasm_abi)]
 pub enum Metal {
     None,
     Trace { has_via: bool, placement: Placement },
@@ -203,7 +221,9 @@ impl Default for Metal {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Tsify, Clone, Copy, Debug, Eq, PartialEq)]
+#[serde(tag = "type", content = "data")]
+#[tsify(into_wasm_abi, from_wasm_abi)]
 pub enum Silicon {
     None,
     NP {
@@ -349,7 +369,8 @@ impl From<NormalizedCell> for UPC {
 /// Represents the various placements of Metal and Si within a Cell, including the 4 cardinal
 /// directions, and the center "self" location (which is implicit when any cardinal direction is
 /// set, but can also stand alone).
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[wasm_bindgen]
 pub struct Placement {
     pub up: bool,
     pub right: bool,

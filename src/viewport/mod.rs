@@ -1,12 +1,13 @@
-pub mod blueprint;
-pub mod brush;
 pub mod buffer;
-pub mod buffer_mask;
+pub mod buffer_brush;
+pub mod buffer_serde;
 pub mod compiler;
-pub mod editor_state;
 pub mod execution_context;
 pub mod input;
-mod label_builder;
+pub mod label_builder;
+pub mod mask;
+
+use std::collections::HashMap;
 
 use glam::{IVec2, Vec2};
 use gloo::{events::EventListener, utils::document};
@@ -19,25 +20,24 @@ use crate::{
     coords::CellCoord,
     dom::{DomIntervalHooks, RawInput},
     modules::{ClockComponent, ConcreteModule, MemoryComponent, Module, ValueComponent},
-    upc::{Metal, NormalizedCell, Placement, Silicon, UPC},
+    upc::{NormalizedCell, Silicon},
     utils::Selection,
     viewport::{
-        blueprint::Blueprint,
-        brush::*,
         buffer::Buffer,
         compiler::{Atom, CellPart},
-        editor_state::{EditorState, SerdeEditorState},
         execution_context::ExecutionContext,
         input::InputState,
         label_builder::LabelBuilder,
     },
-    wgl2::RenderContext,
+    wgl2::{Camera, RenderContext},
 };
 
-use self::buffer_mask::BufferMask;
+use self::mask::Mask;
 
 pub struct Viewport {
-    pub editor_state: EditorState,
+    pub selection: Selection,
+    pub camera: Camera,
+    pub registers: HashMap<String, Buffer>,
     pub active_buffer: Buffer,
     pub ephemeral_buffer: Option<Buffer>,
     pub time: f64,
@@ -48,7 +48,6 @@ pub struct Viewport {
     render_context: Option<RenderContext>,
     dom_events: Option<DomIntervalHooks>,
     on_edit_callback: Option<js_sys::Function>,
-    on_editor_state_callback: Option<js_sys::Function>,
     request_clipboard: Option<js_sys::Function>,
     set_clipboard: Option<js_sys::Function>,
     event_hooks: Vec<EventListener>,
@@ -56,15 +55,6 @@ pub struct Viewport {
 
 pub enum Msg {
     None,
-    SetJsCallbacks {
-        on_edit_callback: js_sys::Function,
-        on_editor_state_callback: js_sys::Function,
-        request_clipboard: js_sys::Function,
-        set_clipboard: js_sys::Function,
-    },
-    SetBlueprint(Blueprint),
-    SetEditorState(EditorState),
-    SetClipboard(String),
     RawInput(RawInput),
     Render(f64),
     SetFocus(bool),
@@ -127,9 +117,7 @@ impl Viewport {
             if !execution.manual {
                 // Update modules.
                 self.active_buffer.clock_modules(time);
-                execution
-                    .context
-                    .clock_once(&mut self.active_buffer.modules);
+                execution.context.clock_once();
             }
             execution.context.update_buffer_mask();
         }
@@ -146,7 +134,7 @@ impl Viewport {
         // let dpr = window().unwrap().device_pixel_ratio() as f32;
         let size = Vec2::new(w as f32, h as f32);
         // let scaled_size = size * dpr;
-        self.editor_state.camera.update(size);
+        self.camera.update(size);
 
         // Redraw the mouse-follow buffer to the ephemeral buffer each frame.
         if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
@@ -164,7 +152,7 @@ impl Viewport {
             let highlight_mask = {
                 match &self.mode {
                     Mode::PaintSi(Some(atom)) | Mode::PaintMetallic(Some(atom)) => {
-                        let mask = BufferMask::from_highlight_trace(
+                        let mask = Mask::from_highlight_trace(
                             self.ephemeral_buffer
                                 .as_ref()
                                 .unwrap_or(&self.active_buffer),
@@ -180,13 +168,13 @@ impl Viewport {
                 .draw(
                     time,
                     buffer,
-                    &self.editor_state.selection,
+                    &self.selection,
                     match (&highlight_mask, &self.mode) {
                         (Some(highlight_mask), _) => Some(highlight_mask),
                         (_, Mode::Execute(execution)) => Some(&execution.context.buffer_mask),
                         _ => None,
                     },
-                    &self.editor_state.camera,
+                    &self.camera,
                 )
                 .expect("Failed to draw render context");
         }
@@ -203,15 +191,15 @@ impl Viewport {
         if !(matches!(self.mode, Mode::Label(_))
             && self.input_state.key_codes_down.contains("Space"))
         {
-            if self.editor_state.camera.handle_input(&self.input_state) {
+            if self.camera.handle_input(&self.input_state) {
                 // Let JS know the camera changed.
-                if let Some(editor_state_callback) = &self.on_editor_state_callback {
-                    let json =
-                        serde_json::to_string_pretty(&SerdeEditorState::from(&self.editor_state))
-                            .expect("Failed to serialize SerdeEditorState");
-                    let js_str = JsValue::from(&json);
-                    let _ = editor_state_callback.call1(&JsValue::null(), &js_str);
-                }
+                // if let Some(editor_state_callback) = &self.on_editor_state_callback {
+                //     let json =
+                //         serde_json::to_string_pretty(&SerdeEditorState::from(&self.editor_state))
+                //             .expect("Failed to serialize SerdeEditorState");
+                //     let js_str = JsValue::from(&json);
+                //     let _ = editor_state_callback.call1(&JsValue::null(), &js_str);
+                // }
 
                 // Then early return.
                 return;
@@ -228,7 +216,7 @@ impl Viewport {
         // Escape is a global keybind, it always brings us back to Visual mode
         if self.input_state.key_code_clicked == "Escape" {
             self.mode = Mode::Visual;
-            self.editor_state.selection = Default::default();
+            self.selection = Default::default();
             self.ephemeral_buffer = None;
             self.mouse_follow_buffer = None;
         }
@@ -238,18 +226,20 @@ impl Viewport {
             // Enter => Label, Esc => Visual, D => PaintSi, F => PaintMetallic
             if self.input_state.key_code_clicked == "Enter" {
                 self.mode = Mode::Label(LabelBuilder::default());
-                self.editor_state.selection = Default::default();
+                self.selection = Default::default();
                 self.ephemeral_buffer = None;
 
                 // Return so that we don't send the initial enter to the builder
                 return;
-            } else if self.input_state.key_code_clicked == "KeyQ" {
+            }
+
+            if self.input_state.key_code_clicked == "KeyQ" {
                 self.mode = Mode::PaintSi(None);
-                self.editor_state.selection = Default::default();
+                self.selection = Default::default();
                 self.mouse_follow_buffer = None;
             } else if self.input_state.key_code_clicked == "KeyW" {
                 self.mode = Mode::PaintMetallic(None);
-                self.editor_state.selection = Default::default();
+                self.selection = Default::default();
                 self.mouse_follow_buffer = None;
             } else if self.input_state.key_code_clicked == "KeyE"
                 && !matches!(self.mode, Mode::Execute(..))
@@ -258,13 +248,13 @@ impl Viewport {
                     manual: true,
                     context: ExecutionContext::compile_from_buffer(&self.active_buffer),
                 });
-                self.editor_state.selection = Default::default();
+                self.selection = Default::default();
                 self.mouse_follow_buffer = None;
             } else if self.input_state.key_code_clicked == "KeyA"
                 && !matches!(self.mode, Mode::ModuleEdit(..))
             {
                 self.mode = Mode::ModuleEdit(None);
-                self.editor_state.selection = Default::default();
+                self.selection = Default::default();
                 self.mouse_follow_buffer = None;
                 return;
             }
@@ -313,17 +303,16 @@ impl Viewport {
                             if named_register == "*" {
                                 self.notify_js_set_clipboard(&mouse_follow_buffer);
                             } else {
-                                self.editor_state
-                                    .registers
+                                self.registers
                                     .insert(named_register.clone(), mouse_follow_buffer.clone());
                             }
-                            self.editor_state.selection = Default::default();
+                            self.selection = Default::default();
                         }
                     } else {
                         // Otherwise override the mouse-follow buffer with the newly selected
                         // register, if it exists.
                         if let Some(named_register) = &named_register_clicked {
-                            if let Some(buffer) = self.editor_state.registers.get(named_register) {
+                            if let Some(buffer) = self.registers.get(named_register) {
                                 set_mouse_follow_buffer = true;
                                 new_mouse_follow_buffer = Some(buffer.clone());
                             }
@@ -332,63 +321,55 @@ impl Viewport {
                 } else {
                     if self.input_state.primary {
                         if let Some(drag) = self.input_state.drag {
-                            self.editor_state.selection = Selection::from_rectangle_inclusive(
+                            self.selection = Selection::from_rectangle_inclusive(
                                 drag.start,
                                 self.input_state.cell,
                             );
                         }
                     } else if self.input_state.secondary {
-                        self.editor_state.selection = Default::default();
+                        self.selection = Default::default();
                     }
 
                     // Delete selection
                     if self.input_state.key_code_clicked == "KeyD" {
                         if !self.input_state.shift {
                             set_mouse_follow_buffer = true;
-                            new_mouse_follow_buffer = Some(self.active_buffer.clone_selection(
-                                &self.editor_state.selection,
-                                self.input_state.cell,
-                            ));
+                            new_mouse_follow_buffer = Some(
+                                self.active_buffer
+                                    .clone_selection(&self.selection, self.input_state.cell),
+                            );
                         }
-                        clear_both_in_selection(
-                            &mut self.active_buffer,
-                            &self.editor_state.selection,
-                        );
-                        self.editor_state.selection = Default::default();
+                        self.active_buffer.clear_both_in_selection(&self.selection);
+                        self.selection = Default::default();
                         notify_js = true;
                     }
 
                     // Yank selection to mouse-follow buffer
                     if self.input_state.key_code_clicked == "KeyY" {
                         set_mouse_follow_buffer = true;
-                        new_mouse_follow_buffer =
-                            Some(self.active_buffer.clone_selection(
-                                &self.editor_state.selection,
-                                self.input_state.cell,
-                            ));
-                        self.editor_state.selection = Default::default();
+                        new_mouse_follow_buffer = Some(
+                            self.active_buffer
+                                .clone_selection(&self.selection, self.input_state.cell),
+                        );
+                        self.selection = Default::default();
                     }
 
                     // Hitting KeyS + any of the named register keys will save the selected cells
                     // into the named register.
-                    if self.input_state.key_codes_down.contains("KeyS")
-                        && !self.editor_state.selection.is_zero()
+                    if self.input_state.key_codes_down.contains("KeyS") && !self.selection.is_zero()
                     {
                         if let Some(named_register) = &named_register_clicked {
-                            let buffer = self.active_buffer.clone_selection(
-                                &self.editor_state.selection,
-                                self.input_state.cell,
-                            );
+                            let buffer = self
+                                .active_buffer
+                                .clone_selection(&self.selection, self.input_state.cell);
 
                             // If it's the clipboard register, also set the clipboard.
                             if named_register == "*" {
                                 self.notify_js_set_clipboard(&buffer);
                             } else {
-                                self.editor_state
-                                    .registers
-                                    .insert(named_register.clone(), buffer);
+                                self.registers.insert(named_register.clone(), buffer);
                             }
-                            self.editor_state.selection = Default::default();
+                            self.selection = Default::default();
                         }
                     } else {
                         // Hitting any of the named register keys (while not holding KeyS) will load
@@ -398,13 +379,11 @@ impl Viewport {
                             // from JS and wait for it to come back. Sucks.
                             if named_register == "*" {
                                 self.notify_js_request_clipboard();
-                            } else if let Some(buffer) =
-                                self.editor_state.registers.get(&named_register)
-                            {
+                            } else if let Some(buffer) = self.registers.get(&named_register) {
                                 set_mouse_follow_buffer = true;
                                 new_mouse_follow_buffer = Some(buffer.clone());
                             }
-                            self.editor_state.selection = Default::default();
+                            self.selection = Default::default();
                         }
                     }
                 }
@@ -418,14 +397,14 @@ impl Viewport {
                 } else if self.input_state.key_code_clicked == "KeyC" {
                     *manual = true;
                     self.active_buffer.clock_modules(self.time);
-                    context.clock_once(&mut self.active_buffer.modules);
+                    context.clock_once();
                 } else if self.input_state.key_code_clicked == "KeyT" {
                     *manual = true;
                     // Only clock modules if we are between clock cycles.
                     if !context.is_mid_clock_cycle {
                         self.active_buffer.clock_modules(self.time);
                     }
-                    context.tick_once(&mut self.active_buffer.modules);
+                    context.tick_once();
                 } else if self.input_state.key_code_clicked == "KeyP" {
                     *manual = true;
                 }
@@ -523,8 +502,8 @@ impl Viewport {
         // from painting, so we handle it separately. These of we. The preverbal we. It's just me.
         if self.input_state.ctrl {
             match self.mode {
-                Mode::PaintMetallic(_) => clear_metal(&mut buffer, path),
-                Mode::PaintSi(_) => clear_si(&mut buffer, path),
+                Mode::PaintMetallic(_) => path.into_iter().for_each(|c| buffer.clear_metal(c)),
+                Mode::PaintSi(_) => path.into_iter().for_each(|c| buffer.clear_si(c)),
                 _ => {}
             }
         } else {
@@ -537,17 +516,17 @@ impl Viewport {
                     Mode::PaintMetallic(_) => {
                         // Primary paints metal, secondary places a Via (only once).
                         if self.input_state.primary {
-                            draw_metal(&mut buffer, from, *cell_coord);
+                            buffer.draw_metal(from, *cell_coord);
                         } else if self.input_state.secondary {
-                            draw_via(&mut buffer, from, *cell_coord);
+                            buffer.draw_via(from, *cell_coord);
                         }
                     }
                     Mode::PaintSi(_) => {
                         // Primary paints N-type, secondary paints P-type.
                         if self.input_state.primary {
-                            draw_si(&mut buffer, from, *cell_coord, true);
+                            buffer.draw_si(from, *cell_coord, true);
                         } else {
-                            draw_si(&mut buffer, from, *cell_coord, false);
+                            buffer.draw_si(from, *cell_coord, false);
                         }
                     }
                     _ => {}
@@ -597,7 +576,7 @@ impl Viewport {
 
     fn notify_js_on_change(&self) {
         if let Some(on_edit_callback) = self.on_edit_callback.as_ref() {
-            let json = serde_json::to_string_pretty(&Blueprint::from(&self.active_buffer))
+            let json = serde_json::to_string_pretty(&self.active_buffer)
                 .expect("Failed to serialize Blueprint");
             let js_str = JsValue::from(&json);
             let _ = on_edit_callback.call1(&JsValue::null(), &js_str);
@@ -612,8 +591,8 @@ impl Viewport {
 
     fn notify_js_set_clipboard(&self, buffer: &Buffer) {
         if let Some(set_clipboard) = self.set_clipboard.as_ref() {
-            let json = serde_json::to_string_pretty(&Blueprint::from(buffer))
-                .expect("Failed to serialize Blueprint");
+            let json =
+                serde_json::to_string_pretty(&buffer).expect("Failed to serialize Blueprint");
             let js_str = JsValue::from(&json);
             let _ = set_clipboard.call1(&JsValue::null(), &js_str);
         }
@@ -626,18 +605,19 @@ impl Component for Viewport {
 
     fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            editor_state: Default::default(),
-            active_buffer: Buffer::default(),
+            camera: Default::default(),
+            registers: Default::default(),
+            selection: Default::default(),
+            active_buffer: Default::default(),
             ephemeral_buffer: None,
             time: 0.0,
             input_state: Default::default(),
             mouse_follow_buffer: None,
             mode: Mode::Visual,
-            canvas: NodeRef::default(),
+            canvas: Default::default(),
             render_context: None,
             dom_events: None,
             on_edit_callback: None,
-            on_editor_state_callback: None,
             request_clipboard: None,
             set_clipboard: None,
             event_hooks: vec![],
@@ -647,146 +627,122 @@ impl Component for Viewport {
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::RawInput(raw_input) => {
-                self.input_state
-                    .handle_raw_input(&self.editor_state.camera, &raw_input);
+                self.input_state.handle_raw_input(&self.camera, &raw_input);
                 self.dispatch_input_state();
             }
-            Msg::SetJsCallbacks {
-                on_edit_callback,
-                on_editor_state_callback,
-                request_clipboard,
-                set_clipboard,
-            } => {
-                self.on_edit_callback = Some(on_edit_callback);
-                self.on_editor_state_callback = Some(on_editor_state_callback);
-                self.request_clipboard = Some(request_clipboard);
-                self.set_clipboard = Some(set_clipboard);
-            }
-            Msg::SetBlueprint(blueprint) => {
-                self.active_buffer = blueprint.into();
-            }
-            Msg::SetEditorState(editor_state) => {
-                self.editor_state = editor_state;
-            }
-            Msg::SetClipboard(data) => {
-                if let Ok(blueprint) = serde_json::from_str::<Blueprint>(&data) {
-                    let buffer: Buffer = blueprint.into();
-                    self.mode = Mode::Visual;
-                    self.mouse_follow_buffer = Some(buffer.clone());
-                    self.editor_state.registers.insert("*".to_owned(), buffer);
-                } else {
-                    // TODO: this is a total hack
-                    // Try to deserialize it as ROM data.
-                    if data
-                        .lines()
-                        .all(|line| line.chars().all(|char| char == '0' || char == '1'))
-                    {
-                        let mut buffer = Buffer::default();
-                        let height = data.lines().count() as i32;
-                        let width = data.lines().nth(0).unwrap().len() as i32;
-
-                        for y in 0..((height / 2) + 1) {
-                            for x in 0..width + 1 {
-                                brush::draw_si(
-                                    &mut buffer,
-                                    if x == 0 {
-                                        None
-                                    } else {
-                                        Some((x - 1, -y * 4).into())
-                                    },
-                                    (x, -y * 4).into(),
-                                    true,
-                                );
-                            }
-                        }
-
-                        let unconnected: UPC = NormalizedCell {
-                            metal: Metal::Trace {
-                                has_via: true,
-                                placement: Placement::CENTER,
-                            },
-                            si: Silicon::NP {
-                                is_n: true,
-                                placement: Placement::CENTER,
-                            },
-                        }
-                        .into();
-
-                        for y in 0..(height / 2) {
-                            for x in 0..width {
-                                buffer
-                                    .set_cell(CellCoord(IVec2::new(x, (-y * 4) - 2)), unconnected);
-                            }
-                        }
-
-                        for (y, line) in data.lines().enumerate() {
-                            for (x, char) in line.chars().enumerate() {
-                                let c_y = -(y as i32 * 2) - 1;
-                                if char == '1' {
-                                    brush::draw_si(
-                                        &mut buffer,
-                                        Some(CellCoord(IVec2::new(x as i32, c_y - 1))),
-                                        CellCoord(IVec2::new(x as i32, c_y)),
-                                        true,
-                                    );
-                                    brush::draw_si(
-                                        &mut buffer,
-                                        Some(CellCoord(IVec2::new(x as i32, c_y))),
-                                        CellCoord(IVec2::new(x as i32, c_y + 1)),
-                                        true,
-                                    );
-                                }
-                            }
-                        }
-
-                        for y in 0..height {
-                            for x in -1..width + 1 {
-                                brush::draw_si(
-                                    &mut buffer,
-                                    if x == -1 {
-                                        None
-                                    } else {
-                                        Some(CellCoord(IVec2::new(x - 1, -y * 2 - 1)))
-                                    },
-                                    CellCoord(IVec2::new(x, -y * 2 - 1)),
-                                    false,
-                                );
-                            }
-                        }
-
-                        for x in 0..width {
-                            for y in -1..height * 2 + 1 {
-                                brush::draw_metal(
-                                    &mut buffer,
-                                    if y == -1 {
-                                        None
-                                    } else {
-                                        Some(CellCoord(IVec2::new(x, -y + 1)))
-                                    },
-                                    CellCoord(IVec2::new(x, -y)),
-                                );
-                            }
-                        }
-
-                        // Trim the edges (leaving inner cells connected past their bounds)
-                        for x in -1..width + 1 {
-                            buffer.set_cell(CellCoord(IVec2::new(x, 1)), Default::default());
-                            buffer.set_cell(
-                                CellCoord(IVec2::new(x, -height * 2)),
-                                Default::default(),
-                            );
-                        }
-
-                        for y in -1..height * 2 + 1 {
-                            buffer.set_cell(CellCoord(IVec2::new(-1, -y)), Default::default());
-                            buffer.set_cell(CellCoord(IVec2::new(width, -y)), Default::default());
-                        }
-
-                        self.mode = Mode::Visual;
-                        self.mouse_follow_buffer = Some(buffer);
-                    }
-                }
-            }
+            // Msg::SetClipboard(data) => {
+            //     if let Ok(buffer) = serde_json::from_str::<Buffer>(&data) {
+            //         self.mode = Mode::Visual;
+            //         self.mouse_follow_buffer = Some(buffer.clone());
+            //         self.registers.insert("*".to_owned(), buffer);
+            //     } else {
+            //         // TODO: this is a total hack
+            //         // Try to deserialize it as ROM data.
+            //         if data
+            //             .lines()
+            //             .all(|line| line.chars().all(|char| char == '0' || char == '1'))
+            //         {
+            //             let mut buffer = Buffer::default();
+            //             let height = data.lines().count() as i32;
+            //             let width = data.lines().nth(0).unwrap().len() as i32;
+            //
+            //             for y in 0..((height / 2) + 1) {
+            //                 for x in 0..width + 1 {
+            //                     buffer.draw_si(
+            //                         if x == 0 {
+            //                             None
+            //                         } else {
+            //                             Some((x - 1, -y * 4).into())
+            //                         },
+            //                         (x, -y * 4).into(),
+            //                         true,
+            //                     );
+            //                 }
+            //             }
+            //
+            //             let unconnected: UPC = NormalizedCell {
+            //                 metal: Metal::Trace {
+            //                     has_via: true,
+            //                     placement: Placement::CENTER,
+            //                 },
+            //                 si: Silicon::NP {
+            //                     is_n: true,
+            //                     placement: Placement::CENTER,
+            //                 },
+            //             }
+            //             .into();
+            //
+            //             for y in 0..(height / 2) {
+            //                 for x in 0..width {
+            //                     buffer
+            //                         .set_cell(CellCoord(IVec2::new(x, (-y * 4) - 2)), unconnected);
+            //                 }
+            //             }
+            //
+            //             for (y, line) in data.lines().enumerate() {
+            //                 for (x, char) in line.chars().enumerate() {
+            //                     let c_y = -(y as i32 * 2) - 1;
+            //                     if char == '1' {
+            //                         buffer.draw_si(
+            //                             Some((x as i32, c_y - 1).into()),
+            //                             (x as i32, c_y).into(),
+            //                             true,
+            //                         );
+            //                         buffer.draw_si(
+            //                             Some((x as i32, c_y).into()),
+            //                             (x as i32, c_y + 1).into(),
+            //                             true,
+            //                         );
+            //                     }
+            //                 }
+            //             }
+            //
+            //             for y in 0..height {
+            //                 for x in -1..width + 1 {
+            //                     buffer.draw_si(
+            //                         if x == -1 {
+            //                             None
+            //                         } else {
+            //                             Some((x - 1, -y * 2 - 1).into())
+            //                         },
+            //                         (x, -y * 2 - 1).into(),
+            //                         false,
+            //                     );
+            //                 }
+            //             }
+            //
+            //             for x in 0..width {
+            //                 for y in -1..height * 2 + 1 {
+            //                     buffer.draw_metal(
+            //                         if y == -1 {
+            //                             None
+            //                         } else {
+            //                             Some((x, -y + 1).into())
+            //                         },
+            //                         (x, -y).into(),
+            //                     );
+            //                 }
+            //             }
+            //
+            //             // Trim the edges (leaving inner cells connected past their bounds)
+            //             for x in -1..width + 1 {
+            //                 buffer.set_cell(CellCoord(IVec2::new(x, 1)), Default::default());
+            //                 buffer.set_cell(
+            //                     CellCoord(IVec2::new(x, -height * 2)),
+            //                     Default::default(),
+            //                 );
+            //             }
+            //
+            //             for y in -1..height * 2 + 1 {
+            //                 buffer.set_cell(CellCoord(IVec2::new(-1, -y)), Default::default());
+            //                 buffer.set_cell(CellCoord(IVec2::new(width, -y)), Default::default());
+            //             }
+            //
+            //             self.mode = Mode::Visual;
+            //             self.mouse_follow_buffer = Some(buffer);
+            //         }
+            //     }
+            // }
             Msg::Render(time) => {
                 self.draw(time);
             }
@@ -816,13 +772,9 @@ impl Component for Viewport {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let onmousedown = ctx
-            .link()
-            .callback(|e| Msg::RawInput(RawInput::MouseDown(e)));
-        let onmouseup = ctx.link().callback(|e| Msg::RawInput(RawInput::MouseUp(e)));
-        let onmousemove = ctx
-            .link()
-            .callback(|e| Msg::RawInput(RawInput::MouseMove(e)));
+        let onmousedown = ctx.link().callback(|e| Msg::RawInput(RawInput::Mouse(e)));
+        let onmouseup = ctx.link().callback(|e| Msg::RawInput(RawInput::Mouse(e)));
+        let onmousemove = ctx.link().callback(|e| Msg::RawInput(RawInput::Mouse(e)));
         let onwheel = ctx
             .link()
             .callback(|e| Msg::RawInput(RawInput::MouseWheelEvent(e)));
@@ -856,7 +808,7 @@ impl Component for Viewport {
                         <ValueComponent
                             key={u64::from(module.get_root())}
                             {module}
-                            camera={self.editor_state.camera.clone()}
+                            camera={self.camera.clone()}
                             update_self={ctx.link().callback(Msg::SetModule)}
                             edit_mode={matches!(self.mode, Mode::ModuleEdit(..))}
                         />
@@ -867,7 +819,7 @@ impl Component for Viewport {
                         <ClockComponent
                             key={u64::from(module.get_root())}
                             {module}
-                            camera={self.editor_state.camera.clone()}
+                            camera={self.camera.clone()}
                             update_self={ctx.link().callback(Msg::SetModule)}
                             edit_mode={matches!(self.mode, Mode::ModuleEdit(..))}
                         />
@@ -879,7 +831,7 @@ impl Component for Viewport {
                         <MemoryComponent
                             key={u64::from(root)}
                             {module}
-                            camera={self.editor_state.camera.clone()}
+                            camera={self.camera.clone()}
                             update_self={ctx.link().callback(Msg::SetModule)}
                             edit_mode={matches!(self.mode, Mode::ModuleEdit(..))}
                         />
@@ -965,20 +917,20 @@ impl Component for Viewport {
                     <div>{format!("Populated Chunks: {}", self.active_buffer.chunks.len())}</div>
                     <div>{format!(
                         "Visible Chunks: {}",
-                        self.editor_state.camera.get_visible_chunk_coords().len()
+                        self.camera.get_visible_chunk_coords().len()
                     )}</div>
                     <div>
                         {"Selection: "}
                         {
-                            if self.editor_state.selection.is_zero() {
+                            if self.selection.is_zero() {
                                 "None".to_owned()
                             } else {
                                 format!(
                                     "{} -> {} ({})",
-                                    self.editor_state.selection.lower_left.0,
-                                    self.editor_state.selection.upper_right.0,
-                                    self.editor_state.selection.upper_right.0 -
-                                    self.editor_state.selection.lower_left.0,
+                                    self.selection.lower_left.0,
+                                    self.selection.upper_right.0,
+                                    self.selection.upper_right.0 -
+                                    self.selection.lower_left.0,
                                 )
                             }
                         }

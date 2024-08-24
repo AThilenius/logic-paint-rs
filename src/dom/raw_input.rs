@@ -1,9 +1,7 @@
-use yew::prelude::*;
+use web_sys::{KeyboardEvent, MouseEvent, WheelEvent};
 
 pub enum RawInput {
-    MouseDown(MouseEvent),
-    MouseMove(MouseEvent),
-    MouseUp(MouseEvent),
+    Mouse(MouseEvent),
     MouseWheelEvent(WheelEvent),
     KeyDown(KeyboardEvent),
     KeyUp(KeyboardEvent),

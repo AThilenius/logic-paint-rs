@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use glam::{IVec2, UVec2};
 use itertools::Itertools;
+use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
@@ -11,8 +12,11 @@ use crate::{
 };
 
 #[derive(Default, Clone)]
+#[wasm_bindgen]
 pub struct Buffer {
+    #[wasm_bindgen(skip)]
     pub chunks: HashMap<ChunkCoord, BufferChunk>,
+    #[wasm_bindgen(skip)]
     pub modules: HashMap<CellCoord, ConcreteModule>,
 }
 
@@ -25,31 +29,29 @@ pub struct BufferChunk {
     pub cell_count: usize,
 }
 
+#[wasm_bindgen]
 impl Buffer {
-    pub fn get_cell<T>(&self, c: T) -> UPC
-    where
-        T: Into<CellCoord>,
-    {
-        let coord: CellCoord = c.into();
-        let chunk_coord: ChunkCoord = coord.into();
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn get_cell(&self, cell_coord: CellCoord) -> UPC {
+        let chunk_coord: ChunkCoord = cell_coord.into();
         if let Some(chunk) = self.chunks.get(&chunk_coord) {
-            chunk.get_cell(coord)
+            chunk.get_cell(cell_coord)
         } else {
             Default::default()
         }
     }
 
-    pub fn set_cell<T>(&mut self, c: T, cell: UPC)
-    where
-        T: Into<CellCoord>,
-    {
-        let coord: CellCoord = c.into();
-        let chunk_coord: ChunkCoord = coord.into();
+    pub fn set_cell(&mut self, cell_coord: CellCoord, cell: UPC) {
+        let chunk_coord: ChunkCoord = cell_coord.into();
 
         self.chunks
             .entry(chunk_coord)
             .or_insert_with(|| Default::default())
-            .set_cell(coord, cell);
+            .set_cell(cell_coord, cell);
     }
 
     pub fn clone_selection(&self, selection: &Selection, anchor: CellCoord) -> Buffer {

@@ -15,21 +15,21 @@ pub const MASK_BYTE_LEN: usize = 4;
 /// buffer, activating various atoms. Any active atom that does not overlay a cell is considered
 /// undefined behavior.
 #[derive(Default)]
-pub struct BufferMask {
+pub struct Mask {
     chunks: HashMap<ChunkCoord, BufferMaskChunk>,
 }
 
 #[allow(dead_code)]
-impl BufferMask {
-    pub fn from_highlight_trace(buffer: &Buffer, atom: Atom) -> BufferMask {
-        let mut buffer_mask = BufferMask::default();
+impl Mask {
+    pub fn from_highlight_trace(buffer: &Buffer, atom: Atom) -> Mask {
+        let mut mask = Mask::default();
         let trace = CompilerResults::get_trace_atoms(buffer, atom);
 
         for atom in trace {
             let chunk_coord: ChunkCoord = atom.coord.into();
             let local_coord: LocalCoord = atom.coord.into();
 
-            let chunk = buffer_mask.get_or_create_chunk_mut(chunk_coord);
+            let chunk = mask.get_or_create_chunk_mut(chunk_coord);
             let i = local_coord.to_upc_idx();
             match atom.part {
                 CellPart::Metal => chunk.cells[i + 0] = 1,
@@ -39,7 +39,7 @@ impl BufferMask {
             }
         }
 
-        buffer_mask
+        mask
     }
 
     pub fn get_chunk<T>(&self, c: T) -> Option<&BufferMaskChunk>

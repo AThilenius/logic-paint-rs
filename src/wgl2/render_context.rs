@@ -5,7 +5,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
     utils::Selection,
-    viewport::{buffer::Buffer, buffer_mask::BufferMask},
+    viewport::{buffer::Buffer, mask::Mask},
     wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
 };
 
@@ -50,7 +50,7 @@ impl RenderContext {
         time: f64,
         buffer: &Buffer,
         selection: &Selection,
-        mask: Option<&BufferMask>,
+        mask: Option<&Mask>,
         camera: &Camera,
     ) -> Result<(), JsValue> {
         self.gl

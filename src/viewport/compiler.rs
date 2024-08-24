@@ -3,6 +3,8 @@ use std::{
     iter::FromIterator,
 };
 
+use wasm_bindgen::prelude::*;
+
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
     log,
@@ -10,14 +12,20 @@ use crate::{
     viewport::buffer::Buffer,
 };
 
+#[wasm_bindgen]
 pub struct CompilerResults {
+    #[wasm_bindgen(skip)]
     pub traces: Vec<Vec<Atom>>,
+    #[wasm_bindgen(skip)]
     pub trace_lookup_by_atom: HashMap<Atom, usize>,
+    #[wasm_bindgen(skip)]
     pub gates: Vec<Gate>,
+    #[wasm_bindgen(skip)]
     pub trace_to_cell_part_index_by_chunk: HashMap<ChunkCoord, Vec<CellPartToTrace>>,
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[wasm_bindgen]
 pub struct Atom {
     pub coord: CellCoord,
     pub part: CellPart,
@@ -25,6 +33,7 @@ pub struct Atom {
 
 #[repr(usize)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[wasm_bindgen]
 pub enum CellPart {
     // Metal (including the Via)
     Metal = 0,
@@ -57,7 +66,9 @@ pub struct Gate {
     pub right_ec_trace: usize,
 }
 
+#[wasm_bindgen]
 impl CompilerResults {
+    #[wasm_bindgen(constructor)]
     pub fn from_buffer(buffer: &Buffer) -> CompilerResults {
         // Traces (and thus gates) have to be explored breadth-first off I/O pins. Reason being,
         // gates only hold back-references to traces when calculating their new states

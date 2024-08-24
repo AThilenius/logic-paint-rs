@@ -1,19 +1,23 @@
 use std::collections::HashSet;
 
 use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
+use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
     viewport::input::InputState,
 };
 
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+#[wasm_bindgen]
 pub struct Camera {
     pub translation: Vec2,
     pub scale: f32,
+    #[wasm_bindgen(skip)]
     pub size: Vec2,
+    #[wasm_bindgen(skip)]
     pub proj_matrix: Mat4,
-    pub px_per_cell: f32,
     drag_world_anchor: Option<Vec2>,
 }
 
@@ -34,7 +38,6 @@ impl Default for Camera {
             size: Vec2::ONE,
             proj_matrix: Default::default(),
             drag_world_anchor: None,
-            px_per_cell: 1.0,
         };
 
         camera.update_proj_matrix();
@@ -42,33 +45,12 @@ impl Default for Camera {
     }
 }
 
+// Non-bound methods
 impl Camera {
-    pub fn new_translation_scale(translation: Vec2, scale: f32) -> Self {
-        let mut camera = Self {
-            translation,
-            scale,
-            size: Vec2::ONE,
-            proj_matrix: Default::default(),
-            drag_world_anchor: None,
-            px_per_cell: 1.0,
-        };
-
-        camera.update_proj_matrix();
-        camera
-    }
-
     pub fn update(&mut self, size: Vec2) {
         if !self.size.abs_diff_eq(size, f32::EPSILON) {
             self.size = size;
             self.update_proj_matrix();
-
-            // TODO: I don't understand where this number is coming from: 31.25
-            let old_scale = self.scale;
-            self.scale = 1.0;
-            self.px_per_cell = (self.project_cell_coord_to_screen_point(CellCoord(IVec2::ONE))
-                - self.project_cell_coord_to_screen_point(CellCoord(IVec2::ZERO)))
-            .x;
-            self.scale = old_scale;
         }
     }
 
@@ -117,6 +99,52 @@ impl Camera {
         false
     }
 
+    /// Returns a list of all currently-visible substrate chunks to this camera.
+    pub fn get_visible_chunk_coords(&self) -> HashSet<ChunkCoord> {
+        let lower_left: ChunkCoord = self
+            .project_screen_point_to_cell(Vec2::new(-1.0, self.size.y + 1.0))
+            .into();
+        let upper_right: ChunkCoord = self
+            .project_screen_point_to_cell(Vec2::new(self.size.x + 1.0, -1.0))
+            .into();
+
+        let mut v = HashSet::new();
+        v.reserve(
+            ((upper_right.0.y - lower_left.0.y) * (upper_right.0.x - lower_left.0.x)) as usize,
+        );
+        for y in lower_left.0.y..(upper_right.0.y + 1) {
+            for x in lower_left.0.x..(upper_right.0.x + 1) {
+                v.insert(ChunkCoord(IVec2::new(x, y)));
+            }
+        }
+
+        v
+    }
+
+    fn update_proj_matrix(&mut self) {
+        let scale = 2000.0;
+        let w = self.size.x / scale;
+        let h = self.size.y / scale;
+        self.proj_matrix = Mat4::orthographic_rh(-w, w, -h, h, 0.0, 1.0);
+    }
+}
+
+#[wasm_bindgen]
+impl Camera {
+    #[wasm_bindgen(constructor)]
+    pub fn new_translation_scale(translation: Vec2, scale: f32) -> Self {
+        let mut camera = Self {
+            translation,
+            scale,
+            size: Vec2::ONE,
+            proj_matrix: Default::default(),
+            drag_world_anchor: None,
+        };
+
+        camera.update_proj_matrix();
+        camera
+    }
+
     /// Project a screen x,y point into the world. Z axis is ignored because I don't need it.
     pub fn project_screen_point_to_world(&self, position: Vec2) -> Vec2 {
         let view_matrix = self.get_view_matrix();
@@ -159,34 +187,5 @@ impl Camera {
             .project_point3(Vec3::new(vec.x, vec.y, 0.0));
         let half_size = self.size / 2.0;
         (Vec2::new(p.x, -p.y) * half_size) + half_size
-    }
-
-    /// Returns a list of all currently-visible substrate chunks to this camera.
-    pub fn get_visible_chunk_coords(&self) -> HashSet<ChunkCoord> {
-        let lower_left: ChunkCoord = self
-            .project_screen_point_to_cell(Vec2::new(-1.0, self.size.y + 1.0))
-            .into();
-        let upper_right: ChunkCoord = self
-            .project_screen_point_to_cell(Vec2::new(self.size.x + 1.0, -1.0))
-            .into();
-
-        let mut v = HashSet::new();
-        v.reserve(
-            ((upper_right.0.y - lower_left.0.y) * (upper_right.0.x - lower_left.0.x)) as usize,
-        );
-        for y in lower_left.0.y..(upper_right.0.y + 1) {
-            for x in lower_left.0.x..(upper_right.0.x + 1) {
-                v.insert(ChunkCoord(IVec2::new(x, y)));
-            }
-        }
-
-        v
-    }
-
-    fn update_proj_matrix(&mut self) {
-        let scale = 2000.0;
-        let w = self.size.x / scale;
-        let h = self.size.y / scale;
-        self.proj_matrix = Mat4::orthographic_rh(-w, w, -h, h, 0.0, 1.0);
     }
 }

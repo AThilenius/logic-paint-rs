@@ -1,5 +1,6 @@
 use glam::{IVec2, UVec2};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use wasm_bindgen::prelude::*;
 
 use crate::upc::LOG_UPC_BYTE_LEN;
 
@@ -9,6 +10,7 @@ const UPPER_MASK: i32 = !((CHUNK_SIZE as i32) - 1);
 const LOWER_MASK: usize = CHUNK_SIZE - 1;
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[wasm_bindgen]
 pub struct CellCoord(pub IVec2);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -146,6 +148,14 @@ impl CellCoord {
             (chunk_coord.0.x << LOG_CHUNK_SIZE) + x as i32,
             (chunk_coord.0.y << LOG_CHUNK_SIZE) + y as i32,
         ))
+    }
+}
+
+#[wasm_bindgen]
+impl CellCoord {
+    #[wasm_bindgen(constructor)]
+    pub fn _wasm_ctor(x: i32, y: i32) -> Self {
+        (x, y).into()
     }
 }
 

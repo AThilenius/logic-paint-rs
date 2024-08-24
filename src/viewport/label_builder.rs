@@ -4,10 +4,8 @@ use crate::{
     coords::CellCoord,
     log,
     utils::Selection,
-    viewport::{blueprint::Blueprint, buffer::Buffer, input::InputState},
+    viewport::{buffer::Buffer, input::InputState},
 };
-
-use super::brush;
 
 pub struct LabelBuilder {
     text: String,
@@ -18,10 +16,10 @@ pub struct LabelBuilder {
 impl Default for LabelBuilder {
     fn default() -> Self {
         let font_face_buffer = {
-            if let Ok(bp) =
-                serde_json::from_str::<Blueprint>(include_str!("../../templates/font_file.lpbp"))
+            if let Ok(buffer) =
+                serde_json::from_str::<Buffer>(include_str!("../../templates/font_file.lpbp"))
             {
-                bp.into()
+                buffer
             } else {
                 log!("Failed to deserialize JSON, or structure is invalid.");
                 Buffer::default()
@@ -131,13 +129,9 @@ impl LabelBuilder {
             }
 
             c_y -= 1;
-            brush::draw_metal(&mut buffer, None, CellCoord(IVec2::new(c_x, c_y)));
+            buffer.draw_metal(None, (c_x, c_y).into());
             for _ in 1..5 {
-                brush::draw_metal(
-                    &mut buffer,
-                    Some(CellCoord(IVec2::new(c_x, c_y))),
-                    CellCoord(IVec2::new(c_x, c_y + 1)),
-                );
+                buffer.draw_metal(Some((c_x, c_y).into()), (c_x, c_y + 1).into());
                 c_y += 1;
             }
         }
