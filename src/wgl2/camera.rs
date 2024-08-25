@@ -6,15 +6,14 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
-    viewport::input::InputState,
+    substrate::input::InputState,
 };
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 #[wasm_bindgen]
 pub struct Camera {
     pub translation: Vec2,
     pub scale: f32,
-    #[wasm_bindgen(skip)]
     pub size: Vec2,
     #[wasm_bindgen(skip)]
     pub proj_matrix: Mat4,

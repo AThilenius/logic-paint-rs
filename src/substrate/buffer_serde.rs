@@ -1,19 +1,18 @@
 use std::collections::HashMap;
 
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use base64::prelude::*;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
-    coords::{CellCoord, ChunkCoord},
-    modules::ConcreteModule,
+    coords::ChunkCoord,
     upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
-    viewport::buffer::{Buffer, BufferChunk},
+    substrate::buffer::{Buffer, BufferChunk},
 };
 
 #[derive(Serialize, Deserialize)]
 struct BufferSerdeV1 {
     chunks: HashMap<ChunkCoord, String>,
-    modules: HashMap<CellCoord, ConcreteModule>,
+    //TODO: Serialize modules? Or is that JS's job now.
 }
 
 #[derive(Serialize, Deserialize)]
@@ -62,12 +61,9 @@ impl Serialize for Buffer {
                 }
             }
 
-            BufferSerdeV1 {
-                chunks,
-                modules: self.modules.clone(),
-            }
+            BufferSerdeV1 { chunks }
         };
-        
+
         buffer_serde_v1.serialize(serializer)
     }
 }
@@ -78,7 +74,7 @@ impl<'de> Deserialize<'de> for Buffer {
         D: Deserializer<'de>,
     {
         let buffer_serde_v1 = BufferSerdeV1::deserialize(deserializer)?;
-        
+
         let mut buffer = Buffer::default();
 
         for (chunk_coord, cells) in buffer_serde_v1.chunks {
@@ -109,9 +105,6 @@ impl<'de> Deserialize<'de> for Buffer {
 
             buffer.chunks.insert(chunk_coord, buffer_chunk);
         }
-
-        // Set the modules.
-        buffer.modules = buffer_serde_v1.modules;
 
         Ok(buffer)
     }

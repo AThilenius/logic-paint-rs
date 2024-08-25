@@ -1,19 +1,27 @@
 use std::collections::HashMap;
 
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
+    coords::ChunkCoord,
+    substrate::{buffer::Buffer, mask::Mask},
     utils::Selection,
-    viewport::{buffer::Buffer, mask::Mask},
     wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
 };
 
-use crate::coords::{CellCoord, ChunkCoord};
+/// Represents only the presentation state of a on or off screen viewport for rendering.
+#[wasm_bindgen(getter_with_clone)]
+pub struct Viewport {
+    pub selection: Selection,
+    pub camera: Camera,
+    pub buffer: Buffer,
+    pub mask: Mask,
+    pub time: f64,
 
-pub struct RenderContext {
     program: CellProgram,
     render_chunks: HashMap<ChunkCoord, RenderChunk>,
+    canvas: HtmlCanvasElement,
     gl: WebGl2RenderingContext,
     empty_texture: Texture,
 }
@@ -24,53 +32,72 @@ struct RenderChunk {
     vao: QuadVao,
 }
 
-impl RenderContext {
-    pub fn new(canvas: HtmlCanvasElement) -> Result<RenderContext, JsValue> {
+#[wasm_bindgen]
+impl Viewport {
+    #[wasm_bindgen(constructor)]
+    pub fn new(canvas: HtmlCanvasElement) -> Self {
         let options = js_sys::Object::new();
 
         let gl = canvas
-            .get_context_with_context_options("webgl2", &options)?
-            .unwrap()
-            .dyn_into::<WebGl2RenderingContext>()?;
+            .get_context_with_context_options("webgl2", &options)
+            .expect("get webgl2 context from canvas")
+            .expect("webgl2 context to be non-null")
+            .dyn_into::<WebGl2RenderingContext>()
+            .expect("cast get_context_with_context_options into WebGL2RenderingContext");
 
-        let program = CellProgram::compile(&gl)?;
+        let program = CellProgram::compile(&gl).expect("glsl programs to compile");
+        let empty_texture = Texture::new_chunk_texture(&gl).expect("webgl textures to create");
 
-        let empty_texture = Texture::new_chunk_texture(&gl)?;
-
-        Ok(Self {
+        Self {
+            selection: Default::default(),
+            camera: Default::default(),
+            buffer: Default::default(),
+            mask: Default::default(),
+            time: Default::default(),
+            render_chunks: Default::default(),
             program,
-            render_chunks: HashMap::new(),
+            canvas,
             gl,
             empty_texture,
-        })
+        }
     }
 
-    pub fn draw(
-        &mut self,
-        time: f64,
-        buffer: &Buffer,
-        selection: &Selection,
-        mask: Option<&Mask>,
-        camera: &Camera,
-    ) -> Result<(), JsValue> {
+    pub fn draw(&mut self) -> Result<(), JsValue> {
+        self.time = web_sys::window()
+            .expect("should have a window in this context")
+            .performance()
+            .expect("performance should be available")
+            .now();
+
+        // Maintain HTML Canvas size and context viewport.
+        let w = self.canvas.client_width() as u32;
+        let h = self.canvas.client_height() as u32;
+
+        if w != self.canvas.width() || h != self.canvas.height() {
+            self.canvas.set_width(w);
+            self.canvas.set_height(h);
+        }
+
+        self.camera.update((w as f32, h as f32).into());
+
         self.gl
-            .viewport(0, 0, camera.size.x as i32, camera.size.y as i32);
+            .viewport(0, 0, self.camera.size.x as i32, self.camera.size.y as i32);
 
         // Update per-draw uniforms
         self.program.use_program(&self.gl);
         self.program
             .view_proj
-            .set(&self.gl, camera.get_view_proj_matrix());
-        self.program.time.set(&self.gl, time as f32);
+            .set(&self.gl, self.camera.get_view_proj_matrix());
+        self.program.time.set(&self.gl, self.time as f32);
         self.program
             .cell_select_ll
-            .set(&self.gl, selection.lower_left.0);
+            .set(&self.gl, self.selection.lower_left.0);
         self.program
             .cell_select_ur
-            .set(&self.gl, selection.upper_right.0);
+            .set(&self.gl, self.selection.upper_right.0);
 
         // Get chunks visible to the camera.
-        let visible_chunks = camera.get_visible_chunk_coords();
+        let visible_chunks = self.camera.get_visible_chunk_coords();
 
         // Drop RenderChunks that aren't visible any more.
         self.render_chunks.retain(|c, _| visible_chunks.contains(c));
@@ -96,7 +123,7 @@ impl RenderContext {
             // Update and bind the cell texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
 
-            if let Some(buffer_chunk) = buffer.chunks.get(&chunk_coord) {
+            if let Some(buffer_chunk) = self.buffer.chunks.get(&chunk_coord) {
                 render_chunk
                     .cell_texture
                     .set_pixels(&buffer_chunk.cells[..])?;
@@ -111,7 +138,7 @@ impl RenderContext {
             // Update and bind the mask texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
 
-            if let Some(mask_chunk) = mask.and_then(|m| m.get_chunk(chunk_coord)) {
+            if let Some(mask_chunk) = self.mask.get_chunk(chunk_coord) {
                 render_chunk
                     .mask_texture
                     .set_pixels(&mask_chunk.cells[..])?;
@@ -134,9 +161,5 @@ impl RenderContext {
         }
 
         Ok(())
-    }
-
-    pub fn set_cursor_coord(&self, coord: CellCoord) {
-        self.program.cursor_coord.set(&self.gl, coord.0);
     }
 }

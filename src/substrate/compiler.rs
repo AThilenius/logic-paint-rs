@@ -9,7 +9,7 @@ use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
     log,
     upc::{Bit, Metal, NormalizedCell, Silicon},
-    viewport::buffer::Buffer,
+    substrate::buffer::Buffer,
 };
 
 #[wasm_bindgen]
@@ -78,9 +78,9 @@ impl CompilerResults {
         //
         // Ie. The edge set is a queue (breadth-first) and is seeded with I/O pins.
         let mut edge_set: VecDeque<Atom> = buffer
-            .modules
-            .values()
-            .flat_map(|m| m.get_pin_coords())
+            .sockets
+            .iter()
+            .flat_map(|s| s.pins.iter().map(|p| p.cell_coord))
             .map(|coord| Atom {
                 coord,
                 part: CellPart::Metal,

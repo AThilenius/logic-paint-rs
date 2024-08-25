@@ -4,7 +4,7 @@ use crate::{
     coords::CellCoord,
     log,
     utils::Selection,
-    viewport::{buffer::Buffer, input::InputState},
+    substrate::{buffer::Buffer, input::InputState},
 };
 
 pub struct LabelBuilder {

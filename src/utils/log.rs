@@ -27,6 +27,17 @@ macro_rules! warn {
 }
 
 #[macro_export]
+macro_rules! error {
+    ( $( $t:tt )* ) => {
+        #[cfg(target_arch = "wasm32")]
+        web_sys::console::error_1(&format!( $( $t )* ).into());
+
+        #[cfg(not(target_arch = "wasm32"))]
+        println!($( $t )*);
+    }
+}
+
+#[macro_export]
 macro_rules! unwrap_or_return {
     ($e:expr) => {
         match $e {

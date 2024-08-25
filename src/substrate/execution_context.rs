@@ -1,9 +1,6 @@
-use std::collections::HashMap;
-
 use crate::{
-    coords::CellCoord,
-    modules::{ConcreteModule, Module, Pin},
-    viewport::{
+    socket::Socket,
+    substrate::{
         buffer::Buffer,
         compiler::{Atom, CellPart, CompilerResults},
         mask::{Mask, MASK_BYTE_LEN},
@@ -11,12 +8,12 @@ use crate::{
 };
 
 pub struct ExecutionContext {
-    pub modules: HashMap<CellCoord, ConcreteModule>,
+    pub compiler_results: CompilerResults,
+    pub sockets: Vec<Socket>,
     pub max_ticks_per_clock: usize,
     pub buffer_mask: Mask,
     pub state: SimState,
     pub is_mid_clock_cycle: bool,
-    pub compiler_results: CompilerResults,
     first_tick: bool,
 }
 
@@ -35,10 +32,10 @@ impl ExecutionContext {
         let trace_states = vec![false; compiler_results.traces.len()];
 
         Self {
-            modules: buffer.modules.clone(),
+            compiler_results,
+            sockets: buffer.sockets.clone(),
             max_ticks_per_clock: 100_000,
             buffer_mask: Default::default(),
-            compiler_results,
             state: SimState {
                 tick_count: 0,
                 clock_count: 0,
@@ -117,22 +114,20 @@ impl ExecutionContext {
             *state = false;
         }
 
-        // Pull modules for OUTPUT state (input state is updates at the end of a tick) and write
-        // their value to the corresponding trace.
+        // Collect sockets for INPUT state.
         if !self.first_tick {
-            for (_, module) in self.modules.iter() {
-                for pin in module.get_pins() {
-                    let pin_coord = pin.coord_offset.to_cell_coord(module.get_root());
+            for socket in &self.sockets {
+                for pin in &socket.pins {
                     let trace = *self
                         .compiler_results
                         .trace_lookup_by_atom
                         .get(&Atom {
-                            coord: pin_coord,
+                            coord: pin.cell_coord,
                             part: CellPart::Metal,
                         })
                         .expect("Failed to find associated trace from Atom");
 
-                    self.state.trace_states[trace] |= pin.output_high;
+                    self.state.trace_states[trace] |= pin.si_input_high;
                 }
             }
         }
@@ -141,7 +136,7 @@ impl ExecutionContext {
         self.is_mid_clock_cycle = true;
     }
 
-    #[inline(always)]
+    #[inline]
     fn run_tick_once(&mut self) -> bool {
         let mut change = false;
 
@@ -172,34 +167,25 @@ impl ExecutionContext {
             self.state.gate_states[i] = if gate.is_npn { base } else { !base };
         }
 
-        // Update module inputs. First immutably collect their values.
-        let module_pin_states = self
-            .modules
-            .iter()
-            .map(|(_, module)| {
-                module
-                    .get_pins()
-                    .iter()
-                    .map(|Pin { coord_offset, .. }| {
-                        let pin_coord = coord_offset.to_cell_coord(module.get_root());
-                        let trace = *self
-                            .compiler_results
-                            .trace_lookup_by_atom
-                            .get(&Atom {
-                                coord: pin_coord,
-                                part: CellPart::Metal,
-                            })
-                            .expect("Failed to get associated trace from Atom");
-
-                        self.state.trace_states[trace]
+        for socket in &mut self.sockets {
+            for pin in &mut socket.pins {
+                let trace = *self
+                    .compiler_results
+                    .trace_lookup_by_atom
+                    .get(&Atom {
+                        coord: pin.cell_coord,
+                        part: CellPart::Metal,
                     })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+                    .expect("Failed to get associated trace from Atom");
 
-        // Then write them to modules
-        for (i, (_, module)) in self.modules.iter_mut().enumerate() {
-            module.set_pin_states(&module_pin_states[i]);
+                if pin.trigger && pin.si_output_high != self.state.trace_states[trace] {
+                    socket.pending_update = true;
+                }
+
+                pin.si_output_high = self.state.trace_states[trace];
+            }
+
+            socket.invoke_update_callback();
         }
 
         self.state.clock_count += 1;

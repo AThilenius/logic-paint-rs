@@ -1,8 +1,16 @@
 use std::collections::HashSet;
 
 use glam::{IVec2, Vec2};
+use web_sys::{KeyboardEvent, MouseEvent, WheelEvent};
 
-use crate::{coords::CellCoord, dom::RawInput, utils::range_iter, wgl2::Camera};
+use crate::{coords::CellCoord, utils::range_iter, wgl2::Camera};
+
+pub enum RawInput {
+    Mouse(MouseEvent),
+    MouseWheelEvent(WheelEvent),
+    KeyDown(KeyboardEvent),
+    KeyUp(KeyboardEvent),
+}
 
 /// Tracks the overall input state of a viewport.
 #[derive(Default)]

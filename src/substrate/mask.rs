@@ -1,10 +1,10 @@
-use std::collections::{hash_map::Entry, HashMap};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{ChunkCoord, LocalCoord, CHUNK_SIZE},
-    viewport::{
+    substrate::{
+        buffer::Buffer,
         compiler::{Atom, CellPart, CompilerResults},
-        Buffer,
     },
 };
 
@@ -14,9 +14,10 @@ pub const MASK_BYTE_LEN: usize = 4;
 /// Much like a Buffer, except lacking any undo or transaction support. Designed to 'overlay' a
 /// buffer, activating various atoms. Any active atom that does not overlay a cell is considered
 /// undefined behavior.
-#[derive(Default)]
+#[derive(Default, Clone)]
+#[wasm_bindgen]
 pub struct Mask {
-    chunks: HashMap<ChunkCoord, BufferMaskChunk>,
+    chunks: im::HashMap<ChunkCoord, BufferMaskChunk>,
 }
 
 #[allow(dead_code)]
@@ -57,8 +58,8 @@ impl Mask {
         let coord: ChunkCoord = c.into();
 
         match self.chunks.entry(coord) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => v.insert(Default::default()),
+            im::hashmap::Entry::Occupied(o) => o.into_mut(),
+            im::hashmap::Entry::Vacant(v) => v.insert(Default::default()),
         }
     }
 
@@ -69,12 +70,13 @@ impl Mask {
         let coord: ChunkCoord = c.into();
 
         match self.chunks.entry(coord) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => v.insert(Default::default()),
+            im::hashmap::Entry::Occupied(o) => o.into_mut(),
+            im::hashmap::Entry::Vacant(v) => v.insert(Default::default()),
         }
     }
 }
 
+#[derive(Clone)]
 pub struct BufferMaskChunk {
     /// 4-byte cells, in row-major order. Ready for blitting to the GPU.
     pub cells: Vec<u8>,

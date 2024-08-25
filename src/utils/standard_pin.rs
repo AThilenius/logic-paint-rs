@@ -1,5 +1,3 @@
-use yew::prelude::*;
-
 use crate::modules::Pin;
 
 #[derive(Properties, PartialEq)]

@@ -39,18 +39,11 @@
 //      Undefined (word addressing must be word-aligned).
 use glam::IVec2;
 use serde::{Deserialize, Serialize};
-use yew::prelude::*;
 
 use crate::{
     coords::CellCoord,
     modules::{Module, Pin},
-    utils::{
-        cell_offset::CellOffset, local_cell_offset::LocalCellOffset, standard_pin::StandardPin,
-    },
-    wgl2::Camera,
 };
-
-use super::ConcreteModule;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub struct Memory {
@@ -83,7 +76,7 @@ impl Default for Memory {
 
 impl Module for Memory {
     fn get_root(&self) -> CellCoord {
-        return self.root;
+        self.root
     }
 
     fn set_root(&mut self, root: CellCoord) {
@@ -181,81 +174,5 @@ impl Module for Memory {
                 self.data[self.addr as usize + 1] = msb;
             }
         }
-    }
-}
-
-#[derive(Properties, PartialEq)]
-pub struct Props {
-    pub module: Memory,
-    pub camera: Camera,
-    pub update_self: Callback<(bool, CellCoord, Option<ConcreteModule>)>,
-    pub edit_mode: bool,
-}
-
-#[function_component(MemoryComponent)]
-pub fn memory_component(props: &Props) -> Html {
-    let Props {
-        module,
-        camera,
-        update_self,
-        edit_mode,
-    } = props;
-
-    let show_settings = use_state(|| false);
-
-    let delete_on_change = {
-        let module = module.clone();
-        let update_self = update_self.clone();
-        Callback::from(move |_| {
-            update_self.emit((true, module.get_root(), None));
-        })
-    };
-
-    html! {
-        <CellOffset camera={camera.clone()} root={module.root} >
-            <StandardPin pins={module.get_pins()} />
-            {
-                if *edit_mode {
-                    html! {
-                        <div
-                            class={classes!("lp-module-edit-mode-div", "lp-pointer-events")}
-                            onclick={
-                                let show_settings = show_settings.clone();
-                                Callback::from(move |_| show_settings.set(!*show_settings))
-                            }
-                        >
-                            {"⚙"}
-                        </div>
-                    }
-                } else {
-                    html!()
-                }
-            }
-            {
-                if *edit_mode && *show_settings {
-                    html! {
-                        <LocalCellOffset amount={IVec2::new(1, 0)}>
-                            <div class={classes!("lp-settings-panel", "lp-pointer-events")}>
-                                <div style="
-                                    background: red;
-                                    margin-bottom: 4px;
-                                    padding: 0 2px;"
-                                    onclick={delete_on_change}>
-                                    {"DEL"}
-                                </div>
-                                // <TextInput
-                                //     label="Spacing"
-                                //     on_change={spacing_on_change}
-                                //     value={format!("{}", module.spacing)}
-                                //     width={24.0}
-                                // />
-                            </div>
-                        </LocalCellOffset>
-                    }
-                } else {
-                    html!()
-                }
-            }
-        </CellOffset>
     }
 }

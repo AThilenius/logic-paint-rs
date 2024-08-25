@@ -6,7 +6,7 @@ use crate::{
     coords::CellCoord,
     upc::{Metal, NormalizedCell, Placement, Silicon},
     utils::Selection,
-    viewport::buffer::Buffer,
+    substrate::buffer::Buffer,
 };
 
 #[wasm_bindgen]

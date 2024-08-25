@@ -1,23 +1,27 @@
-use std::collections::HashMap;
-
 use glam::{IVec2, UVec2};
 use itertools::Itertools;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
-    modules::{ConcreteModule, Module},
+    socket::Socket,
     upc::{Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,
 };
 
+/// Buffers are an infinite grid of cells, where each cell is 4 bytes. Things are split into
+/// chunks, where each chunk stores a simple Vec<u8>, and Chunks are indexed by their chunk
+/// coordinate on the infinite grid. Chunks with zero non-default cells take up no memory.
+///
+/// This struct is cheap to clone, as chunks are Copy-On-Write thanks to `im` HashMap. Sockets
+/// however are cloned in their entirety, because they are relatively small.
 #[derive(Default, Clone)]
 #[wasm_bindgen]
 pub struct Buffer {
     #[wasm_bindgen(skip)]
-    pub chunks: HashMap<ChunkCoord, BufferChunk>,
+    pub chunks: im::HashMap<ChunkCoord, BufferChunk>,
     #[wasm_bindgen(skip)]
-    pub modules: HashMap<CellCoord, ConcreteModule>,
+    pub sockets: Vec<Socket>,
 }
 
 #[derive(Clone)]
@@ -69,17 +73,6 @@ impl Buffer {
             }
         }
 
-        // Clone module roots within selection.
-        for (module_root, module) in &self.modules {
-            if selection.test_cell_in_selection(*module_root) {
-                // Offset the module root by the clone anchor.
-                let new_root = CellCoord(module_root.0 - anchor.0);
-                let mut new_module = module.clone();
-                new_module.set_root(new_root);
-                buffer.modules.insert(new_root, new_module);
-            }
-        }
-
         buffer
     }
 
@@ -111,14 +104,6 @@ impl Buffer {
                     self.set_cell(target_cell_coord, cell);
                 }
             }
-        }
-
-        // Paste modules
-        for (root, module) in &buffer.modules {
-            let new_root = CellCoord(root.0 + cell_coord.0);
-            let mut new_module = module.clone();
-            new_module.set_root(new_root);
-            self.modules.insert(new_root, new_module);
         }
 
         // Then go through the outline of the bounding rect and fix any broken cells.
@@ -177,12 +162,6 @@ impl Buffer {
         // Todo: modules can't be mirrored. That's not great UX though.
 
         buffer
-    }
-
-    pub fn clock_modules(&mut self, time: f64) {
-        for (_, module) in self.modules.iter_mut() {
-            module.clock(time);
-        }
     }
 
     pub fn fix_all_cells(&mut self) {
