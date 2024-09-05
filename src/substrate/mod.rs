@@ -9,8 +9,6 @@ pub mod mask;
 
 // use crate::{
 //     dom::{DomIntervalHooks, RawInput},
-//     upc::{NormalizedCell, Silicon},
-//     utils::Selection,
 //     substrate::{
 //         buffer::Buffer,
 //         compiler::{Atom, CellPart},
@@ -18,6 +16,8 @@ pub mod mask;
 //         input::InputState,
 //         label_builder::LabelBuilder,
 //     },
+//     upc::{NormalizedCell, Silicon},
+//     utils::Selection,
 //     wgl2::{Camera, RenderContext},
 // };
 //

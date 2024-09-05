@@ -4,28 +4,130 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::CellCoord,
-    upc::{Metal, NormalizedCell, Placement, Silicon},
-    utils::Selection,
     substrate::buffer::Buffer,
+    upc::{Metal, NormalizedCell, Placement, Silicon},
+    utils::{range_iter, Selection},
 };
+
+pub type Path = Vec<CellCoord>;
 
 #[wasm_bindgen]
 impl Buffer {
-    pub fn draw_via(&mut self, from: Option<CellCoord>, to: CellCoord) {
-        // Only draw the first place the user clicks for vias.
-        let mut to_cell: NormalizedCell = self.get_cell(to).into();
-
-        if from.is_none() {
-            match (to_cell.si, &mut to_cell.metal) {
-                (Silicon::NP { .. }, Metal::Trace { has_via, .. }) => *has_via = true,
-                _ => {}
+    pub fn draw_si(
+        &mut self,
+        CellCoord(start): CellCoord,
+        CellCoord(end): CellCoord,
+        initial_impulse_vertical: bool,
+        paint_n: bool,
+    ) {
+        let mut from = None;
+        if initial_impulse_vertical {
+            // Draw Y first, then X.
+            for y in range_iter(start.y, end.y) {
+                self.draw_si_link(from, (start.x, y).into(), paint_n);
+                from = Some((start.x, y).into());
+            }
+            for x in range_iter(start.x, end.x) {
+                self.draw_si_link(from, (x, end.y).into(), paint_n);
+                from = Some((x, end.y).into());
+            }
+        } else {
+            // Draw X first, then Y.
+            for x in range_iter(start.x, end.x) {
+                self.draw_si_link(from, (x, start.y).into(), paint_n);
+                from = Some((x, start.y).into());
+            }
+            for y in range_iter(start.y, end.y) {
+                self.draw_si_link(from, (end.x, y).into(), paint_n);
+                from = Some((end.x, y).into());
             }
         }
 
-        self.set_cell(to, to_cell.into());
+        self.draw_si_link(from, (end.x, end.y).into(), paint_n);
     }
 
-    pub fn draw_si(&mut self, from: Option<CellCoord>, to: CellCoord, paint_n: bool) {
+    pub fn draw_metal(
+        &mut self,
+        CellCoord(start): CellCoord,
+        CellCoord(end): CellCoord,
+        initial_impulse_vertical: bool,
+    ) {
+        let mut from = None;
+        if initial_impulse_vertical {
+            // Draw Y first, then X.
+            for y in range_iter(start.y, end.y) {
+                self.draw_metal_link(from, (start.x, y).into());
+                from = Some((start.x, y).into());
+            }
+            for x in range_iter(start.x, end.x) {
+                self.draw_metal_link(from, (x, end.y).into());
+                from = Some((x, end.y).into());
+            }
+        } else {
+            // Draw X first, then Y.
+            for x in range_iter(start.x, end.x) {
+                self.draw_metal_link(from, (x, start.y).into());
+                from = Some((x, start.y).into());
+            }
+            for y in range_iter(start.y, end.y) {
+                self.draw_metal_link(from, (end.x, y).into());
+                from = Some((end.x, y).into());
+            }
+        }
+
+        self.draw_metal_link(from, (end.x, end.y).into());
+    }
+
+    pub fn draw_via(&mut self, cell_coord: CellCoord) {
+        // Only draw the first place the user clicks for vias.
+        let mut to_cell: NormalizedCell = self.get_cell(cell_coord).into();
+
+        match (to_cell.si, &mut to_cell.metal) {
+            (Silicon::NP { .. }, Metal::Trace { has_via, .. }) => *has_via = true,
+            _ => {}
+        }
+
+        self.set_cell(cell_coord, to_cell.into());
+    }
+
+    pub fn clear_selection(&mut self, selection: &Selection) {
+        if selection.is_zero() {
+            return;
+        }
+
+        let ll = selection.lower_left.0;
+        let ur = selection.upper_right.0;
+
+        self.clear_selection_border(selection);
+
+        // Then we can just blit-clear the inside.
+        for y in (ll.y + 1)..(ur.y - 1) {
+            for x in (ll.x + 1)..(ur.x - 1) {
+                self.set_cell(CellCoord(IVec2::new(x, y)), Default::default());
+            }
+        }
+    }
+
+    pub fn clear_selection_border(&mut self, selection: &Selection) {
+        if selection.is_zero() {
+            return;
+        }
+
+        let ll = selection.lower_left.0;
+        let ur = selection.upper_right.0;
+
+        (ll.x..ur.x).for_each(|x| self.clear_cell_si((x, ll.y).into()));
+        (ll.x..ur.x).for_each(|x| self.clear_cell_si((x, ur.y - 1).into()));
+        (ll.y..ur.y).for_each(|y| self.clear_cell_si((ll.x, y).into()));
+        (ll.y..ur.y).for_each(|y| self.clear_cell_si((ur.x - 1, y).into()));
+
+        (ll.x..ur.x).for_each(|x| self.clear_cell_metal((x, ll.y).into()));
+        (ll.x..ur.x).for_each(|x| self.clear_cell_metal((x, ur.y - 1).into()));
+        (ll.y..ur.y).for_each(|y| self.clear_cell_metal((ll.x, y).into()));
+        (ll.y..ur.y).for_each(|y| self.clear_cell_metal((ur.x - 1, y).into()));
+    }
+
+    pub fn draw_si_link(&mut self, from: Option<CellCoord>, to: CellCoord, paint_n: bool) {
         let mut to_cell: NormalizedCell = self.get_cell(to).into();
 
         // We can paint silicon above any cell that doesn't already have silicon.
@@ -261,7 +363,7 @@ impl Buffer {
         }
     }
 
-    pub fn draw_metal(&mut self, from: Option<CellCoord>, to: CellCoord) {
+    pub fn draw_metal_link(&mut self, from: Option<CellCoord>, to: CellCoord) {
         let mut to_cell: NormalizedCell = self.get_cell(to).into();
 
         if let Metal::None = to_cell.metal {
@@ -292,7 +394,7 @@ impl Buffer {
         self.set_cell(to, to_cell.into());
     }
 
-    pub fn clear_si(&mut self, cell_coord: CellCoord) {
+    pub fn clear_cell_si(&mut self, cell_coord: CellCoord) {
         let upc = self.get_cell(cell_coord);
 
         if upc == Default::default() {
@@ -344,7 +446,7 @@ impl Buffer {
         }
     }
 
-    pub fn clear_metal(&mut self, cell_coord: CellCoord) {
+    pub fn clear_cell_metal(&mut self, cell_coord: CellCoord) {
         let upc = self.get_cell(cell_coord);
 
         if upc == Default::default() {
@@ -374,42 +476,5 @@ impl Buffer {
 
             self.set_cell(neighbor_coord, neighbor.into());
         }
-    }
-
-    pub fn clear_both_in_selection(&mut self, selection: &Selection) {
-        if selection.is_zero() {
-            return;
-        }
-
-        let ll = selection.lower_left.0;
-        let ur = selection.upper_right.0;
-
-        self.clear_border_of_selection(selection);
-
-        // Then we can just blit-clear the inside.
-        for y in (ll.y + 1)..(ur.y - 1) {
-            for x in (ll.x + 1)..(ur.x - 1) {
-                self.set_cell(CellCoord(IVec2::new(x, y)), Default::default());
-            }
-        }
-    }
-
-    pub fn clear_border_of_selection(&mut self, selection: &Selection) {
-        if selection.is_zero() {
-            return;
-        }
-
-        let ll = selection.lower_left.0;
-        let ur = selection.upper_right.0;
-
-        (ll.x..ur.x).for_each(|x| self.clear_si((x, ll.y).into()));
-        (ll.x..ur.x).for_each(|x| self.clear_si((x, ur.y - 1).into()));
-        (ll.y..ur.y).for_each(|y| self.clear_si((ll.x, y).into()));
-        (ll.y..ur.y).for_each(|y| self.clear_si((ur.x - 1, y).into()));
-
-        (ll.x..ur.x).for_each(|x| self.clear_metal((x, ll.y).into()));
-        (ll.x..ur.x).for_each(|x| self.clear_metal((x, ur.y - 1).into()));
-        (ll.y..ur.y).for_each(|y| self.clear_metal((ll.x, y).into()));
-        (ll.y..ur.y).for_each(|y| self.clear_metal((ur.x - 1, y).into()));
     }
 }

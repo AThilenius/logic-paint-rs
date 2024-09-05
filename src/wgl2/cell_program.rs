@@ -32,7 +32,7 @@ pub struct CellProgram {
     pub cell_select_ll: Uniform<IVec2>,
     pub cell_select_ur: Uniform<IVec2>,
 
-    //Cursor follow
+    // Cursor follow
     pub cursor_follow_color: Uniform<Vec3>,
     pub cursor_coord: Uniform<IVec2>,
 }
