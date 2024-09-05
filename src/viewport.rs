@@ -4,20 +4,22 @@ use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
-    coords::ChunkCoord,
+    coords::{CellCoord, ChunkCoord},
     substrate::{buffer::Buffer, mask::Mask},
     utils::Selection,
     wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
 };
 
 /// Represents only the presentation state of a on or off screen viewport for rendering.
-#[wasm_bindgen(getter_with_clone)]
+#[wasm_bindgen]
 pub struct Viewport {
-    pub selection: Selection,
+    pub(crate) selection: Selection,
     pub camera: Camera,
-    pub buffer: Buffer,
-    pub mask: Mask,
+
+    pub(crate) buffer: Buffer,
+    pub(crate) mask: Mask,
     pub time: f64,
+    pub cursor: Option<CellCoord>,
 
     program: CellProgram,
     render_chunks: HashMap<ChunkCoord, RenderChunk>,
@@ -54,12 +56,23 @@ impl Viewport {
             buffer: Default::default(),
             mask: Default::default(),
             time: Default::default(),
+            cursor: Default::default(),
             render_chunks: Default::default(),
             program,
             canvas,
             gl,
             empty_texture,
         }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn buffer(&self) -> Buffer {
+        self.buffer.clone()
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_buffer(&mut self, buffer: Buffer) {
+        self.buffer = buffer;
     }
 
     pub fn draw(&mut self) -> Result<(), JsValue> {
@@ -95,6 +108,9 @@ impl Viewport {
         self.program
             .cell_select_ur
             .set(&self.gl, self.selection.upper_right.0);
+        self.program
+            .cursor_coord
+            .set(&self.gl, self.cursor.map(|c| c.0).unwrap_or_default());
 
         // Get chunks visible to the camera.
         let visible_chunks = self.camera.get_visible_chunk_coords();
