@@ -18,7 +18,7 @@ struct Blueprint {
     modules: JsValue,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(bincode::Decode)]
 struct Cell {
     upc_idx: u16,
     flags_1: u8,
@@ -37,7 +37,8 @@ pub fn import_legacy_blueprint(json_str: String) -> Result<Buffer, JsValue> {
     for (chunk_coord, cells) in blueprint.chunks {
         let cells: Vec<Cell> = {
             if let Ok(bin) = STANDARD.decode(cells) {
-                if let Ok(cells) = bincode::deserialize(&bin) {
+                if let Ok((cells, _)) = bincode::decode_from_slice(&bin, bincode::config::legacy())
+                {
                     cells
                 } else {
                     continue;

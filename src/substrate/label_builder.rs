@@ -4,7 +4,7 @@ use crate::{
     coords::CellCoord,
     log,
     substrate::{buffer::Buffer, input::InputState},
-    utils::Selection,
+    utils::{convert::import_legacy_blueprint, Selection},
 };
 
 #[derive(Clone)]
@@ -18,7 +18,7 @@ impl Default for LabelBuilder {
     fn default() -> Self {
         let font_face_buffer = {
             if let Ok(buffer) =
-                serde_json::from_str::<Buffer>(include_str!("../../templates/font_file.lpbp"))
+                import_legacy_blueprint(include_str!("../../templates/font_file.lpbp").to_string())
             {
                 buffer
             } else {
