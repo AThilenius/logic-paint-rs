@@ -1,6 +1,7 @@
 pub mod buffer;
 pub mod buffer_brush;
 pub mod buffer_serde;
+mod codec;
 pub mod compiler;
 pub mod execution_context;
 pub mod input;
@@ -9,8 +10,6 @@ pub mod mask;
 
 // use crate::{
 //     dom::{DomIntervalHooks, RawInput},
-//     upc::{NormalizedCell, Silicon},
-//     utils::Selection,
 //     substrate::{
 //         buffer::Buffer,
 //         compiler::{Atom, CellPart},
@@ -18,6 +17,8 @@ pub mod mask;
 //         input::InputState,
 //         label_builder::LabelBuilder,
 //     },
+//     upc::{NormalizedCell, Silicon},
+//     utils::Selection,
 //     wgl2::{Camera, RenderContext},
 // };
 //

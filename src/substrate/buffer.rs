@@ -3,7 +3,7 @@ use itertools::Itertools;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
+    coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_CELL_COUNT, CHUNK_SIZE, LOG_CHUNK_SIZE},
     socket::Socket,
     upc::{Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,
@@ -346,7 +346,7 @@ impl BufferChunk {
 impl Default for BufferChunk {
     fn default() -> Self {
         Self {
-            cells: vec![Default::default(); UPC_BYTE_LEN * CHUNK_SIZE * CHUNK_SIZE],
+            cells: vec![0_u8; CHUNK_CELL_COUNT * UPC_BYTE_LEN],
             cell_count: Default::default(),
         }
     }

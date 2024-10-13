@@ -8,8 +8,8 @@ use wasm_bindgen::prelude::*;
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
     log,
-    upc::{Bit, Metal, NormalizedCell, Silicon},
     substrate::buffer::Buffer,
+    upc::{Bit, Metal, NormalizedCell, Silicon},
 };
 
 #[wasm_bindgen]

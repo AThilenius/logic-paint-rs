@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 use crate::upc::LOG_UPC_BYTE_LEN;
 
 pub(crate) const CHUNK_SIZE: usize = 32;
+pub(crate) const CHUNK_CELL_COUNT: usize = CHUNK_SIZE * CHUNK_SIZE;
 pub(crate) const LOG_CHUNK_SIZE: usize = 5;
 const UPPER_MASK: i32 = !((CHUNK_SIZE as i32) - 1);
 const LOWER_MASK: usize = CHUNK_SIZE - 1;

@@ -1,13 +1,15 @@
 use wasm_bindgen::prelude::*;
 
 mod coords;
+mod editor;
 mod socket;
+mod std_editor;
 mod substrate;
+mod tools;
 mod upc;
 mod utils;
 mod viewport;
 mod wgl2;
-// mod modules;
 
 #[wasm_bindgen(start)]
 pub fn main() {

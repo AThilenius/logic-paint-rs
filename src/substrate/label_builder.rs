@@ -3,10 +3,11 @@ use glam::IVec2;
 use crate::{
     coords::CellCoord,
     log,
-    utils::Selection,
     substrate::{buffer::Buffer, input::InputState},
+    utils::{convert::import_legacy_blueprint, Selection},
 };
 
+#[derive(Clone)]
 pub struct LabelBuilder {
     text: String,
     font_face_buffer: Buffer,
@@ -17,7 +18,7 @@ impl Default for LabelBuilder {
     fn default() -> Self {
         let font_face_buffer = {
             if let Ok(buffer) =
-                serde_json::from_str::<Buffer>(include_str!("../../templates/font_file.lpbp"))
+                import_legacy_blueprint(include_str!("../../templates/font_file.lpbp").to_string())
             {
                 buffer
             } else {
@@ -129,9 +130,9 @@ impl LabelBuilder {
             }
 
             c_y -= 1;
-            buffer.draw_metal(None, (c_x, c_y).into());
+            buffer.draw_metal_link(None, (c_x, c_y).into());
             for _ in 1..5 {
-                buffer.draw_metal(Some((c_x, c_y).into()), (c_x, c_y + 1).into());
+                buffer.draw_metal_link(Some((c_x, c_y).into()), (c_x, c_y + 1).into());
                 c_y += 1;
             }
         }
