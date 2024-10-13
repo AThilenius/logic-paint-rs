@@ -1,16 +1,22 @@
 use std::convert::TryFrom;
 
 use crate::{
-    coords::{ChunkCoord, CHUNK_SIZE},
+    coords::{ChunkCoord, CHUNK_CELL_COUNT, CHUNK_SIZE, LOG_CHUNK_SIZE},
     substrate::buffer::{Buffer, BufferChunk},
-    upc::{LOG_UPC_BYTE_LEN, UPC_BYTE_LEN},
+    upc::{LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
 };
+
+// Original: 180KiB
+// Single-axis RLN: 86KiB
 
 // ==== Common ====================================================================================
 #[derive(thiserror::Error, Debug)]
 pub enum CodecError {
-    #[error("index out of bounds `{0}`")]
+    #[error("index out of bounds: `{0}`")]
     IndexOutOfBounds(String),
+
+    #[error("too many elements provided: `{0}`")]
+    BufferOverrun(String),
 }
 
 // ==== V1 - Individually addressed cells =========================================================
@@ -129,8 +135,7 @@ impl TryFrom<EncodeV1> for Buffer {
 // Row-Major Runs
 // - The run is continued if either
 //   - The run and test cell are like-typed
-//   - The run and test cell are not like-typed AND the test cell is not like-typed the cell to
-//     it's right
+//   - The test cell is not like-typed the cell to it's right
 //     - This is the same check that column-major will do. In other words, we know the cell will be
 //       included in the column-major runs, so we can treat it like a wild-card and continue the
 //       run.
@@ -197,14 +202,162 @@ struct Run {
     data: u8,
 }
 
+impl Layer {
+    pub fn decode(&self) -> Result<[u8; CHUNK_CELL_COUNT], CodecError> {
+        let mut arr = [0_u8; CHUNK_CELL_COUNT];
+
+        // Check overflow
+        if self.row_runs.iter().map(|run| run.length).sum::<u32>() > CHUNK_CELL_COUNT as u32 {
+            return Err(CodecError::BufferOverrun("run is too long".into()));
+        }
+
+        if self.column_runs.iter().map(|run| run.length).sum::<u32>() > CHUNK_CELL_COUNT as u32 {
+            return Err(CodecError::BufferOverrun("run is too long".into()));
+        }
+
+        let mut i = 0;
+        for run in &self.row_runs {
+            for i in i..i + run.length {
+                if run.data != 0 {
+                    arr[i as usize] = run.data;
+                }
+            }
+
+            i += run.length;
+        }
+
+        let mut i = 0;
+        for run in &self.column_runs {
+            for i in i..i + run.length {
+                if run.data != 0 {
+                    arr[Layer::column_major_to_row_major(i as usize)] = run.data;
+                }
+            }
+
+            i += run.length;
+        }
+
+        Ok(arr)
+    }
+
+    pub fn encode(arr: Vec<u8>) -> Self {
+        let mut row_runs = vec![];
+        let mut run = Run { data: 0, length: 0 };
+
+        for i in 0..CHUNK_CELL_COUNT {
+            // - The run is continued if either
+            //   - The run and test cell are like-typed
+            //   - The test cell is not like-typed the cell to it's right
+            let like_typed = run.data == arr[i];
+            let covered_by_col_run = (i < (CHUNK_CELL_COUNT - 1)) && arr[i] != arr[i + 1];
+
+            if like_typed || covered_by_col_run {
+                run.length += 1;
+            } else {
+                if run.length > 0 {
+                    row_runs.push(run);
+                }
+
+                run = Run {
+                    data: arr[i],
+                    length: 1,
+                };
+            }
+        }
+
+        // The last run can be elided if it's empty
+        if run.data != 0 {
+            row_runs.push(run);
+        }
+
+        let mut column_runs = vec![];
+        let mut run = Run { data: 0, length: 0 };
+        for i in 0..CHUNK_CELL_COUNT {
+            // Immediatly convert to row-major index
+            let i = Layer::column_major_to_row_major(i);
+
+            // - The run is continued if either
+            //   - The run and test cell are like-typed
+            //   - The current run is empty AND the test cell is like-type either the left or right
+            //     cell
+            //     - Ie. we can elide cells already included in the row-major runs
+            //     - This is only possible for empty runs, as we can't add invalid cell in the
+            //       column runs
+            let like_typed = run.data == arr[i];
+            let like_typed_left = i > 0 && arr[i] == arr[i - 1];
+            let like_typed_right = i < CHUNK_CELL_COUNT - 1 && arr[i] == arr[i + 1];
+            let empty_and_covered_by_row_run =
+                run.data == 0 && (like_typed_left || like_typed_right);
+
+            if like_typed || empty_and_covered_by_row_run {
+                run.length = run.length + 1;
+            } else {
+                if run.length > 0 {
+                    column_runs.push(run);
+                }
+
+                run = Run {
+                    data: arr[i],
+                    length: 1,
+                };
+            }
+        }
+
+        // The last run can be elided if it's empty
+        if run.data != 0 {
+            column_runs.push(run);
+        }
+
+        Self {
+            column_runs,
+            row_runs,
+        }
+    }
+
+    fn column_major_to_row_major(index: usize) -> usize {
+        // index / size
+        let col = index >> LOG_CHUNK_SIZE;
+        // index % size
+        let row = index & (CHUNK_SIZE - 1);
+        // row * size + col
+        (row << LOG_CHUNK_SIZE) | col
+    }
+}
+
 impl From<&Buffer> for EncodeV2 {
     fn from(buffer: &Buffer) -> Self {
         let mut chunks = Vec::new();
 
         for (chunk_coord, chunk) in &buffer.chunks {
-            for i in (0..chunk.cells.len()).step_by(UPC_BYTE_LEN) {
-                // TODO
+            let si = Layer::encode(chunk.cells.iter().step_by(UPC_BYTE_LEN).cloned().collect());
+            let metal = Layer::encode(
+                chunk
+                    .cells
+                    .iter()
+                    .skip(1)
+                    .step_by(UPC_BYTE_LEN)
+                    // Remove vias
+                    .map(|metal| metal & !(1 << 2))
+                    .collect(),
+            );
+
+            let mut via_offsets = vec![];
+            let mut last_i = 0;
+            for i in 0..CHUNK_CELL_COUNT {
+                let upc_i = i << LOG_UPC_BYTE_LEN;
+                if chunk.cells[upc_i + 1] & (1 << 2) != 0 {
+                    via_offsets.push((i - last_i) as u32);
+                    last_i = i;
+                }
             }
+
+            chunks.push(ChunksV2 {
+                chunk_x: chunk_coord.0.x,
+                chunk_y: chunk_coord.0.y,
+                si,
+                metal,
+                via_offsets,
+            });
         }
 
         EncodeV2 { chunks }
@@ -218,29 +371,28 @@ impl TryFrom<EncodeV2> for Buffer {
         let mut buffer = Buffer::default();
 
         for chunk in data.chunks {
-            let mut buffer_chunk = BufferChunk::default();
-            let chunk_coord = ChunkCoord((chunk.chunk_x, chunk.chunk_y).into());
+            let si = chunk.si.decode()?;
+            let mut metal = chunk.metal.decode()?;
 
+            // Convert via offsets to absolute index, and write them to the metal layer
             let mut i = 0;
-            let mut cell_count = 0;
-
-            for run in &chunk.row_runs {
-                if i + run.length > 
-
-                let byte_idx = (cell.upc_idx as usize) << LOG_UPC_BYTE_LEN;
-
-                if byte_idx + 1 >= UPC_BYTE_LEN * CHUNK_SIZE * CHUNK_SIZE {
-                    return Err(CodecError::IndexOutOfBounds(format!(
-                        "chunk coord {:#?} has byte index {}",
-                        chunk_coord, byte_idx
-                    )));
-                }
-
-                buffer_chunk.cells[byte_idx] = cell.flags_1;
-                buffer_chunk.cells[byte_idx + 1] = cell.flags_2;
+            for offset in chunk.via_offsets {
+                i += offset as usize;
+                metal[i] |= 1 << 2;
             }
 
-            buffer_chunk.cell_count = cell_count;
+            let mut buffer_chunk = BufferChunk::default();
+
+            for i in 0..CHUNK_CELL_COUNT {
+                let upc_i = i << LOG_UPC_BYTE_LEN;
+                buffer_chunk.cells[upc_i] = si[i];
+                buffer_chunk.cells[upc_i + 1] = metal[i];
+                if si[i] | metal[i] != 0 {
+                    buffer_chunk.cell_count += 1;
+                }
+            }
+
+            let chunk_coord = ChunkCoord((chunk.chunk_x, chunk.chunk_y).into());
             buffer.chunks.insert(chunk_coord, buffer_chunk);
         }
 
