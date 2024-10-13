@@ -56,8 +56,10 @@ pub fn import_legacy_blueprint(json_str: String) -> Result<Buffer, JsValue> {
 
             // Old format used 8 bits on R, and 6 on G, both starting at MSB.
             // Later format uses 7 bits on each, moved down 1 bit
-            buffer_chunk.cells[byte_idx] = (cell.flags_1 >> 1) & 0b0111_1111;
-            buffer_chunk.cells[byte_idx + 1] = ((cell.flags_1 & 0b1) << 6) | (cell.flags_2 >> 2);
+            buffer_chunk.cells[byte_idx] = cell.flags_1;
+         
+            buffer_chunk.cells[byte_idx + 1] = cell.flags_2;
+
         }
 
         buffer.chunks.insert(chunk_coord, buffer_chunk);
