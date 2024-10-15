@@ -21,8 +21,7 @@ pub enum CodecError {
 }
 
 // ==== V1 - Individually addressed cells =========================================================
-// Not terribly compact, but nice and easy to implement. I'll switch to a fancy Run Length Coding
-// with multi-layer support some day.
+// Not terribly compact, but nice and easy to implement.
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct EncodeV1 {
     chunks: Vec<ChunksV1>,

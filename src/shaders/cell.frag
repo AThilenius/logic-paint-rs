@@ -84,16 +84,11 @@ bool connection_gate(
 }
 
 void main() {
-    float epsilon = 0.00001;
-    vec2 float_local_coord = clamp(
-        v_uv * 32.0,
-        vec2(0.0),
-        vec2(32.0 - epsilon)
-    );
+    vec2 float_local_coord = v_uv * 128.0;
     uvec2 local_coord = clamp(
         uvec2(floor(float_local_coord)),
         uvec2(0),
-        uvec2(31)
+        uvec2(127)
     );
     ivec2 cell_coord = chunk_start_cell_offset + ivec2(local_coord);
     vec2 tile_uv = fract(float_local_coord);
