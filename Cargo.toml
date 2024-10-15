@@ -17,6 +17,7 @@ default = ["console_error_panic_hook"]
 arrayvec = { version = "0.7", features = ["serde"] }
 base64 = "0.22"
 bincode = "2.0.0-rc.3"
+brotli = "7.0.0"
 console_error_panic_hook = { version = "0.1", optional = true }
 enum_dispatch = "0.3"
 futures = "0.3"
@@ -31,6 +32,10 @@ thiserror = "1.0"
 tsify = "0.4"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
+
+[dev-dependencies]
+tiff = "0.9.1"
+flate2 = "1.0.34"
 
 [dependencies.web-sys]
 version = "0.3"
@@ -50,3 +55,15 @@ features = [
   "Window",
   "console",
 ]
+
+[profile.profiling]
+strip = true
+opt-level = 3
+lto = true
+panic = "abort"
+
+[profile.release]
+strip = true
+opt-level = 3
+lto = true
+panic = "abort"

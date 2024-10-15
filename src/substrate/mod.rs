@@ -1,8 +1,8 @@
 pub mod buffer;
 pub mod buffer_brush;
 pub mod buffer_serde;
-mod codec;
 pub mod compiler;
+mod compress;
 pub mod execution_context;
 pub mod input;
 pub mod label_builder;

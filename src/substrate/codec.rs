@@ -20,26 +20,21 @@ pub enum CodecError {
     BufferOverrun(String),
 }
 
-// ==== V1 - Individually addressed cells =========================================================
-// Not terribly compact, but nice and easy to implement. I'll switch to a fancy Run Length Coding
-// with multi-layer support some day.
+// ==== V1 - Brotli compressed chunk data =========================================================
 #[derive(bincode::Encode, bincode::Decode)]
 pub struct EncodeV1 {
-    chunks: Vec<ChunksV1>,
+    chunks: Vec<ChunkBrotli>,
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
-pub struct ChunksV1 {
+pub struct ChunkBrotli {
+    // In chunk coords
     chunk_x: i32,
     chunk_y: i32,
-    cells: Vec<CellV1>,
-}
-
-#[derive(bincode::Encode, bincode::Decode)]
-struct CellV1 {
-    upc_idx: u16,
-    flags_1: u8,
-    flags_2: u8,
+    // For now, always 2
+    encoded_channels: u32,
+    // Brotli compressed N channel chunk data
+    data: Vec<u8>,
 }
 
 impl From<&Buffer> for EncodeV1 {

@@ -14,7 +14,7 @@ use crate::{
 #[wasm_bindgen]
 pub struct Viewport {
     pub(crate) selection: Selection,
-    pub camera: Camera,
+    pub(crate) camera: Camera,
 
     pub(crate) buffer: Buffer,
     pub(crate) mask: Mask,
@@ -65,14 +65,20 @@ impl Viewport {
         }
     }
 
-    #[wasm_bindgen(getter)]
-    pub fn buffer(&self) -> Buffer {
+    pub fn clone_buffer(&self) -> Buffer {
         self.buffer.clone()
     }
 
-    #[wasm_bindgen(setter)]
     pub fn set_buffer(&mut self, buffer: Buffer) {
         self.buffer = buffer;
+    }
+
+    pub fn clone_camera(&self) -> Camera {
+        self.camera.clone()
+    }
+
+    pub fn set_camera(&mut self, camera: Camera) {
+        self.camera = camera;
     }
 
     pub fn draw(&mut self) -> Result<(), JsValue> {

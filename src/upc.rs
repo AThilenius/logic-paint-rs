@@ -6,7 +6,11 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
+// The number of bytes per cell, as stored in chunk data. This is 32 bit aligned to make blitting
+// to the GPU fast.
 pub const UPC_BYTE_LEN: usize = 4;
+// The number of bytes actually used, right now just the first 2.
+pub const UPC_BYTES_USED: usize = 2;
 pub const LOG_UPC_BYTE_LEN: usize = 2;
 
 /// Universal Packed Cell format stores each cell as a bit packed [u8; 4], ready for direct blitting

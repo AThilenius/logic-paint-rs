@@ -4,11 +4,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    coords::ChunkCoord,
-    substrate::buffer::{Buffer, BufferChunk},
-    upc::LOG_UPC_BYTE_LEN,
-};
+use crate::{coords::ChunkCoord, substrate::buffer::Buffer, upc::UPC};
 
 #[derive(Serialize, Deserialize)]
 struct Blueprint {
@@ -48,21 +44,21 @@ pub fn import_legacy_blueprint(json_str: String) -> Result<Buffer, JsValue> {
             }
         };
 
-        let mut buffer_chunk = BufferChunk::default();
-        buffer_chunk.cell_count = cells.len();
-
         for cell in cells.iter() {
-            let byte_idx = (cell.upc_idx as usize) << LOG_UPC_BYTE_LEN;
+            // Chunks were 32 wide originally. We need to convert to cell coord first, as chunks
+            // are larger.
+            // Local coords
+            let x = (cell.upc_idx & (32 - 1)) as i32;
+            let y = (cell.upc_idx >> 5) as i32;
+            // Cell coors, converted from the old 32x32 chunks
+            let c_x = (chunk_coord.0.x << 5) + x;
+            let c_y = (chunk_coord.0.y << 5) + y;
 
-            // Old format used 8 bits on R, and 6 on G, both starting at MSB.
-            // Later format uses 7 bits on each, moved down 1 bit
-            buffer_chunk.cells[byte_idx] = cell.flags_1;
-         
-            buffer_chunk.cells[byte_idx + 1] = cell.flags_2;
-
+            buffer.set_cell(
+                (c_x, c_y).into(),
+                UPC::from_slice(&[cell.flags_1, cell.flags_2, 0, 0]),
+            );
         }
-
-        buffer.chunks.insert(chunk_coord, buffer_chunk);
     }
 
     Ok(buffer)
