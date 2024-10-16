@@ -1,7 +1,6 @@
 pub mod buffer;
 pub mod buffer_brush;
 pub mod buffer_serde;
-pub mod codec;
 pub mod compiler;
 mod compress;
 pub mod execution_context;

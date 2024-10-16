@@ -1,33 +1,31 @@
-use std::convert::TryFrom;
 use std::io::prelude::*;
 use wasm_bindgen::prelude::*;
 
-use crate::utils::convert::import_legacy_blueprint;
-use crate::{substrate::buffer::Buffer, upc::UPC};
-
-use super::codec::{EncodeV1, EncodeV2};
+use crate::{
+    coords::{ChunkCoord, CHUNK_CELL_COUNT},
+    substrate::buffer::{Buffer, BufferChunk},
+    upc::UPC_BYTE_LEN,
+    utils::convert::import_legacy_blueprint,
+};
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub enum VersionWrapper {
-    V1(EncodeV1),
-    V2(EncodeV2),
-    V3(EncodeV3Header),
-}
-
-#[derive(bincode::Encode, bincode::Decode, Debug)]
-pub struct EncodeV3Header {
-    width: u32,
-    height: u32,
-    offset_x: i32,
-    offset_y: i32,
+    // Brotli compressed chunk data, using BROTLI_CHANNELS bytes per cell with 128 cell wide
+    // chunks. If either of these things change, the format version will need to be bumped.
+    V1(BrotliBuffer),
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
-pub struct BufferImage {
-    width: u32,
-    height: u32,
-    offset_x: i32,
-    offset_y: i32,
+pub struct BrotliBuffer {
+    channels: u32,
+    chunks: Vec<BrotliChunk>,
+}
+
+#[derive(bincode::Encode, bincode::Decode)]
+pub struct BrotliChunk {
+    chunk_x: i32,
+    chunk_y: i32,
+    cell_count: u32,
     data: Vec<u8>,
 }
 
@@ -42,146 +40,95 @@ impl Buffer {
     }
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, JsValue> {
-        let image = self.as_image();
+        const BROTLI_CHANNELS: usize = 2;
+        let mut brotli_buffer = BrotliBuffer {
+            chunks: Vec::new(),
+            channels: BROTLI_CHANNELS as u32,
+        };
 
-        let data = bincode::encode_to_vec(
-            VersionWrapper::V3(EncodeV3Header {
-                width: image.width,
-                height: image.height,
-                offset_x: image.offset_x,
-                offset_y: image.offset_y,
-            }),
+        for (chunk_coord, chunk) in &self.chunks {
+            let mut brotli_image = [0_u8; CHUNK_CELL_COUNT * BROTLI_CHANNELS];
+            for i in 0..CHUNK_CELL_COUNT {
+                for j in 0..BROTLI_CHANNELS {
+                    brotli_image[i * BROTLI_CHANNELS + j] = chunk.cells[i * UPC_BYTE_LEN + j];
+                }
+            }
+
+            let mut writer = brotli::CompressorWriter::new(
+                Vec::new(),
+                CHUNK_CELL_COUNT * BROTLI_CHANNELS,
+                7,
+                22,
+            );
+            writer.write_all(&brotli_image).unwrap();
+            writer.flush().unwrap();
+            let data = writer.into_inner();
+
+            brotli_buffer.chunks.push(BrotliChunk {
+                chunk_x: chunk_coord.0.x,
+                chunk_y: chunk_coord.0.y,
+                cell_count: chunk.cell_count as u32,
+                data,
+            });
+        }
+
+        // Bincode the frames
+        let final_bytes = bincode::encode_to_vec(
+            VersionWrapper::V1(brotli_buffer),
             bincode::config::standard(),
         )
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        // Deflate impl
-        // let mut e = DeflateEncoder::new(data, Compression::default());
-        // e.write_all(&image.data)
-        //     .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        // let bytes = e.finish().unwrap();
-
-        // Brotli impl
-        let mut writer = brotli::CompressorWriter::new(data, image.data.len(), 7, 22);
-        writer.write_all(&image.data).unwrap();
-        writer.flush().unwrap();
-        let bytes = writer.into_inner();
-
-        Ok(bytes)
+        Ok(final_bytes)
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Buffer, JsValue> {
-        let (version, bytes_read): (VersionWrapper, _) =
+        let (version, _bytes_read): (VersionWrapper, _) =
             bincode::decode_from_slice(&bytes, bincode::config::standard())
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         match version {
-            VersionWrapper::V1(encode_v1) => Buffer::try_from(encode_v1),
-            VersionWrapper::V2(encode_v2) => Buffer::try_from(encode_v2),
-            VersionWrapper::V3(encode_v3_header) => {
-                // Deflate impl
-                // let mut deflater = DeflateDecoder::new(Vec::new());
-                // deflater.write_all(&bytes[bytes_read..]).unwrap();
-                // let data = deflater.finish().unwrap();
+            VersionWrapper::V1(brotli_buffer) => {
+                let channels = brotli_buffer.channels as usize;
+                let mut buffer = Buffer::new();
+                let mut brotli_image = vec![0_u8; CHUNK_CELL_COUNT * channels];
 
-                // Brotli impl
-                let size = encode_v3_header.width * encode_v3_header.height * 2;
-                let mut reader = brotli::Decompressor::new(&bytes[bytes_read..], size as usize);
-                let mut data = vec![0_u8; size as usize];
-                match reader.read(&mut data[..]) {
-                    Ok(read_size) => {
-                        if size != read_size as u32 {
-                            panic!("expected {} bytes but {} bytes were read", size, read_size);
+                for chunk in &brotli_buffer.chunks {
+                    let mut reader = brotli::Decompressor::new(&chunk.data[..], CHUNK_CELL_COUNT);
+                    match reader.read(&mut brotli_image[..]) {
+                        Ok(read_size) => {
+                            if read_size != CHUNK_CELL_COUNT * channels {
+                                return Err(JsValue::from_str(&format!(
+                                    "expected {} bytes but {} bytes were read",
+                                    CHUNK_CELL_COUNT * channels,
+                                    read_size
+                                )));
+                            }
+                        }
+                        Err(e) => {
+                            return Err(JsValue::from_str(&format!("{}", e)));
                         }
                     }
-                    Err(e) => {
-                        panic!("{}", e);
+
+                    // Convert to standard chunk
+                    let mut cells = vec![0_u8; CHUNK_CELL_COUNT * UPC_BYTE_LEN];
+                    for i in 0..CHUNK_CELL_COUNT {
+                        for j in 0..channels {
+                            cells[i * UPC_BYTE_LEN + j] = brotli_image[i * channels + j];
+                        }
                     }
+
+                    buffer.chunks.insert(
+                        ChunkCoord((chunk.chunk_x, chunk.chunk_y).into()),
+                        BufferChunk {
+                            cells,
+                            cell_count: chunk.cell_count as usize,
+                        },
+                    );
                 }
 
-                Ok(Buffer::from_image(BufferImage {
-                    width: encode_v3_header.width,
-                    height: encode_v3_header.height,
-                    offset_x: encode_v3_header.offset_x,
-                    offset_y: encode_v3_header.offset_y,
-                    data,
-                }))
+                Ok(buffer)
             }
         }
-        .map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-}
-
-impl Buffer {
-    // Returns 2 channel (2 byte per pixel) image of all the chunks
-    pub fn as_image(&self) -> BufferImage {
-        let x_min = self
-            .chunks
-            .keys()
-            .map(|k| k.first_cell_coord().0.x)
-            .min()
-            .unwrap();
-        let y_min = self
-            .chunks
-            .keys()
-            .map(|k| k.first_cell_coord().0.y)
-            .min()
-            .unwrap();
-        let x_max = self
-            .chunks
-            .keys()
-            .map(|k| k.last_cell_coord().0.x)
-            .max()
-            .unwrap();
-        let y_max = self
-            .chunks
-            .keys()
-            .map(|k| k.last_cell_coord().0.y)
-            .max()
-            .unwrap();
-
-        let width = (x_max - x_min).abs() as u32;
-        let height = (y_max - y_min).abs() as u32;
-        let offset_x = x_min;
-        let offset_y = y_min;
-
-        let mut data = vec![0_u8; (width * height * 2) as usize];
-
-        for cell_y in y_min..y_max {
-            for cell_x in x_min..x_max {
-                let image_x = cell_x - x_min;
-                let image_y = cell_y - y_min;
-                let image_i = (image_y * (width as i32) + image_x) * 2;
-                let cell = self.get_cell((cell_x, cell_y).into());
-
-                data[image_i as usize + 0] = cell.0[0];
-                data[image_i as usize + 1] = cell.0[1];
-            }
-        }
-
-        BufferImage {
-            width,
-            height,
-            offset_x,
-            offset_y,
-            data,
-        }
-    }
-
-    pub fn from_image(image: BufferImage) -> Buffer {
-        let mut buffer = Buffer::new();
-
-        let mut i = 0;
-        for cell_y in image.offset_y..(image.offset_y + image.height as i32) {
-            for cell_x in image.offset_x..(image.offset_x + image.width as i32) {
-                buffer.set_cell(
-                    (cell_x, cell_y).into(),
-                    UPC::from_slice(&[image.data[i], image.data[i + 1], 0, 0]),
-                );
-                i += 2;
-            }
-        }
-
-        buffer
     }
 }
