@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::coords::CellCoord;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 #[wasm_bindgen]
 pub struct Selection {
     // The lower left point in the selection, inclusively.

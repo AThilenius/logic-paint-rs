@@ -1,22 +1,31 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, i32};
 
-use glam::Vec2;
+use glam::{IVec2, Vec2};
 use wasm_bindgen::prelude::*;
 use web_sys::{KeyboardEvent, MouseEvent, WheelEvent};
 
-use crate::{coords::CellCoord, wgl2::Camera};
+use crate::{coords::CellCoord, utils::range_iter, wgl2::Camera};
 
+/// Every input the core is capable of processing.
 pub enum RawInput {
     Mouse(MouseEvent),
-    MouseWheelEvent(WheelEvent),
+    MouseWheel(WheelEvent),
     KeyDown(KeyboardEvent),
     KeyUp(KeyboardEvent),
+    MousePresence(bool),
+}
+
+/// Thin wrapper around the discriminated-union RawInput
+#[wasm_bindgen]
+pub struct JsInputEvent {
+    pub(crate) raw_input: RawInput,
 }
 
 /// Tracks the overall input state of a viewport.
 #[derive(Default)]
-#[wasm_bindgen]
 pub struct InputState {
+    pub active: bool,
+
     pub primary: bool,
     pub secondary: bool,
 
@@ -31,19 +40,66 @@ pub struct InputState {
     pub ctrl: bool,
     pub shift: bool,
     pub alt: bool,
-    #[wasm_bindgen(skip)]
     pub key_codes_down: HashSet<String>,
-    #[wasm_bindgen(skip)]
     pub key_code_clicked: String,
-    #[wasm_bindgen(skip)]
     pub key_clicked: String,
 }
 
+/// Every output (apart from rendering) the core is capably of communicating.
+/// This state is only valid between JsInputEvent processing, and should be
+/// treated as stale once a subsequent event has been processed.
+#[wasm_bindgen(getter_with_clone)]
+#[derive(Default, Clone)]
+pub struct OutputState {
+    /// The CSS `cursor` value that corresponds with the current state of the Viewport.
+    pub viewport_mouse_cursor: String,
+
+    /// Set to true when the `competed_buffer` has a pending change, and has not yet been fetched
+    /// with `clone_competed_buffer`.
+    pub completed_buffer_dirty: bool,
+
+    /// What named registers are dirty and have not yet been fetched with `clone_named_register`.
+    /// These should be saved somewhere locally-persistent, like localStorage.
+    pub named_registers_dirty: Vec<String>,
+}
+
 #[derive(Clone, Copy)]
-#[wasm_bindgen]
 pub struct Drag {
     pub start: CellCoord,
     pub initial_impulse_vertical: bool,
+}
+
+#[wasm_bindgen]
+impl JsInputEvent {
+    pub fn from_key_down(event: KeyboardEvent) -> Self {
+        Self {
+            raw_input: RawInput::KeyDown(event),
+        }
+    }
+
+    pub fn from_key_up(event: KeyboardEvent) -> Self {
+        Self {
+            raw_input: RawInput::KeyUp(event),
+        }
+    }
+
+    pub fn from_mouse(event: MouseEvent) -> Self {
+        Self {
+            raw_input: RawInput::Mouse(event),
+        }
+    }
+
+    pub fn from_mouse_presence(present: bool) -> Self {
+        Self {
+            raw_input: RawInput::MousePresence(present),
+        }
+    }
+
+    pub fn from_wheel(event: WheelEvent) -> Self {
+        Self {
+            raw_input: RawInput::MouseWheel(event),
+        }
+    }
 }
 
 impl InputState {
@@ -98,6 +154,9 @@ impl InputState {
 
                 self.cell = new_cell;
             }
+            RawInput::MousePresence(present) => {
+                self.active = *present;
+            }
             RawInput::KeyDown(e) => {
                 self.ctrl = e.ctrl_key();
                 self.alt = e.alt_key();
@@ -117,9 +176,41 @@ impl InputState {
 
                 self.key_codes_down.remove(&e.code());
             }
-            RawInput::MouseWheelEvent(e) => {
+            RawInput::MouseWheel(e) => {
                 self.scroll_delta_y = (e.delta_y() / 1000.0) as f32;
             }
         }
+    }
+
+    pub fn get_impulse_drag_path(&self) -> Vec<CellCoord> {
+        let mut steps = vec![];
+
+        if let Some(drag) = &self.drag {
+            let start = drag.start.0;
+            let end = self.cell.0;
+
+            if drag.initial_impulse_vertical {
+                // Draw Y first, then X.
+                for y in range_iter(start.y, end.y) {
+                    steps.push(CellCoord(IVec2::new(start.x, y)));
+                }
+                for x in range_iter(start.x, end.x) {
+                    steps.push(CellCoord(IVec2::new(x, end.y)));
+                }
+            } else {
+                // Draw X first, then Y.
+                for x in range_iter(start.x, end.x) {
+                    steps.push(CellCoord(IVec2::new(x, start.y)));
+                }
+                for y in range_iter(start.y, end.y) {
+                    steps.push(CellCoord(IVec2::new(end.x, y)));
+                }
+            }
+        }
+
+        // The last point will be skipped because range_iter is non-inclusive of end point.
+        steps.push(self.cell);
+
+        steps
     }
 }

@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD, Engine};
 use std::io::prelude::*;
 use wasm_bindgen::prelude::*;
 
@@ -5,7 +6,6 @@ use crate::{
     coords::{ChunkCoord, CHUNK_CELL_COUNT},
     substrate::buffer::{Buffer, BufferChunk},
     upc::UPC_BYTE_LEN,
-    utils::convert::import_legacy_blueprint,
 };
 
 #[derive(bincode::Encode, bincode::Decode)]
@@ -31,6 +31,11 @@ pub struct BrotliChunk {
 
 #[wasm_bindgen]
 impl Buffer {
+    pub fn to_base64_string(&self) -> Result<String, JsValue> {
+        let bytes = self.to_bytes()?;
+        Ok(STANDARD.encode(bytes))
+    }
+
     pub fn to_bytes(&self) -> Result<Vec<u8>, JsValue> {
         const BROTLI_CHANNELS: usize = 2;
         let mut brotli_buffer = BrotliBuffer {
@@ -72,6 +77,13 @@ impl Buffer {
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         Ok(final_bytes)
+    }
+
+    pub fn from_base64_string(base_64_string: &str) -> Result<Buffer, JsValue> {
+        let bytes = STANDARD
+            .decode(base_64_string)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Buffer::from_bytes(&bytes)
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Buffer, JsValue> {

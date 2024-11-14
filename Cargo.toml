@@ -57,6 +57,7 @@ features = [
 ]
 
 [profile.profiling]
+inherits = "release"
 strip = true
 opt-level = 3
 lto = true

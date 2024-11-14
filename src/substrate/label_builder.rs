@@ -3,7 +3,7 @@ use glam::IVec2;
 use crate::{
     coords::CellCoord,
     log,
-    substrate::{buffer::Buffer, input::InputState},
+    substrate::{buffer::Buffer, io::InputState},
     utils::{convert::import_legacy_blueprint, Selection},
 };
 

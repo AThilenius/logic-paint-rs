@@ -10,15 +10,11 @@ use crate::{
     wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
 };
 
-/// Represents only the presentation state of a on or off screen viewport for rendering.
+/// Represents only the presentation state of an on or off screen viewport for rendering.
 #[wasm_bindgen]
 pub struct Viewport {
-    pub(crate) selection: Selection,
-    pub(crate) camera: Camera,
-
-    pub(crate) buffer: Buffer,
-    pub(crate) mask: Mask,
-    pub time: f64,
+    pub selection: Selection,
+    pub camera: Camera,
     pub cursor: Option<CellCoord>,
 
     program: CellProgram,
@@ -53,9 +49,6 @@ impl Viewport {
         Self {
             selection: Default::default(),
             camera: Default::default(),
-            buffer: Default::default(),
-            mask: Default::default(),
-            time: Default::default(),
             cursor: Default::default(),
             render_chunks: Default::default(),
             program,
@@ -63,14 +56,6 @@ impl Viewport {
             gl,
             empty_texture,
         }
-    }
-
-    pub fn clone_buffer(&self) -> Buffer {
-        self.buffer.clone()
-    }
-
-    pub fn set_buffer(&mut self, buffer: Buffer) {
-        self.buffer = buffer;
     }
 
     pub fn clone_camera(&self) -> Camera {
@@ -81,8 +66,8 @@ impl Viewport {
         self.camera = camera;
     }
 
-    pub fn draw(&mut self) -> Result<(), JsValue> {
-        self.time = web_sys::window()
+    pub(crate) fn draw(&mut self, buffer: Buffer, mask: Mask) -> Result<(), JsValue> {
+        let time: f64 = web_sys::window()
             .expect("should have a window in this context")
             .performance()
             .expect("performance should be available")
@@ -107,16 +92,19 @@ impl Viewport {
         self.program
             .view_proj
             .set(&self.gl, self.camera.get_view_proj_matrix());
-        self.program.time.set(&self.gl, self.time as f32);
+        self.program.time.set(&self.gl, time as f32);
         self.program
             .cell_select_ll
             .set(&self.gl, self.selection.lower_left.0);
         self.program
             .cell_select_ur
             .set(&self.gl, self.selection.upper_right.0);
-        self.program
-            .cursor_coord
-            .set(&self.gl, self.cursor.map(|c| c.0).unwrap_or_default());
+        self.program.cursor_coord.set(
+            &self.gl,
+            self.cursor
+                .map(|c| c.0)
+                .unwrap_or((i32::MIN, i32::MIN).into()),
+        );
 
         // Get chunks visible to the camera.
         let visible_chunks = self.camera.get_visible_chunk_coords();
@@ -145,7 +133,7 @@ impl Viewport {
             // Update and bind the cell texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
 
-            if let Some(buffer_chunk) = self.buffer.chunks.get(&chunk_coord) {
+            if let Some(buffer_chunk) = buffer.chunks.get(&chunk_coord) {
                 render_chunk
                     .cell_texture
                     .set_pixels(&buffer_chunk.cells[..])?;
@@ -160,7 +148,7 @@ impl Viewport {
             // Update and bind the mask texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
 
-            if let Some(mask_chunk) = self.mask.get_chunk(chunk_coord) {
+            if let Some(mask_chunk) = mask.get_chunk(chunk_coord) {
                 render_chunk
                     .mask_texture
                     .set_pixels(&mask_chunk.cells[..])?;

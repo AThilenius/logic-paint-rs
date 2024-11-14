@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
-    substrate::input::InputState,
+    substrate::io::InputState,
 };
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
