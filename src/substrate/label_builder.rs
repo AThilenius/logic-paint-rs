@@ -3,7 +3,7 @@ use glam::IVec2;
 use crate::{
     coords::CellCoord,
     log,
-    substrate::{buffer::Buffer, io::InputState},
+    substrate::{buffer::Buffer, io::IoState},
     utils::{convert::import_legacy_blueprint, Selection},
 };
 
@@ -36,45 +36,45 @@ impl Default for LabelBuilder {
 }
 
 impl LabelBuilder {
-    pub fn dispatch_input(&mut self, input_state: &InputState) {
-        // A bit of a hack: check if the key is 'printable'.
-        if input_state.key_clicked.len() == 1 {
-            self.text
-                .insert(self.cursor, input_state.key_clicked.chars().nth(0).unwrap());
-            self.cursor += 1;
-        } else {
-            match input_state.key_code_clicked.as_str() {
-                "Enter" => {
-                    self.text.insert(self.cursor, '\n');
-                    self.cursor += 1;
-                }
-                "Backspace" => {
-                    if self.cursor > 0 {
-                        self.text.remove(self.cursor - 1);
-                        self.cursor -= 1;
-
-                        // Continue removing whole word if Ctrl was held.
-                        if input_state.ctrl {
-                            while self.cursor > 0
-                                && self.text.chars().nth(self.cursor - 1).unwrap() != ' '
-                            {
-                                self.text.remove(self.cursor - 1);
-                                self.cursor -= 1;
-                            }
-                        }
-                    }
-                }
-                "ArrowLeft" => self.cursor = if self.cursor > 0 { self.cursor - 1 } else { 0 },
-                "ArrowRight" => {
-                    self.cursor = if self.cursor < self.text.len() {
-                        self.cursor + 1
-                    } else {
-                        self.text.len()
-                    }
-                }
-                _ => {}
-            }
-        }
+    pub fn dispatch_input(&mut self, io_state: &IoState) {
+        // // A bit of a hack: check if the key is 'printable'.
+        // if io_state.key_clicked.len() == 1 {
+        //     self.text
+        //         .insert(self.cursor, io_state.key_clicked.chars().nth(0).unwrap());
+        //     self.cursor += 1;
+        // } else {
+        //     match io_state.key_code_clicked.as_str() {
+        //         "Enter" => {
+        //             self.text.insert(self.cursor, '\n');
+        //             self.cursor += 1;
+        //         }
+        //         "Backspace" => {
+        //             if self.cursor > 0 {
+        //                 self.text.remove(self.cursor - 1);
+        //                 self.cursor -= 1;
+        //
+        //                 // Continue removing whole word if Ctrl was held.
+        //                 if io_state.ctrl {
+        //                     while self.cursor > 0
+        //                         && self.text.chars().nth(self.cursor - 1).unwrap() != ' '
+        //                     {
+        //                         self.text.remove(self.cursor - 1);
+        //                         self.cursor -= 1;
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //         "ArrowLeft" => self.cursor = if self.cursor > 0 { self.cursor - 1 } else { 0 },
+        //         "ArrowRight" => {
+        //             self.cursor = if self.cursor < self.text.len() {
+        //                 self.cursor + 1
+        //             } else {
+        //                 self.text.len()
+        //             }
+        //         }
+        //         _ => {}
+        //     }
+        // }
     }
 
     pub fn render_to_buffer(&self, render_markers: bool) -> Buffer {

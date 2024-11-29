@@ -8,11 +8,7 @@ mod tests {
     use std::io::{Cursor, Write};
     use std::time::Instant;
 
-    use crate::{
-        log,
-        substrate::codec::{EncodeV1, EncodeV2},
-        utils::convert::import_legacy_blueprint,
-    };
+    use crate::{log, utils::convert::import_legacy_blueprint};
 
     #[test]
     pub fn compare_sizes() {
@@ -20,13 +16,13 @@ mod tests {
         v1_json();
         println!("{} ms\n", now.elapsed().as_millis());
 
-        let now = Instant::now();
-        v1_bincode();
-        println!("{} ms\n", now.elapsed().as_millis());
-
-        let now = Instant::now();
-        v2_bincode();
-        println!("{} ms\n", now.elapsed().as_millis());
+        // let now = Instant::now();
+        // v1_bincode();
+        // println!("{} ms\n", now.elapsed().as_millis());
+        //
+        // let now = Instant::now();
+        // v2_bincode();
+        // println!("{} ms\n", now.elapsed().as_millis());
 
         let now = Instant::now();
         tiff_rgba_lzw();
@@ -71,15 +67,27 @@ mod tests {
         brotli_one_channel_rg_chunked();
         println!("{} ms\n", now.elapsed().as_millis());
 
-        let now = Instant::now();
-        brotli_over_v2();
-        println!("{} ms\n", now.elapsed().as_millis());
+        // let now = Instant::now();
+        // brotli_over_v2();
+        // println!("{} ms\n", now.elapsed().as_millis());
 
         for l in 0..12 {
             let now = Instant::now();
             brotli_one_channel_at_level(l);
             println!("{} ms\n", now.elapsed().as_millis());
         }
+
+        let now = Instant::now();
+        snappy_one_channel_rg_chunked();
+        println!("{} ms\n", now.elapsed().as_millis());
+
+        let now = Instant::now();
+        snappy_two_channel();
+        println!("{} ms\n", now.elapsed().as_millis());
+
+        let now = Instant::now();
+        snappy_two_channel_chunked();
+        println!("{} ms\n", now.elapsed().as_millis());
     }
 
     fn v1_json() {
@@ -87,21 +95,21 @@ mod tests {
         log!("V1 Json:\t{}", json.len());
     }
 
-    fn v1_bincode() {
-        let json = include_str!("../../misc/cpu.lpbp").to_string();
-        let buffer = import_legacy_blueprint(json).unwrap();
-        let bytes =
-            bincode::encode_to_vec(EncodeV1::from(&buffer), bincode::config::standard()).unwrap();
-        log!("V1 Bincode:\t{}", bytes.len());
-    }
-
-    fn v2_bincode() {
-        let json = include_str!("../../misc/cpu.lpbp").to_string();
-        let buffer = import_legacy_blueprint(json).unwrap();
-        let bytes =
-            bincode::encode_to_vec(EncodeV2::from(&buffer), bincode::config::standard()).unwrap();
-        log!("V2 Bincode:\t{}", bytes.len());
-    }
+    // fn v1_bincode() {
+    //     let json = include_str!("../../misc/cpu.lpbp").to_string();
+    //     let buffer = import_legacy_blueprint(json).unwrap();
+    //     let bytes =
+    //         bincode::encode_to_vec(EncodeV1::from(&buffer), bincode::config::standard()).unwrap();
+    //     log!("V1 Bincode:\t{}", bytes.len());
+    // }
+    //
+    // fn v2_bincode() {
+    //     let json = include_str!("../../misc/cpu.lpbp").to_string();
+    //     let buffer = import_legacy_blueprint(json).unwrap();
+    //     let bytes =
+    //         bincode::encode_to_vec(EncodeV2::from(&buffer), bincode::config::standard()).unwrap();
+    //     log!("V2 Bincode:\t{}", bytes.len());
+    // }
 
     fn tiff_rgba_lzw() {
         let image_data = buffer_as_single_image();
@@ -347,22 +355,104 @@ mod tests {
         );
     }
 
-    fn brotli_over_v2() {
+    fn snappy_one_channel_rg_chunked() {
         let json = include_str!("../../misc/cpu.lpbp").to_string();
         let buffer = import_legacy_blueprint(json).unwrap();
-        let bytes =
-            bincode::encode_to_vec(EncodeV2::from(&buffer), bincode::config::standard()).unwrap();
 
-        let file = Cursor::new(Vec::new());
-        let mut writer = brotli::CompressorWriter::new(file, 4096, 7, 22);
-        writer.write_all(&bytes).unwrap();
+        let mut writer = snap::write::FrameEncoder::new(Vec::new());
+
+        for chunk in buffer.chunks.values() {
+            writer
+                .write_all(
+                    &chunk
+                        .cells
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, _)| i % 4 < 2)
+                        .map(|(_, &val)| val)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap();
+        }
         writer.flush().unwrap();
 
         log!(
-            "Brotli over Encode V2:\t{}",
-            writer.get_ref().get_ref().len()
+            "Snappy one channel RG chunked:\t{}",
+            writer.into_inner().unwrap().len()
         );
     }
+
+    fn snappy_two_channel() {
+        let image_data = buffer_as_single_image();
+        let r_data = image_data
+            .pixels_rgba
+            .iter()
+            .step_by(4)
+            .cloned()
+            .collect::<Vec<_>>();
+        let g_data = image_data
+            .pixels_rgba
+            .iter()
+            .skip(1)
+            .step_by(4)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let mut writer = snap::write::FrameEncoder::new(Vec::new());
+        writer.write_all(&r_data).unwrap();
+        writer.write_all(&g_data).unwrap();
+        writer.flush().unwrap();
+
+        log!(
+            "Snappy two channel:\t{}",
+            writer.into_inner().unwrap().len()
+        );
+    }
+
+    fn snappy_two_channel_chunked() {
+        let json = include_str!("../../misc/cpu.lpbp").to_string();
+        let buffer = import_legacy_blueprint(json).unwrap();
+
+        let mut writer = snap::write::FrameEncoder::new(Vec::new());
+
+        for chunk in buffer.chunks.values() {
+            writer
+                .write_all(
+                    &chunk
+                        .cells
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, _)| i % 4 < 2)
+                        .map(|(_, &val)| val)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap();
+        }
+
+        writer.flush().unwrap();
+
+        log!(
+            "Snappy two channel chunked:\t{}",
+            writer.into_inner().unwrap().len()
+        );
+    }
+
+    // fn brotli_over_v2() {
+    //     let json = include_str!("../../misc/cpu.lpbp").to_string();
+    //     let buffer = import_legacy_blueprint(json).unwrap();
+    //     let bytes =
+    //         bincode::encode_to_vec(EncodeV2::from(&buffer), bincode::config::standard()).unwrap();
+    //
+    //     let file = Cursor::new(Vec::new());
+    //     let mut writer = brotli::CompressorWriter::new(file, 4096, 7, 22);
+    //     writer.write_all(&bytes).unwrap();
+    //     writer.flush().unwrap();
+    //
+    //     log!(
+    //         "Brotli over Encode V2:\t{}",
+    //         writer.get_ref().get_ref().len()
+    //     );
+    // }
 
     fn brotli_one_channel_at_level(level: u32) {
         let image_data = buffer_as_single_image();

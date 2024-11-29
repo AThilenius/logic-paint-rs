@@ -10,19 +10,19 @@ use crate::{
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub enum VersionWrapper {
-    // Brotli compressed chunk data, using BROTLI_CHANNELS bytes per cell with 128 cell wide
+    // Snappy compressed chunk data, using SNAPPY_CHANNELS bytes per cell with 128 cell wide
     // chunks. If either of these things change, the format version will need to be bumped.
-    V1(BrotliBuffer),
+    V1(SnappyBuffer),
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
-pub struct BrotliBuffer {
+pub struct SnappyBuffer {
     channels: u32,
-    chunks: Vec<BrotliChunk>,
+    chunks: Vec<SnappyChunk>,
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
-pub struct BrotliChunk {
+pub struct SnappyChunk {
     chunk_x: i32,
     chunk_y: i32,
     cell_count: u32,
@@ -37,31 +37,26 @@ impl Buffer {
     }
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, JsValue> {
-        const BROTLI_CHANNELS: usize = 2;
-        let mut brotli_buffer = BrotliBuffer {
+        const SNAPPY_CHANNELS: usize = 2;
+        let mut snappy_buffer = SnappyBuffer {
             chunks: Vec::new(),
-            channels: BROTLI_CHANNELS as u32,
+            channels: SNAPPY_CHANNELS as u32,
         };
 
         for (chunk_coord, chunk) in &self.chunks {
-            let mut brotli_image = [0_u8; CHUNK_CELL_COUNT * BROTLI_CHANNELS];
+            let mut snappy_image = [0_u8; CHUNK_CELL_COUNT * SNAPPY_CHANNELS];
             for i in 0..CHUNK_CELL_COUNT {
-                for j in 0..BROTLI_CHANNELS {
-                    brotli_image[i * BROTLI_CHANNELS + j] = chunk.cells[i * UPC_BYTE_LEN + j];
+                for j in 0..SNAPPY_CHANNELS {
+                    snappy_image[i * SNAPPY_CHANNELS + j] = chunk.cells[i * UPC_BYTE_LEN + j];
                 }
             }
 
-            let mut writer = brotli::CompressorWriter::new(
-                Vec::new(),
-                CHUNK_CELL_COUNT * BROTLI_CHANNELS,
-                7,
-                22,
-            );
-            writer.write_all(&brotli_image).unwrap();
+            let mut writer = snap::write::FrameEncoder::new(Vec::new());
+            writer.write_all(&snappy_image).unwrap();
             writer.flush().unwrap();
-            let data = writer.into_inner();
+            let data = writer.into_inner().unwrap();
 
-            brotli_buffer.chunks.push(BrotliChunk {
+            snappy_buffer.chunks.push(SnappyChunk {
                 chunk_x: chunk_coord.0.x,
                 chunk_y: chunk_coord.0.y,
                 cell_count: chunk.cell_count as u32,
@@ -71,7 +66,7 @@ impl Buffer {
 
         // Bincode the frames
         let final_bytes = bincode::encode_to_vec(
-            VersionWrapper::V1(brotli_buffer),
+            VersionWrapper::V1(snappy_buffer),
             bincode::config::standard(),
         )
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -92,14 +87,14 @@ impl Buffer {
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         match version {
-            VersionWrapper::V1(brotli_buffer) => {
-                let channels = brotli_buffer.channels as usize;
+            VersionWrapper::V1(snappy_buffer) => {
+                let channels = snappy_buffer.channels as usize;
                 let mut buffer = Buffer::new();
-                let mut brotli_image = vec![0_u8; CHUNK_CELL_COUNT * channels];
+                let mut snappy_image = vec![0_u8; CHUNK_CELL_COUNT * channels];
 
-                for chunk in &brotli_buffer.chunks {
-                    let mut reader = brotli::Decompressor::new(&chunk.data[..], CHUNK_CELL_COUNT);
-                    match reader.read(&mut brotli_image[..]) {
+                for chunk in &snappy_buffer.chunks {
+                    let mut reader = snap::read::FrameDecoder::new(&chunk.data[..]);
+                    match reader.read(&mut snappy_image[..]) {
                         Ok(read_size) => {
                             if read_size != CHUNK_CELL_COUNT * channels {
                                 return Err(JsValue::from_str(&format!(
@@ -118,7 +113,7 @@ impl Buffer {
                     let mut cells = vec![0_u8; CHUNK_CELL_COUNT * UPC_BYTE_LEN];
                     for i in 0..CHUNK_CELL_COUNT {
                         for j in 0..channels {
-                            cells[i * UPC_BYTE_LEN + j] = brotli_image[i * channels + j];
+                            cells[i * UPC_BYTE_LEN + j] = snappy_image[i * channels + j];
                         }
                     }
 
