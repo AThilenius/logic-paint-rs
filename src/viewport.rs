@@ -14,7 +14,6 @@ use crate::{
 #[wasm_bindgen]
 pub struct Viewport {
     pub selection: Selection,
-    pub camera: Camera,
     pub cursor: Option<CellCoord>,
 
     program: CellProgram,
@@ -48,7 +47,6 @@ impl Viewport {
 
         Self {
             selection: Default::default(),
-            camera: Default::default(),
             cursor: Default::default(),
             render_chunks: Default::default(),
             program,
@@ -58,20 +56,18 @@ impl Viewport {
         }
     }
 
-    pub fn clone_camera(&self) -> Camera {
-        self.camera.clone()
-    }
-
-    pub fn set_camera(&mut self, camera: Camera) {
-        self.camera = camera;
-    }
-
-    pub(crate) fn draw(&mut self, buffer: Buffer, mask: Mask) -> Result<(), JsValue> {
+    pub(crate) fn draw(
+        &mut self,
+        camera: &mut Camera,
+        buffer: Buffer,
+        mask: Mask,
+    ) -> Result<(), JsValue> {
         let time: f64 = web_sys::window()
             .expect("should have a window in this context")
             .performance()
             .expect("performance should be available")
-            .now();
+            .now()
+            / 1000.0;
 
         // Maintain HTML Canvas size and context viewport.
         let w = self.canvas.client_width() as u32;
@@ -82,16 +78,16 @@ impl Viewport {
             self.canvas.set_height(h);
         }
 
-        self.camera.update((w as f32, h as f32).into());
+        camera.update((w as f32, h as f32).into());
 
         self.gl
-            .viewport(0, 0, self.camera.size.x as i32, self.camera.size.y as i32);
+            .viewport(0, 0, camera.size.x as i32, camera.size.y as i32);
 
         // Update per-draw uniforms
         self.program.use_program(&self.gl);
         self.program
             .view_proj
-            .set(&self.gl, self.camera.get_view_proj_matrix());
+            .set(&self.gl, camera.get_view_proj_matrix());
         self.program.time.set(&self.gl, time as f32);
         self.program
             .cell_select_ll
@@ -107,7 +103,7 @@ impl Viewport {
         );
 
         // Get chunks visible to the camera.
-        let visible_chunks = self.camera.get_visible_chunk_coords();
+        let visible_chunks = camera.get_visible_chunk_coords();
 
         // Drop RenderChunks that aren't visible any more.
         self.render_chunks.retain(|c, _| visible_chunks.contains(c));

@@ -9,8 +9,6 @@ use crate::{
     utils::{range_iter, Selection},
 };
 
-pub type Path = Vec<CellCoord>;
-
 #[wasm_bindgen]
 impl Buffer {
     pub fn draw_si(
@@ -76,6 +74,60 @@ impl Buffer {
         }
 
         self.draw_metal_link(from, (end.x, end.y).into());
+    }
+
+    pub fn clear_si(
+        &mut self,
+        CellCoord(start): CellCoord,
+        CellCoord(end): CellCoord,
+        initial_impulse_vertical: bool,
+    ) {
+        if initial_impulse_vertical {
+            // Draw Y first, then X.
+            for y in range_iter(start.y, end.y) {
+                self.clear_cell_si((start.x, y).into());
+            }
+            for x in range_iter(start.x, end.x) {
+                self.clear_cell_si((x, end.y).into());
+            }
+        } else {
+            // Draw X first, then Y.
+            for x in range_iter(start.x, end.x) {
+                self.clear_cell_si((x, start.y).into());
+            }
+            for y in range_iter(start.y, end.y) {
+                self.clear_cell_si((end.x, y).into());
+            }
+        }
+
+        self.clear_cell_si((end.x, end.y).into());
+    }
+
+    pub fn clear_metal(
+        &mut self,
+        CellCoord(start): CellCoord,
+        CellCoord(end): CellCoord,
+        initial_impulse_vertical: bool,
+    ) {
+        if initial_impulse_vertical {
+            // Draw Y first, then X.
+            for y in range_iter(start.y, end.y) {
+                self.clear_cell_metal((start.x, y).into());
+            }
+            for x in range_iter(start.x, end.x) {
+                self.clear_cell_metal((x, end.y).into());
+            }
+        } else {
+            // Draw X first, then Y.
+            for x in range_iter(start.x, end.x) {
+                self.clear_cell_metal((x, start.y).into());
+            }
+            for y in range_iter(start.y, end.y) {
+                self.clear_cell_metal((end.x, y).into());
+            }
+        }
+
+        self.clear_cell_metal((end.x, end.y).into());
     }
 
     pub fn draw_via(&mut self, cell_coord: CellCoord) {
