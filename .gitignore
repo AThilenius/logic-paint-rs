@@ -19,8 +19,9 @@ logs
 node_modules
 npm-debug.log*
 pids
+pkg
+pocketbase
 stats.json
 target
 yarn-debug.log*
 yarn-error.log*
-pocketbase
