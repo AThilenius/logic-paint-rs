@@ -21,15 +21,15 @@ console_error_panic_hook = { version = "0.1", optional = true }
 futures = "0.3"
 glam = { git = "https://github.com/athilenius/glam-rs", default-features = false, features = ["serde", "bytemuck", "wasm-bindgen"] }
 im = { version = "15.1", features = ["serde"] }
-itertools = "0.13"
+itertools = "0.14"
 js-sys = "0.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde-wasm-bindgen = "0.6"
 serde_json = "1.0"
 snap = "1.1"
-thiserror = "1.0"
+thiserror = "2.0"
 tsify = "0.4"
-wasm-bindgen = "=0.2.95"
+wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm_thread = { version = "0.3" }
 

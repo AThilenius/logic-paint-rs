@@ -35,9 +35,9 @@
               })
             ];
 
-            shellHook = ''
-              export RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals'
-            '';
+            # shellHook = ''
+            #   export RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals'
+            # '';
           };
         }
     );

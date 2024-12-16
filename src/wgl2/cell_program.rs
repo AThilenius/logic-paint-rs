@@ -1,4 +1,4 @@
-use glam::{IVec2, Mat4, Vec3, Vec4};
+use glam::{IVec2, Mat4};
 use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader};
 
 use super::{uniform::Uniform, SetUniformType};
@@ -15,25 +15,9 @@ pub struct CellProgram {
     pub attr_position: u32,
     pub attr_uv: u32,
 
-    // Style uniforms
     pub chunk_start_cell_offset: Uniform<IVec2>,
-    pub n_color: Uniform<Vec4>,
-    pub p_color: Uniform<Vec4>,
-    pub metal_color: Uniform<Vec3>,
-    pub active_color: Uniform<Vec3>,
-    pub active_blend_strength_si_gate_metal: Uniform<Vec3>,
-    pub grid_color: Uniform<Vec3>,
-    pub background_color: Uniform<Vec3>,
-    pub grid_blend_strength: Uniform<f32>,
-    pub metal_over_si_blend: Uniform<f32>,
-
-    // Selection
-    pub cell_select_color: Uniform<Vec3>,
     pub cell_select_ll: Uniform<IVec2>,
     pub cell_select_ur: Uniform<IVec2>,
-
-    // Cursor follow
-    pub cursor_follow_color: Uniform<Vec3>,
     pub cursor_coord: Uniform<IVec2>,
 }
 
@@ -47,45 +31,17 @@ impl CellProgram {
         ctx.use_program(Some(&program));
         let attr_position = ctx.get_attrib_location(&program, "position") as u32;
         let attr_uv = ctx.get_attrib_location(&program, "uv") as u32;
+
         let cells_texture_sampler = Uniform::new(&ctx, &program, "cells_texture_sampler");
         let mask_texture_sampler = Uniform::new(&ctx, &program, "mask_texture_sampler");
-
         let chunk_start_cell_offset = Uniform::new(&ctx, &program, "chunk_start_cell_offset");
-        let n_color = Uniform::new(&ctx, &program, "n_color");
-        let p_color = Uniform::new(&ctx, &program, "p_color");
-        let metal_color = Uniform::new(&ctx, &program, "metal_color");
-        let active_color = Uniform::new(&ctx, &program, "active_color");
-        let active_blend_strength_si_gate_metal =
-            Uniform::new(&ctx, &program, "active_blend_strength_si_gate_metal");
-        let grid_color = Uniform::new(&ctx, &program, "grid_color");
-        let background_color = Uniform::new(&ctx, &program, "background_color");
-        let grid_blend_strength = Uniform::new(&ctx, &program, "grid_blend_strength");
-        let metal_over_si_blend = Uniform::new(&ctx, &program, "metal_over_si_blend");
-
-        let cell_select_color = Uniform::new(&ctx, &program, "cell_select_color");
         let cell_select_ll = Uniform::new(&ctx, &program, "cell_select_ll");
         let cell_select_ur = Uniform::new(&ctx, &program, "cell_select_ur");
-
-        let cursor_follow_color = Uniform::new(&ctx, &program, "cursor_follow_color");
         let cursor_coord = Uniform::new(&ctx, &program, "cursor_coord");
 
-        // Set default style values
         chunk_start_cell_offset.set(&ctx, IVec2::new(0, 0));
-        n_color.set(&ctx, Vec4::new(0.98, 0.0, 0.77, 1.0));
-        p_color.set(&ctx, Vec4::new(0.0, 0.87, 1.0, 1.0));
-        metal_color.set(&ctx, Vec3::new(0.2, 0.2, 0.2));
-        active_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
-        active_blend_strength_si_gate_metal.set(&ctx, Vec3::new(0.8, 0.8, 0.5));
-        grid_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
-        background_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
-        grid_blend_strength.set(&ctx, 0.065);
-        metal_over_si_blend.set(&ctx, 0.75);
-
-        cell_select_color.set(&ctx, Vec3::new(0.32, 0.6, 0.8));
         cell_select_ll.set(&ctx, IVec2::new(0, 0));
         cell_select_ur.set(&ctx, IVec2::new(0, 0));
-
-        cursor_follow_color.set(&ctx, Vec3::new(0.0, 0.0, 0.0));
         cursor_coord.set(&ctx, IVec2::new(0, 0));
 
         // Set defaults for texture samplers
@@ -101,21 +57,8 @@ impl CellProgram {
             attr_position,
             attr_uv,
             chunk_start_cell_offset,
-            n_color,
-            p_color,
-            metal_color,
-            active_color,
-            active_blend_strength_si_gate_metal,
-            grid_color,
-            background_color,
-            grid_blend_strength,
-            metal_over_si_blend,
-
-            cell_select_color,
             cell_select_ll,
             cell_select_ur,
-
-            cursor_follow_color,
             cursor_coord,
         })
     }
