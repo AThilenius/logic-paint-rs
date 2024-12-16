@@ -1,11 +1,5 @@
 /* tslint:disable */
 /* eslint-disable */
-export function main(): void;
-export function run_tread_test(): void;
-/**
- * @param {ThreadTest} thread_test
- */
-export function increment_forever(thread_test: ThreadTest): void;
 /**
  * Convert a legacy blueprint JSON file into a Buffer (which can then be saved into the latest
  * format). Does not support modules, only the substrate is loaded.
@@ -13,11 +7,7 @@ export function increment_forever(thread_test: ThreadTest): void;
  * @returns {Buffer}
  */
 export function import_legacy_blueprint(json_str: string): Buffer;
-/**
- * Entry point for web workers
- * @param {number} ptr
- */
-export function wasm_thread_entry_point(ptr: number): void;
+export function main(): void;
 export enum CellPart {
   Metal = 0,
   Si = 1,
@@ -94,6 +84,24 @@ export class Buffer {
    */
   cell_count(): number;
   /**
+   * @returns {string}
+   */
+  to_base64_string(): string;
+  /**
+   * @returns {Uint8Array}
+   */
+  to_bytes(): Uint8Array;
+  /**
+   * @param {string} base_64_string
+   * @returns {Buffer}
+   */
+  static from_base64_string(base_64_string: string): Buffer;
+  /**
+   * @param {Uint8Array} bytes
+   * @returns {Buffer}
+   */
+  static from_bytes(bytes: Uint8Array): Buffer;
+  /**
    * @param {CellCoord} arg0
    * @param {CellCoord} arg1
    * @param {boolean} initial_impulse_vertical
@@ -149,24 +157,6 @@ export class Buffer {
    * @param {CellCoord} cell_coord
    */
   clear_cell_metal(cell_coord: CellCoord): void;
-  /**
-   * @returns {string}
-   */
-  to_base64_string(): string;
-  /**
-   * @returns {Uint8Array}
-   */
-  to_bytes(): Uint8Array;
-  /**
-   * @param {string} base_64_string
-   * @returns {Buffer}
-   */
-  static from_base64_string(base_64_string: string): Buffer;
-  /**
-   * @param {Uint8Array} bytes
-   * @returns {Buffer}
-   */
-  static from_bytes(bytes: Uint8Array): Buffer;
 }
 export class Camera {
   free(): void;
@@ -399,20 +389,47 @@ export class Drag {
   initial_impulse_vertical: boolean;
   start: CellCoord;
 }
+/**
+ * An Editor represents the underlying 'state' of an edit session, including the buffer data,
+ * transient buffers, masks, tools, and active tool states. It can be thought of as an active
+ * 'file'. It does not include anything having to do with the presentation of the editor, like
+ * cameras, viewports, and so on.
+ */
 export class Editor {
   free(): void;
   constructor();
   /**
-   * @param {Viewport} viewport
-   * @param {Camera} camera
-   */
-  render_to_viewport(viewport: Viewport, camera: Camera): void;
-  /**
    * @param {IoState} io_state
-   * @param {Viewport} viewport
    * @param {Camera} camera
+   * @returns {EditorDispatchResult}
    */
-  dispatch_event(io_state: IoState, viewport: Viewport, camera: Camera): void;
+  dispatch_event(io_state: IoState, camera: Camera): EditorDispatchResult;
+/**
+ * The active buffer that dispatched input will be rendered to (like drawing).
+ * This is used as the base for rendering (with mouse-follow stacked on top of it).
+ */
+  buffer: Buffer;
+/**
+ * The last used cursor location
+ */
+  cursor_coord?: CellCoord;
+/**
+ * The CSS style that should be applied to the cursor.
+ */
+  cursor_style: string;
+/**
+ * The current render mask applied to the buffer.
+ */
+  mask: Mask;
+/**
+ * The selected (visual mode) cells
+ */
+  selection: Selection;
+}
+export class EditorDispatchResult {
+  free(): void;
+  buffer_persist?: Buffer;
+  tools_persist: (ToolPersist)[];
 }
 /**
  * A 2-dimensional vector.
@@ -587,9 +604,7 @@ export class IoState {
    * @returns {(CellCoord)[]}
    */
   get_drag_path(): (CellCoord)[];
-  buffer_persist?: Buffer;
   cell: CellCoord;
-  cursor: string;
   drag?: Drag;
   hovered: BoolState;
   keys: (KeyState)[];
@@ -597,7 +612,6 @@ export class IoState {
   screen_point: Vec2;
   scroll_delta_y: number;
   secondary: BoolState;
-  tools_persist: (ToolPersist)[];
 }
 export class KeyState {
   free(): void;
@@ -836,14 +850,9 @@ export class Socket {
   constructor(pins: (Pin)[], always_update: boolean, update_callback: Function);
   always_update: boolean;
 }
-export class ThreadTest {
-  free(): void;
-  constructor();
-  value: bigint;
-}
 export class ToolPersist {
   free(): void;
-  serialized_state: string;
+  serialized_state: Uint8Array;
   tool_name: string;
 }
 /**
@@ -1076,8 +1085,11 @@ export class Viewport {
    * @param {HTMLCanvasElement} canvas
    */
   constructor(canvas: HTMLCanvasElement);
-  cursor?: CellCoord;
-  selection: Selection;
+  /**
+   * @param {Camera} camera
+   * @param {Editor} editor
+   */
+  draw(camera: Camera, editor: Editor): void;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -1101,11 +1113,47 @@ export interface InitOutput {
   readonly __wbg_set_placement_left: (a: number, b: number) => void;
   readonly __wbg_upc_free: (a: number, b: number) => void;
   readonly __wbg_viewport_free: (a: number, b: number) => void;
-  readonly __wbg_get_viewport_selection: (a: number) => number;
-  readonly __wbg_set_viewport_selection: (a: number, b: number) => void;
-  readonly __wbg_get_viewport_cursor: (a: number) => number;
-  readonly __wbg_set_viewport_cursor: (a: number, b: number) => void;
   readonly viewport_new: (a: number) => number;
+  readonly viewport_draw: (a: number, b: number, c: number, d: number) => void;
+  readonly __wbg_camera_free: (a: number, b: number) => void;
+  readonly __wbg_get_camera_translation: (a: number) => number;
+  readonly __wbg_set_camera_translation: (a: number, b: number) => void;
+  readonly __wbg_get_camera_scale: (a: number) => number;
+  readonly __wbg_set_camera_scale: (a: number, b: number) => void;
+  readonly __wbg_get_camera_size: (a: number) => number;
+  readonly __wbg_set_camera_size: (a: number, b: number) => void;
+  readonly camera_new_translation_scale: (a: number, b: number) => number;
+  readonly camera_project_screen_point_to_world: (a: number, b: number) => number;
+  readonly camera_project_screen_point_to_cell: (a: number, b: number) => number;
+  readonly camera_project_cell_coord_to_screen_point: (a: number, b: number) => number;
+  readonly __wbg_buffer_free: (a: number, b: number) => void;
+  readonly buffer_new: () => number;
+  readonly buffer_get_cell: (a: number, b: number) => number;
+  readonly buffer_set_cell: (a: number, b: number, c: number) => void;
+  readonly buffer_clone_selection: (a: number, b: number, c: number) => number;
+  readonly buffer_paste_at: (a: number, b: number, c: number) => void;
+  readonly buffer_rotate_to_new: (a: number) => number;
+  readonly buffer_mirror_to_new: (a: number) => number;
+  readonly buffer_fix_all_cells: (a: number) => void;
+  readonly buffer_cell_count: (a: number) => number;
+  readonly __wbg_pin_free: (a: number, b: number) => void;
+  readonly __wbg_get_pin_cell_coord: (a: number) => number;
+  readonly __wbg_set_pin_cell_coord: (a: number, b: number) => void;
+  readonly __wbg_get_pin_trigger: (a: number) => number;
+  readonly __wbg_set_pin_trigger: (a: number, b: number) => void;
+  readonly __wbg_get_pin_si_output_high: (a: number) => number;
+  readonly __wbg_set_pin_si_output_high: (a: number, b: number) => void;
+  readonly __wbg_get_pin_si_input_high: (a: number) => number;
+  readonly __wbg_set_pin_si_input_high: (a: number, b: number) => void;
+  readonly __wbg_socket_free: (a: number, b: number) => void;
+  readonly __wbg_get_socket_always_update: (a: number) => number;
+  readonly __wbg_set_socket_always_update: (a: number, b: number) => void;
+  readonly pin_new: (a: number, b: number) => number;
+  readonly socket_new: (a: number, b: number, c: number, d: number) => number;
+  readonly buffer_to_base64_string: (a: number, b: number) => void;
+  readonly buffer_to_bytes: (a: number, b: number) => void;
+  readonly buffer_from_base64_string: (a: number, b: number, c: number) => void;
+  readonly buffer_from_bytes: (a: number, b: number, c: number) => void;
   readonly __wbg_boolstate_free: (a: number, b: number) => void;
   readonly __wbg_get_boolstate_clicked: (a: number) => number;
   readonly __wbg_set_boolstate_clicked: (a: number, b: number) => void;
@@ -1116,9 +1164,10 @@ export interface InitOutput {
   readonly __wbg_keystate_free: (a: number, b: number) => void;
   readonly __wbg_get_keystate_key_code: (a: number, b: number) => void;
   readonly __wbg_set_keystate_key_code: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_keystate_key: (a: number, b: number) => void;
+  readonly __wbg_set_keystate_key: (a: number, b: number, c: number) => void;
   readonly __wbg_get_keystate_state: (a: number) => number;
   readonly __wbg_set_keystate_state: (a: number, b: number) => void;
-  readonly __wbg_toolpersist_free: (a: number, b: number) => void;
   readonly __wbg_drag_free: (a: number, b: number) => void;
   readonly __wbg_get_drag_start: (a: number) => number;
   readonly __wbg_set_drag_start: (a: number, b: number) => void;
@@ -1141,12 +1190,6 @@ export interface InitOutput {
   readonly __wbg_set_iostate_cell: (a: number, b: number) => void;
   readonly __wbg_get_iostate_scroll_delta_y: (a: number) => number;
   readonly __wbg_set_iostate_scroll_delta_y: (a: number, b: number) => void;
-  readonly __wbg_get_iostate_cursor: (a: number, b: number) => void;
-  readonly __wbg_set_iostate_cursor: (a: number, b: number, c: number) => void;
-  readonly __wbg_get_iostate_buffer_persist: (a: number) => number;
-  readonly __wbg_set_iostate_buffer_persist: (a: number, b: number) => void;
-  readonly __wbg_get_iostate_tools_persist: (a: number, b: number) => void;
-  readonly __wbg_set_iostate_tools_persist: (a: number, b: number, c: number) => void;
   readonly iostate_new: () => number;
   readonly iostate_event_key_down: (a: number, b: number) => void;
   readonly iostate_event_key_up: (a: number, b: number) => void;
@@ -1156,77 +1199,6 @@ export interface InitOutput {
   readonly iostate_get_key: (a: number, b: number, c: number) => number;
   readonly iostate_get_key_code: (a: number, b: number, c: number) => number;
   readonly iostate_get_drag_path: (a: number, b: number) => void;
-  readonly __wbg_camera_free: (a: number, b: number) => void;
-  readonly __wbg_get_camera_translation: (a: number) => number;
-  readonly __wbg_set_camera_translation: (a: number, b: number) => void;
-  readonly __wbg_get_camera_scale: (a: number) => number;
-  readonly __wbg_set_camera_scale: (a: number, b: number) => void;
-  readonly __wbg_get_camera_size: (a: number) => number;
-  readonly __wbg_set_camera_size: (a: number, b: number) => void;
-  readonly camera_new_translation_scale: (a: number, b: number) => number;
-  readonly camera_project_screen_point_to_world: (a: number, b: number) => number;
-  readonly camera_project_screen_point_to_cell: (a: number, b: number) => number;
-  readonly camera_project_cell_coord_to_screen_point: (a: number, b: number) => number;
-  readonly __wbg_set_toolpersist_tool_name: (a: number, b: number, c: number) => void;
-  readonly __wbg_set_toolpersist_serialized_state: (a: number, b: number, c: number) => void;
-  readonly __wbg_set_keystate_key: (a: number, b: number, c: number) => void;
-  readonly __wbg_get_toolpersist_tool_name: (a: number, b: number) => void;
-  readonly __wbg_get_toolpersist_serialized_state: (a: number, b: number) => void;
-  readonly __wbg_get_keystate_key: (a: number, b: number) => void;
-  readonly __wbg_get_pin_cell_coord: (a: number) => number;
-  readonly __wbg_set_pin_cell_coord: (a: number, b: number) => void;
-  readonly __wbg_get_pin_trigger: (a: number) => number;
-  readonly __wbg_set_pin_trigger: (a: number, b: number) => void;
-  readonly __wbg_get_pin_si_output_high: (a: number) => number;
-  readonly __wbg_set_pin_si_output_high: (a: number, b: number) => void;
-  readonly __wbg_get_pin_si_input_high: (a: number) => number;
-  readonly __wbg_set_pin_si_input_high: (a: number, b: number) => void;
-  readonly __wbg_socket_free: (a: number, b: number) => void;
-  readonly __wbg_get_socket_always_update: (a: number) => number;
-  readonly __wbg_set_socket_always_update: (a: number, b: number) => void;
-  readonly pin_new: (a: number, b: number) => number;
-  readonly socket_new: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_compilerresults_free: (a: number, b: number) => void;
-  readonly __wbg_atom_free: (a: number, b: number) => void;
-  readonly __wbg_get_atom_coord: (a: number) => number;
-  readonly __wbg_set_atom_coord: (a: number, b: number) => void;
-  readonly __wbg_get_atom_part: (a: number) => number;
-  readonly __wbg_set_atom_part: (a: number, b: number) => void;
-  readonly compilerresults_from_buffer: (a: number) => number;
-  readonly compilerresults_get_trace_atoms: (a: number, b: number, c: number) => void;
-  readonly __wbg_mask_free: (a: number, b: number) => void;
-  readonly __wbg_threadtest_free: (a: number, b: number) => void;
-  readonly __wbg_get_threadtest_value: (a: number) => number;
-  readonly __wbg_set_threadtest_value: (a: number, b: number) => void;
-  readonly threadtest_new: () => number;
-  readonly run_tread_test: () => void;
-  readonly increment_forever: (a: number) => void;
-  readonly main: () => void;
-  readonly __wbg_pin_free: (a: number, b: number) => void;
-  readonly __wbg_buffer_free: (a: number, b: number) => void;
-  readonly buffer_new: () => number;
-  readonly buffer_get_cell: (a: number, b: number) => number;
-  readonly buffer_set_cell: (a: number, b: number, c: number) => void;
-  readonly buffer_clone_selection: (a: number, b: number, c: number) => number;
-  readonly buffer_paste_at: (a: number, b: number, c: number) => void;
-  readonly buffer_rotate_to_new: (a: number) => number;
-  readonly buffer_mirror_to_new: (a: number) => number;
-  readonly buffer_fix_all_cells: (a: number) => void;
-  readonly buffer_cell_count: (a: number) => number;
-  readonly __wbg_editor_free: (a: number, b: number) => void;
-  readonly editor_new: () => number;
-  readonly editor_render_to_viewport: (a: number, b: number, c: number, d: number) => void;
-  readonly editor_dispatch_event: (a: number, b: number, c: number, d: number) => void;
-  readonly import_legacy_blueprint: (a: number, b: number, c: number) => void;
-  readonly __wbg_cellcoord_free: (a: number, b: number) => void;
-  readonly __wbg_get_cellcoord_0: (a: number) => number;
-  readonly __wbg_set_cellcoord_0: (a: number, b: number) => void;
-  readonly cellcoord__wasm_ctor: (a: number, b: number) => number;
-  readonly __wbg_selection_free: (a: number, b: number) => void;
-  readonly __wbg_get_selection_lower_left: (a: number) => number;
-  readonly __wbg_set_selection_lower_left: (a: number, b: number) => void;
-  readonly __wbg_get_selection_upper_right: (a: number) => number;
-  readonly __wbg_set_selection_upper_right: (a: number, b: number) => void;
   readonly buffer_draw_si: (a: number, b: number, c: number, d: number, e: number) => void;
   readonly buffer_draw_metal: (a: number, b: number, c: number, d: number) => void;
   readonly buffer_clear_si: (a: number, b: number, c: number, d: number) => void;
@@ -1238,10 +1210,49 @@ export interface InitOutput {
   readonly buffer_draw_metal_link: (a: number, b: number, c: number) => void;
   readonly buffer_clear_cell_si: (a: number, b: number) => void;
   readonly buffer_clear_cell_metal: (a: number, b: number) => void;
-  readonly buffer_to_base64_string: (a: number, b: number) => void;
-  readonly buffer_to_bytes: (a: number, b: number) => void;
-  readonly buffer_from_base64_string: (a: number, b: number, c: number) => void;
-  readonly buffer_from_bytes: (a: number, b: number, c: number) => void;
+  readonly __wbg_cellcoord_free: (a: number, b: number) => void;
+  readonly __wbg_get_cellcoord_0: (a: number) => number;
+  readonly __wbg_set_cellcoord_0: (a: number, b: number) => void;
+  readonly cellcoord__wasm_ctor: (a: number, b: number) => number;
+  readonly __wbg_editor_free: (a: number, b: number) => void;
+  readonly __wbg_get_editor_buffer: (a: number) => number;
+  readonly __wbg_set_editor_buffer: (a: number, b: number) => void;
+  readonly __wbg_get_editor_mask: (a: number) => number;
+  readonly __wbg_set_editor_mask: (a: number, b: number) => void;
+  readonly __wbg_get_editor_selection: (a: number) => number;
+  readonly __wbg_set_editor_selection: (a: number, b: number) => void;
+  readonly __wbg_get_editor_cursor_coord: (a: number) => number;
+  readonly __wbg_set_editor_cursor_coord: (a: number, b: number) => void;
+  readonly __wbg_get_editor_cursor_style: (a: number, b: number) => void;
+  readonly __wbg_set_editor_cursor_style: (a: number, b: number, c: number) => void;
+  readonly __wbg_editordispatchresult_free: (a: number, b: number) => void;
+  readonly __wbg_get_editordispatchresult_buffer_persist: (a: number) => number;
+  readonly __wbg_set_editordispatchresult_buffer_persist: (a: number, b: number) => void;
+  readonly __wbg_get_editordispatchresult_tools_persist: (a: number, b: number) => void;
+  readonly __wbg_set_editordispatchresult_tools_persist: (a: number, b: number, c: number) => void;
+  readonly __wbg_toolpersist_free: (a: number, b: number) => void;
+  readonly __wbg_get_toolpersist_tool_name: (a: number, b: number) => void;
+  readonly __wbg_set_toolpersist_tool_name: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_toolpersist_serialized_state: (a: number, b: number) => void;
+  readonly __wbg_set_toolpersist_serialized_state: (a: number, b: number, c: number) => void;
+  readonly editor_new: () => number;
+  readonly editor_dispatch_event: (a: number, b: number, c: number) => number;
+  readonly import_legacy_blueprint: (a: number, b: number, c: number) => void;
+  readonly __wbg_compilerresults_free: (a: number, b: number) => void;
+  readonly __wbg_atom_free: (a: number, b: number) => void;
+  readonly __wbg_get_atom_coord: (a: number) => number;
+  readonly __wbg_set_atom_coord: (a: number, b: number) => void;
+  readonly __wbg_get_atom_part: (a: number) => number;
+  readonly __wbg_set_atom_part: (a: number, b: number) => void;
+  readonly compilerresults_from_buffer: (a: number) => number;
+  readonly compilerresults_get_trace_atoms: (a: number, b: number, c: number) => void;
+  readonly __wbg_mask_free: (a: number, b: number) => void;
+  readonly __wbg_selection_free: (a: number, b: number) => void;
+  readonly __wbg_get_selection_lower_left: (a: number) => number;
+  readonly __wbg_set_selection_lower_left: (a: number, b: number) => void;
+  readonly __wbg_get_selection_upper_right: (a: number) => number;
+  readonly __wbg_set_selection_upper_right: (a: number, b: number) => void;
+  readonly main: () => void;
   readonly __wbg_get_vec2_x: (a: number) => number;
   readonly __wbg_set_vec2_x: (a: number, b: number) => void;
   readonly __wbg_get_vec2_y: (a: number) => number;
@@ -1516,17 +1527,12 @@ export interface InitOutput {
   readonly __wbg_set_i64vec4_x: (a: number, b: number) => void;
   readonly __wbg_set_i64vec4_y: (a: number, b: number) => void;
   readonly __wbg_set_i64vec4_z: (a: number, b: number) => void;
-  readonly wasm_thread_entry_point: (a: number) => void;
   readonly memory: WebAssembly.Memory;
   readonly __wbindgen_export_1: (a: number, b: number) => number;
   readonly __wbindgen_export_2: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbindgen_export_3: WebAssembly.Table;
-  readonly __wbindgen_export_4: (a: number, b: number, c: number) => void;
-  readonly __wbindgen_export_5: (a: number, b: number, c: number) => void;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
-  readonly __wbindgen_export_6: (a: number, b: number, c: number) => void;
-  readonly __wbindgen_export_7: (a: number) => void;
-  readonly __wbindgen_export_8: (a: number, b: number, c: number, d: number) => void;
+  readonly __wbindgen_export_3: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_export_4: (a: number) => void;
   readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
   readonly __wbindgen_start: (a: number) => void;
 }

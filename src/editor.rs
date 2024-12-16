@@ -3,56 +3,35 @@ use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 use crate::{
+    coords::CellCoord,
     log,
     substrate::{buffer::Buffer, io::IoState, mask::Mask},
-    tools::{Tool, ToolDispatchCtx, ToolOutput, ToolPaintMetal, ToolPaintSi, ToolVisual},
-    viewport::Viewport,
+    tools::{Tool, ToolInput, ToolOutput, ToolPaintMetal},
+    utils::Selection,
     wgl2::Camera,
 };
 
-// pub enum Mode {
-//     /// (ESC) Default starting mode, accessed from any other mode with ESC.
-//     /// - Denoted by the cell-cursor (Excel style)
-//     /// - Only mode where module anchors are visible
-//     /// - Same selection keybinds as Excel. Clicking/Dragging selected a range. Holding Shift adds
-//     ///   to the selection. Holding Ctrl removes from the selection.
-//     /// - Hovering a trace highlights the conductive path
-//     /// - Double-clicking a trace selects the conductive path cells
-//     /// - VSCode::OnCopy copies the selected cells and modules, with the root being what ever cell
-//     ///   was last under the mouse at that time.
-//     /// - VSCode::OnPaste pastes into a 'cursor follow' buffer, next mouse click commits it to
-//     ///   active
-//     Visual,
-//
-//     /// (F) Paints metal and vias.
-//     /// LMB: paint
-//     /// RMB || Shift+LMB: Via
-//     /// Ctrl+... to remove
-//     PaintMetallic(Option<Atom>),
-//
-//     /// (D) Paints doped silicon
-//     /// LMB: paint N
-//     /// RMB || Shift+LMB paint P
-//     /// Ctrl+... to erase any type & mosfets
-//     PaintSi(Option<Atom>),
-//
-//     /// (Enter) Starts Label mode.
-//     /// (ESC, Enter, Primary, Secondary) Leaves label model.
-//     Label(LabelBuilder),
-// }
-
-#[wasm_bindgen]
+/// An Editor represents the underlying 'state' of an edit session, including the buffer data,
+/// transient buffers, masks, tools, and active tool states. It can be thought of as an active
+/// 'file'. It does not include anything having to do with the presentation of the editor, like
+/// cameras, viewports, and so on.
+#[wasm_bindgen(getter_with_clone)]
 pub struct Editor {
-    /// Buffer containing the latest fully completed changes. It is not used
-    /// for rendering directly.
-    completed_buffer: Buffer,
+    /// The active buffer that dispatched input will be rendered to (like drawing).
+    /// This is used as the base for rendering (with mouse-follow stacked on top of it).
+    pub buffer: Buffer,
 
-    /// The buffer that dispatched input will be rendered to (like drawing).
-    /// This is used as the base for rendering (with mouse-follow stacked on
-    /// top of it).
-    transient_buffer: Buffer,
+    /// The current render mask applied to the buffer.
+    pub mask: Mask,
 
-    transient_mask: Mask,
+    /// The selected (visual mode) cells
+    pub selection: Selection,
+
+    /// The last used cursor location
+    pub cursor_coord: Option<CellCoord>,
+
+    /// The CSS style that should be applied to the cursor.
+    pub cursor_style: String,
 
     /// The current mode of the standard editor.
     /// mode: Mode,
@@ -61,116 +40,140 @@ pub struct Editor {
     active_tool: String,
 }
 
+#[wasm_bindgen(getter_with_clone)]
+pub struct EditorDispatchResult {
+    pub buffer_persist: Option<Buffer>,
+    pub tools_persist: Vec<ToolPersist>,
+}
+
+#[wasm_bindgen(getter_with_clone)]
+#[derive(Clone)]
+pub struct ToolPersist {
+    pub tool_name: String,
+    pub serialized_state: Vec<u8>,
+}
+
 #[wasm_bindgen]
 impl Editor {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
-            completed_buffer: Default::default(),
-            transient_buffer: Default::default(),
-            transient_mask: Default::default(),
+            buffer: Default::default(),
+            mask: Default::default(),
+            selection: Default::default(),
+            cursor_coord: None,
+            cursor_style: "default".to_string(),
             tools: HashMap::from([
-                (
-                    "visual".to_string(),
-                    Box::new(ToolVisual::default()) as Box<dyn Tool>,
-                ),
-                (
-                    "paint-si".to_string(),
-                    Box::new(ToolPaintSi::default()) as Box<dyn Tool>,
-                ),
+                // (
+                //     "visual".to_string(),
+                //     Box::new(ToolVisual::default()) as Box<dyn Tool>,
+                // ),
+                // (
+                //     "paint-si".to_string(),
+                //     Box::new(ToolPaintSi::default()) as Box<dyn Tool>,
+                // ),
                 (
                     "paint-metal".to_string(),
                     Box::new(ToolPaintMetal::default()) as Box<dyn Tool>,
                 ),
             ]),
-            active_tool: "visual".to_string(),
+            active_tool: "none".to_string(),
         }
     }
 
-    pub fn render_to_viewport(
-        &mut self,
-        viewport: &mut Viewport,
-        camera: &mut Camera,
-    ) -> Result<(), JsValue> {
-        viewport.draw(
-            camera,
-            self.transient_buffer.clone(),
-            self.transient_mask.clone(),
-        )?;
-        Ok(())
-    }
+    pub fn dispatch_event(&mut self, io_state: &IoState, camera: &Camera) -> EditorDispatchResult {
+        self.cursor_coord = Some(io_state.cell);
 
-    pub fn dispatch_event(
-        &mut self,
-        io_state: &mut IoState,
-        viewport: &mut Viewport,
-        camera: &mut Camera,
-    ) {
-        // Cursor-follow
-        viewport.cursor = Some(io_state.cell);
+        let active_tool = self.active_tool.clone();
+        let mut new_active = None;
+        let mut dispatch_result = EditorDispatchResult {
+            buffer_persist: None,
+            tools_persist: vec![],
+        };
 
-        // CSS mouse cursor logic
-        // self.output_state.viewport_mouse_cursor =
-        //     if self.input_state.key_codes_down.contains("Space") {
-        //         "grabbing"
-        //     } else {
-        //         match self.mode {
-        //             Mode::Visual => "cell",
-        //             Mode::PaintMetallic(_) | Mode::PaintSi(_) => "crosshair",
-        //             // Mode::Execute(..) | Mode::ModuleEdit(None) => "default",
-        //             // Mode::Label(..) | Mode::ModuleEdit(Some(..)) => "copy",
-        //             Mode::Label(..) => "copy",
-        //         }
-        //     }
-        //     .to_string();
+        let mut tool_input = ToolInput {
+            active: false,
+            io_state: io_state.clone(),
+            camera: camera.clone(),
+            buffer: self.buffer.clone(),
+            selection: self.selection,
+        };
 
-        if camera.handle_input(&io_state) {
-            return;
-        }
+        let owned_output: Vec<_> = self
+            .tools
+            .iter_mut()
+            .map(|(name, tool)| {
+                tool_input.active = *name == active_tool;
+                let output = tool.dispatch_event(&tool_input);
+                (name.to_string(), output)
+            })
+            .collect();
 
-        // Escape is a global keybind, it always brings us back to Visual mode
-
-        if io_state.get_key_code("Escape").clicked {
-            self.active_tool = "visual".to_string();
-        }
-
-        if io_state.get_key_code("KeyQ").clicked {
-            self.active_tool = "paint-si".to_string();
-        } else if io_state.get_key_code("KeyW").clicked {
-            self.active_tool = "paint-metal".to_string();
-        }
-
-        if io_state.get_key_code("KeyF").clicked {
-            self.completed_buffer.fix_all_cells();
-        }
-
-        if let Some(tool) = self.tools.get_mut(&self.active_tool) {
-            let tool_output = tool.dispatch_event(ToolDispatchCtx {
-                viewport,
-                buffer: self.completed_buffer.clone(),
-                camera,
-                io_state,
-            });
-
-            match tool_output {
-                ToolOutput::NoOp => {}
-                ToolOutput::Reset => {
-                    self.transient_buffer = self.completed_buffer.clone();
-                    self.transient_mask = Default::default();
-                }
-                ToolOutput::Continue { buffer, mask } => {
-                    self.transient_buffer = buffer;
-                    self.transient_mask = mask;
-                }
-                ToolOutput::Commit { maintain_mask } => {
-                    self.completed_buffer = self.transient_buffer.clone();
-                    // TODO: Save to DB
-
-                    if !maintain_mask {
-                        self.transient_mask = Default::default();
-                    }
-                }
+        for (name, output) in owned_output {
+            if output.take_active && !tool_input.active && new_active.is_none() {
+                new_active = Some(name.to_string());
             }
+
+            self.handle_dispatch_result(&mut dispatch_result, name, output);
+        }
+
+        if let Some(new_active) = new_active {
+            if self.active_tool != "none" {
+                tool_input.active = false;
+                let output = self
+                    .tools
+                    .get_mut(&self.active_tool)
+                    .unwrap()
+                    .deactivate(&tool_input);
+
+                self.handle_dispatch_result(
+                    &mut dispatch_result,
+                    self.active_tool.to_string(),
+                    output,
+                );
+            }
+
+            tool_input.active = true;
+            self.active_tool = new_active;
+            let output = self
+                .tools
+                .get_mut(&self.active_tool)
+                .unwrap()
+                .activate(&tool_input);
+
+            self.handle_dispatch_result(&mut dispatch_result, self.active_tool.to_string(), output);
+        }
+
+        dispatch_result
+    }
+
+    fn handle_dispatch_result(
+        &mut self,
+        dispatch_result: &mut EditorDispatchResult,
+        name: String,
+        output: ToolOutput,
+    ) {
+        if let Some(buffer) = output.buffer {
+            self.buffer = buffer;
+        }
+
+        if let Some(mask) = output.mask {
+            self.mask = mask;
+        }
+
+        if let Some(cursor_style) = output.cursor_style {
+            self.cursor_style = cursor_style;
+        }
+
+        if output.checkpoint {
+            dispatch_result.buffer_persist = Some(self.buffer.clone());
+        }
+
+        if let Some(bytes) = output.persist_tool_state {
+            dispatch_result.tools_persist.push(ToolPersist {
+                tool_name: name,
+                serialized_state: bytes,
+            });
         }
     }
 }

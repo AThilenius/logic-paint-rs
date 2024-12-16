@@ -2,7 +2,7 @@ use glam::{IVec2, Vec2};
 use wasm_bindgen::prelude::*;
 use web_sys::{KeyboardEvent, MouseEvent, WheelEvent};
 
-use crate::{coords::CellCoord, substrate::buffer::Buffer, utils::range_iter, wgl2::Camera};
+use crate::{coords::CellCoord, utils::range_iter, wgl2::Camera};
 
 #[wasm_bindgen]
 #[derive(PartialEq, Eq, Clone, Copy, Default, Debug)]
@@ -85,13 +85,6 @@ pub struct KeyState {
     pub state: BoolState,
 }
 
-#[wasm_bindgen(getter_with_clone)]
-#[derive(Clone)]
-pub struct ToolPersist {
-    pub tool_name: String,
-    pub serialized_state: String,
-}
-
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug)]
 pub struct Drag {
@@ -111,10 +104,6 @@ pub struct IoState {
     pub screen_point: Vec2,
     pub cell: CellCoord,
     pub scroll_delta_y: f32,
-
-    pub cursor: String,
-    pub buffer_persist: Option<Buffer>,
-    pub tools_persist: Vec<ToolPersist>,
 }
 
 #[wasm_bindgen]
@@ -214,9 +203,9 @@ impl IoState {
         self.scroll_delta_y = 0.0;
 
         // Reset output state
-        self.cursor = "default".to_string();
-        self.buffer_persist = None;
-        self.tools_persist.clear();
+        // self.cursor = "default".to_string();
+        // self.buffer_persist = None;
+        // self.tools_persist.clear();
     }
 
     pub fn get_key(&self, key: &str) -> BoolState {

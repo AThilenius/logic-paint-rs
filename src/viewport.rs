@@ -4,18 +4,14 @@ use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
-    coords::{CellCoord, ChunkCoord},
-    substrate::{buffer::Buffer, mask::Mask},
-    utils::Selection,
+    coords::ChunkCoord,
+    editor::Editor,
     wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
 };
 
 /// Represents only the presentation state of an on or off screen viewport for rendering.
 #[wasm_bindgen]
 pub struct Viewport {
-    pub selection: Selection,
-    pub cursor: Option<CellCoord>,
-
     program: CellProgram,
     render_chunks: HashMap<ChunkCoord, RenderChunk>,
     canvas: HtmlCanvasElement,
@@ -46,8 +42,6 @@ impl Viewport {
         let empty_texture = Texture::new_chunk_texture(&gl).expect("webgl textures to create");
 
         Self {
-            selection: Default::default(),
-            cursor: Default::default(),
             render_chunks: Default::default(),
             program,
             canvas,
@@ -56,12 +50,7 @@ impl Viewport {
         }
     }
 
-    pub(crate) fn draw(
-        &mut self,
-        camera: &mut Camera,
-        buffer: Buffer,
-        mask: Mask,
-    ) -> Result<(), JsValue> {
+    pub fn draw(&mut self, camera: &mut Camera, editor: &Editor) -> Result<(), JsValue> {
         let time: f64 = web_sys::window()
             .expect("should have a window in this context")
             .performance()
@@ -91,13 +80,14 @@ impl Viewport {
         self.program.time.set(&self.gl, time as f32);
         self.program
             .cell_select_ll
-            .set(&self.gl, self.selection.lower_left.0);
+            .set(&self.gl, editor.selection.lower_left.0);
         self.program
             .cell_select_ur
-            .set(&self.gl, self.selection.upper_right.0);
+            .set(&self.gl, editor.selection.upper_right.0);
         self.program.cursor_coord.set(
             &self.gl,
-            self.cursor
+            editor
+                .cursor_coord
                 .map(|c| c.0)
                 .unwrap_or((i32::MIN, i32::MIN).into()),
         );
@@ -129,7 +119,7 @@ impl Viewport {
             // Update and bind the cell texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
 
-            if let Some(buffer_chunk) = buffer.chunks.get(&chunk_coord) {
+            if let Some(buffer_chunk) = editor.buffer.chunks.get(&chunk_coord) {
                 render_chunk
                     .cell_texture
                     .set_pixels(&buffer_chunk.cells[..])?;
@@ -144,7 +134,7 @@ impl Viewport {
             // Update and bind the mask texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
 
-            if let Some(mask_chunk) = mask.get_chunk(chunk_coord) {
+            if let Some(mask_chunk) = editor.mask.get_chunk(chunk_coord) {
                 render_chunk
                     .mask_texture
                     .set_pixels(&mask_chunk.cells[..])?;
