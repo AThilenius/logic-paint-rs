@@ -11,23 +11,23 @@ uniform usampler2D mask_texture_sampler;
 
 // Style uniforms
 uniform ivec2 chunk_start_cell_offset;
-uniform vec4 n_color;
-uniform vec4 p_color;
-uniform vec3 active_color;
-uniform vec3 active_blend_strength_si_gate_metal;
-uniform vec3 metal_color;
-uniform vec3 grid_color;
-uniform vec3 background_color;
-uniform float grid_blend_strength;
-uniform float metal_over_si_blend;
+const vec4 n_color = vec4(0.98, 0.0, 0.77, 1.0);
+const vec4 p_color = vec4(0.0, 0.87, 1.0, 1.0);
+const vec3 metal_color = vec3(0.2, 0.2, 0.2);
+const vec3 active_color = vec3(1.0, 1.0, 1.0);
+const vec3 active_blend_strength_si_gate_metal = vec3(0.8, 0.8, 0.5);
+const vec3 grid_color = vec3(1.0, 1.0, 1.0);
+const vec3 background_color = vec3(0.0, 0.0, 0.0);
+const float grid_blend_strength = 0.065;
+const float metal_over_si_blend = 0.75;
 
 // Selection
-uniform vec3 cell_select_color;
+const vec3 cell_select_color = vec3(0.32, 0.6, 0.8);
 uniform ivec2 cell_select_ll;
 uniform ivec2 cell_select_ur;
 
 // Cursor-follow
-uniform vec3 cursor_follow_color;
+const vec3 cursor_follow_color = vec3(0.0, 0.0, 0.0);
 uniform ivec2 cursor_coord;
 
 out vec4 out_color;
