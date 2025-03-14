@@ -26,13 +26,18 @@
             buildInputs = [
               openssl
               pkg-config
+              trunk
               wasm-bindgen-cli
               wasm-pack
-              # Version suggested by: https://github.com/RReverser/wasm-bindgen-rayon?tab=readme-ov-file#using-config-files
-              (rust-bin.nightly."2024-08-02".default.override {
+              (rust-bin.nightly.latest.default.override {
                 targets = ["wasm32-unknown-unknown"];
                 extensions = ["rust-src"];
               })
+              # # Version suggested by: https://github.com/RReverser/wasm-bindgen-rayon?tab=readme-ov-file#using-config-files
+              # (rust-bin.nightly."2024-08-02".default.override {
+              #   targets = ["wasm32-unknown-unknown"];
+              #   extensions = ["rust-src"];
+              # })
             ];
 
             # shellHook = ''

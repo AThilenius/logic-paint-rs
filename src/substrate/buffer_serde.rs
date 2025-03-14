@@ -43,11 +43,11 @@ impl Buffer {
             channels: SNAPPY_CHANNELS as u32,
         };
 
-        for (chunk_coord, chunk) in &self.chunks {
+        for chunk in &self.chunks {
             let mut snappy_image = [0_u8; CHUNK_CELL_COUNT * SNAPPY_CHANNELS];
             for i in 0..CHUNK_CELL_COUNT {
                 for j in 0..SNAPPY_CHANNELS {
-                    snappy_image[i * SNAPPY_CHANNELS + j] = chunk.cells[i * UPC_BYTE_LEN + j];
+                    snappy_image[i * SNAPPY_CHANNELS + j] = chunk.get_cells()[i * UPC_BYTE_LEN + j];
                 }
             }
 
@@ -57,8 +57,8 @@ impl Buffer {
             let data = writer.into_inner().unwrap();
 
             snappy_buffer.chunks.push(SnappyChunk {
-                chunk_x: chunk_coord.0.x,
-                chunk_y: chunk_coord.0.y,
+                chunk_x: chunk.chunk_coord.0.x,
+                chunk_y: chunk.chunk_coord.0.y,
                 cell_count: chunk.cell_count as u32,
                 data,
             });
@@ -110,20 +110,18 @@ impl Buffer {
                     }
 
                     // Convert to standard chunk
-                    let mut cells = vec![0_u8; CHUNK_CELL_COUNT * UPC_BYTE_LEN];
+                    let mut buffer_chunk =
+                        BufferChunk::new(ChunkCoord((chunk.chunk_x, chunk.chunk_y).into()));
+                    let cells = buffer_chunk.get_cells_mut();
+
                     for i in 0..CHUNK_CELL_COUNT {
                         for j in 0..channels {
                             cells[i * UPC_BYTE_LEN + j] = snappy_image[i * channels + j];
                         }
                     }
 
-                    buffer.chunks.insert(
-                        ChunkCoord((chunk.chunk_x, chunk.chunk_y).into()),
-                        BufferChunk {
-                            cells,
-                            cell_count: chunk.cell_count as usize,
-                        },
-                    );
+                    buffer_chunk.cell_count = chunk.cell_count as usize;
+                    buffer.chunks.push(buffer_chunk);
                 }
 
                 Ok(buffer)

@@ -2,8 +2,10 @@
 
 export def main [] {
   $env.RUSTFLAGS = '-C target-feature=+atomics,+bulk-memory,+mutable-globals'
-  cargo build --target wasm32-unknown-unknown --release -Z build-std=std,panic_abort
-  wasm-bindgen target/wasm32-unknown-unknown/release/logic_paint_rs.wasm --out-dir pkg --target web
+  # cargo build --target wasm32-unknown-unknown --release -Z build-std=std,panic_abort
+  cargo build --target wasm32-unknown-unknown -Z build-std=std,panic_abort
+  # wasm-bindgen target/wasm32-unknown-unknown/release/logic_paint_rs.wasm --out-dir pkg --target web --debug --keep-debug
+  wasm-bindgen target/wasm32-unknown-unknown/debug/logic_paint_rs.wasm --out-dir pkg --target web --debug --keep-debug
 
   # Unsure why wasm-bindgen doesn't creat this like wasm-pack does.
   '{

@@ -119,10 +119,15 @@ impl Viewport {
             // Update and bind the cell texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
 
-            if let Some(buffer_chunk) = editor.buffer.chunks.get(&chunk_coord) {
+            if let Some(buffer_chunk) = editor
+                .buffer
+                .chunks
+                .iter()
+                .find(|c| c.chunk_coord == chunk_coord)
+            {
                 render_chunk
                     .cell_texture
-                    .set_pixels(&buffer_chunk.cells[..])?;
+                    .set_pixels(&buffer_chunk.get_cells()[..])?;
 
                 // Bind the render chunk's texture as it's non-empty.
                 render_chunk.cell_texture.bind();

@@ -4,10 +4,7 @@ use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
-    substrate::io::IoState,
-};
+use crate::coords::{CellCoord, ChunkCoord, CHUNK_SIZE};
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 #[wasm_bindgen]
@@ -63,39 +60,6 @@ impl Camera {
             Quat::IDENTITY,
             Vec3::new(self.translation.x, self.translation.y, 0.0),
         )
-    }
-
-    /// Returns true if input processing should be truncated because of panning.
-    pub fn handle_input(&mut self, io_state: &IoState) -> bool {
-        // Track the drag-anchor for panning on initial click of Space.
-        if io_state.get_key_code("Space").clicked {
-            self.drag_world_anchor = Some(
-                self.drag_world_anchor
-                    .unwrap_or_else(|| self.project_screen_point_to_world(io_state.screen_point)),
-            );
-        } else {
-            self.drag_world_anchor = None;
-        }
-
-        // Handle pan mouse dragging. We want to put the drag_world_anchor directly under the mouse.
-        let new_world_point = self.project_screen_point_to_world(io_state.screen_point);
-        if let Some(anchor) = self.drag_world_anchor {
-            // How far we need to move the camera to move the anchor under the mouse
-            self.translation += anchor - new_world_point;
-
-            // Returning here disallows any other camera op while panning. They create
-            // discontinuities.
-            return true;
-        }
-
-        // Handle scroll zooming around the world anchor under the mouse.
-        let origin_world = self.project_screen_point_to_world(io_state.screen_point);
-        self.scale += self.scale * io_state.scroll_delta_y;
-        self.scale = f32::clamp(self.scale, 0.04, 40.0);
-        let new_world_point = self.project_screen_point_to_world(io_state.screen_point);
-        self.translation += origin_world - new_world_point;
-
-        false
     }
 
     /// Returns a list of all currently-visible substrate chunks to this camera.

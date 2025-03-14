@@ -99,6 +99,7 @@ pub struct IoState {
 
     pub primary: BoolState,
     pub secondary: BoolState,
+    pub scroll_button: BoolState,
     pub drag: Option<Drag>,
     pub keys: Vec<KeyState>,
     pub screen_point: Vec2,
@@ -140,8 +141,10 @@ impl IoState {
     }
 
     pub fn event_mouse(&mut self, e: MouseEvent, camera: &Camera) {
+        // Note: e.buttons is a bitfield
         let primary = self.primary.transition(e.buttons() & 1 != 0);
         let secondary = self.secondary.transition(e.buttons() & 2 != 0);
+        let scroll_button = self.scroll_button.transition(e.buttons() & 4 != 0);
 
         let new_cell = camera.project_screen_point_to_cell(self.screen_point);
 
@@ -170,6 +173,7 @@ impl IoState {
 
         self.primary = primary;
         self.secondary = secondary;
+        self.scroll_button = scroll_button;
         self.screen_point = Vec2::new(e.offset_x() as f32, e.offset_y() as f32);
         self.cell = new_cell;
     }
@@ -190,6 +194,7 @@ impl IoState {
         self.hovered.tick();
         self.primary.tick();
         self.secondary.tick();
+        self.scroll_button.tick();
 
         // Tick all keys
         for key in &mut self.keys {
@@ -201,11 +206,6 @@ impl IoState {
 
         // Reset scroll
         self.scroll_delta_y = 0.0;
-
-        // Reset output state
-        // self.cursor = "default".to_string();
-        // self.buffer_persist = None;
-        // self.tools_persist.clear();
     }
 
     pub fn get_key(&self, key: &str) -> BoolState {

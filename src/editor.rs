@@ -1,15 +1,21 @@
 use std::collections::HashMap;
 
-use wasm_bindgen::prelude::*;
-
 use crate::{
     coords::CellCoord,
     log,
-    substrate::{buffer::Buffer, io::IoState, mask::Mask},
-    tools::{Tool, ToolInput, ToolOutput, ToolPaintMetal},
+    substrate::{
+        buffer::{Buffer, COUNT},
+        io::IoState,
+        mask::Mask,
+    },
+    tools::{
+        camera_controller::ToolCameraController, draw_metal::ToolPaintMetal, draw_si::ToolPaintSi,
+        visual::ToolVisual, Tool, ToolInput, ToolOutput,
+    },
     utils::Selection,
     wgl2::Camera,
 };
+use wasm_bindgen::prelude::*;
 
 /// An Editor represents the underlying 'state' of an edit session, including the buffer data,
 /// transient buffers, masks, tools, and active tool states. It can be thought of as an active
@@ -44,6 +50,7 @@ pub struct Editor {
 pub struct EditorDispatchResult {
     pub buffer_persist: Option<Buffer>,
     pub tools_persist: Vec<ToolPersist>,
+    pub camera: Option<Camera>,
 }
 
 #[wasm_bindgen(getter_with_clone)]
@@ -56,32 +63,39 @@ pub struct ToolPersist {
 #[wasm_bindgen]
 impl Editor {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
+    pub fn new(buffer: Buffer) -> Self {
+        let mut visual = ToolVisual::default();
+        let tool_output = visual.activate(buffer.clone());
+
         Self {
             buffer: Default::default(),
             mask: Default::default(),
             selection: Default::default(),
             cursor_coord: None,
-            cursor_style: "default".to_string(),
+            cursor_style: tool_output
+                .cursor_style
+                .unwrap_or_else(|| "default".to_string()),
             tools: HashMap::from([
-                // (
-                //     "visual".to_string(),
-                //     Box::new(ToolVisual::default()) as Box<dyn Tool>,
-                // ),
-                // (
-                //     "paint-si".to_string(),
-                //     Box::new(ToolPaintSi::default()) as Box<dyn Tool>,
-                // ),
+                ("visual".to_string(), Box::new(visual) as Box<dyn Tool>),
+                (
+                    "paint-si".to_string(),
+                    Box::new(ToolPaintSi::default()) as Box<dyn Tool>,
+                ),
                 (
                     "paint-metal".to_string(),
                     Box::new(ToolPaintMetal::default()) as Box<dyn Tool>,
                 ),
+                (
+                    "camera-controller".to_string(),
+                    Box::new(ToolCameraController::default()) as Box<dyn Tool>,
+                ),
             ]),
-            active_tool: "none".to_string(),
+            active_tool: "visual".to_string(),
         }
     }
 
     pub fn dispatch_event(&mut self, io_state: &IoState, camera: &Camera) -> EditorDispatchResult {
+        let start = *COUNT.lock().unwrap().borrow();
         self.cursor_coord = Some(io_state.cell);
 
         let active_tool = self.active_tool.clone();
@@ -89,6 +103,7 @@ impl Editor {
         let mut dispatch_result = EditorDispatchResult {
             buffer_persist: None,
             tools_persist: vec![],
+            camera: None,
         };
 
         let mut tool_input = ToolInput {
@@ -110,7 +125,7 @@ impl Editor {
             .collect();
 
         for (name, output) in owned_output {
-            if output.take_active && !tool_input.active && new_active.is_none() {
+            if output.take_active && new_active.is_none() && name != self.active_tool {
                 new_active = Some(name.to_string());
             }
 
@@ -124,7 +139,9 @@ impl Editor {
                     .tools
                     .get_mut(&self.active_tool)
                     .unwrap()
-                    .deactivate(&tool_input);
+                    .deactivate(self.buffer.clone());
+
+                self.selection = Default::default();
 
                 self.handle_dispatch_result(
                     &mut dispatch_result,
@@ -139,10 +156,13 @@ impl Editor {
                 .tools
                 .get_mut(&self.active_tool)
                 .unwrap()
-                .activate(&tool_input);
+                .activate(self.buffer.clone());
 
             self.handle_dispatch_result(&mut dispatch_result, self.active_tool.to_string(), output);
         }
+
+        let end = *COUNT.lock().unwrap().borrow();
+        log!("Dispatch called set {} times", end - start);
 
         dispatch_result
     }
@@ -163,6 +183,14 @@ impl Editor {
 
         if let Some(cursor_style) = output.cursor_style {
             self.cursor_style = cursor_style;
+        }
+
+        if let Some(selection) = output.selection {
+            self.selection = selection;
+        }
+
+        if let Some(camera) = output.camera {
+            dispatch_result.camera = Some(camera);
         }
 
         if output.checkpoint {

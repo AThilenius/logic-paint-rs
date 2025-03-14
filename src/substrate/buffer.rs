@@ -1,36 +1,55 @@
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+    sync::Mutex,
+};
+
 use glam::{IVec2, UVec2};
-use itertools::Itertools;
+use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_CELL_COUNT, CHUNK_SIZE, LOG_CHUNK_SIZE},
+    log,
     socket::Socket,
     upc::{Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,
 };
 
-/// Buffers are an infinite grid of cells, where each cell is 4 bytes. Things are split into
-/// chunks, where each chunk stores a simple Vec<u8>, and Chunks are indexed by their chunk
-/// coordinate on the infinite grid. Chunks with zero non-default cells take up no memory.
-///
-/// This struct is cheap to clone, as chunks are Copy-On-Write thanks to `im` HashMap. Sockets
-/// however are cloned in their entirety, because they are relatively small.
+const CHUNK_BYTE_LEN: usize = CHUNK_CELL_COUNT * UPC_BYTE_LEN;
+
+lazy_static! {
+    pub static ref COUNT: Mutex<RefCell<u64>> = Mutex::new(RefCell::new(0));
+}
+
 #[derive(Default, Clone)]
 #[wasm_bindgen]
 pub struct Buffer {
+    /// The chunks that make up this buffer, stored as a dense list of Copy On Write byte arrays,
+    /// each ready for blitting to the GPU. Each chunk tracks how many cells are non-default, and
+    /// empty chunks are repurposed when a new chunk is needed (zero-allocation). Additionally,
+    /// this vec if very cheap to clone, as the chunk data is stored behind a Rc RefCell. This
+    /// means that you can clone a Buffer, update one cell, and only a single chunk will actually
+    /// be copied (the one that was copy-on-write updated).
     #[wasm_bindgen(skip)]
-    pub chunks: im::HashMap<ChunkCoord, BufferChunk>,
+    pub chunks: Vec<BufferChunk>,
+    /// TODO: Copy On Write
     #[wasm_bindgen(skip)]
     pub sockets: Vec<Socket>,
 }
 
 #[derive(Clone)]
 pub struct BufferChunk {
-    /// 4-byte cells, in row-major order. Ready for blitting to the GPU.
-    pub cells: Vec<u8>,
+    /// The chunk coord. Used by a buffer to index chunks, but not used by the BufferChunk itself.
+    pub chunk_coord: ChunkCoord,
 
     /// How many cells are non-default.
     pub cell_count: usize,
+
+    /// 4-byte cells, in row-major order. Ready for blitting to the GPU.
+    /// Stored in a Rc<RefCell<_>> to allow for COW semantics. This sllows Buffers to be very
+    /// cheaply cloned, and mutations to require a minimum set of chunk copies.
+    cells: Rc<RefCell<[u8; CHUNK_BYTE_LEN]>>,
 }
 
 #[wasm_bindgen]
@@ -42,20 +61,47 @@ impl Buffer {
 
     pub fn get_cell(&self, cell_coord: CellCoord) -> UPC {
         let chunk_coord: ChunkCoord = cell_coord.into();
-        if let Some(chunk) = self.chunks.get(&chunk_coord) {
-            chunk.get_cell(cell_coord)
-        } else {
-            Default::default()
+        for chunk in &self.chunks {
+            if chunk.chunk_coord == chunk_coord {
+                return chunk.get_cell(cell_coord);
+            }
         }
+
+        // Chunk isn't allocated
+        Default::default()
     }
 
     pub fn set_cell(&mut self, cell_coord: CellCoord, cell: UPC) {
         let chunk_coord: ChunkCoord = cell_coord.into();
+        *COUNT.lock().unwrap().borrow_mut() += 1;
 
-        self.chunks
-            .entry(chunk_coord)
-            .or_insert_with(|| Default::default())
-            .set_cell(cell_coord, cell);
+        // Existing chunks
+        for chunk in &mut self.chunks {
+            if chunk.chunk_coord == chunk_coord {
+                chunk.set_cell(cell_coord, cell);
+                return;
+            }
+        }
+
+        // If a default UPC is being set, there is nothing else to do (no point in making an empty
+        // chunk).
+        if cell == Default::default() {
+            return;
+        }
+
+        // See if we have an empty chunk we can repurpose
+        for chunk in &mut self.chunks {
+            if chunk.cell_count == 0 {
+                chunk.chunk_coord = chunk_coord;
+                chunk.set_cell(cell_coord, cell);
+                return;
+            }
+        }
+
+        // Otherwise allocate a new chunk and push it to the back.
+        let mut chunk = BufferChunk::new(chunk_coord);
+        chunk.set_cell(cell_coord, cell);
+        self.chunks.push(chunk);
     }
 
     pub fn clone_selection(&self, selection: &Selection, anchor: CellCoord) -> Buffer {
@@ -82,8 +128,8 @@ impl Buffer {
         let mut ur = IVec2::new(i32::MIN, i32::MIN);
 
         // Paste cells
-        for (chunk_coord, chunk) in &buffer.chunks {
-            let target_first_cell_offset = chunk_coord.first_cell_coord().0 + cell_coord.0;
+        for chunk in &buffer.chunks {
+            let target_first_cell_offset = chunk.chunk_coord.first_cell_coord().0 + cell_coord.0;
 
             for y in 0..CHUNK_SIZE {
                 for x in 0..CHUNK_SIZE {
@@ -121,11 +167,13 @@ impl Buffer {
     pub fn rotate_to_new(&self) -> Self {
         let mut buffer = Self::default();
 
-        for (chunk_coord, chunk) in &self.chunks {
+        log!("Rotate called on buffer with {} chunks", self.chunks.len());
+
+        for chunk in &self.chunks {
             for y in 0..CHUNK_SIZE {
                 for x in 0..CHUNK_SIZE {
                     let local_coord = LocalCoord(UVec2::new(x as u32, y as u32));
-                    let c = local_coord.to_cell_coord(chunk_coord).0;
+                    let c = local_coord.to_cell_coord(&chunk.chunk_coord).0;
 
                     // Rotate coordinates around the origin.
                     buffer.set_cell(
@@ -136,19 +184,17 @@ impl Buffer {
             }
         }
 
-        // Todo: modules can't be rotated. That's not great UX though.
-
         buffer
     }
 
     pub fn mirror_to_new(&self) -> Self {
         let mut buffer = Self::default();
 
-        for (chunk_coord, chunk) in &self.chunks {
+        for chunk in &self.chunks {
             for y in 0..CHUNK_SIZE {
                 for x in 0..CHUNK_SIZE {
                     let local_coord = LocalCoord(UVec2::new(x as u32, y as u32));
-                    let c = local_coord.to_cell_coord(chunk_coord).0;
+                    let c = local_coord.to_cell_coord(&chunk.chunk_coord).0;
 
                     // Mirror around the x axis (flip Y values).
                     buffer.set_cell(
@@ -159,13 +205,11 @@ impl Buffer {
             }
         }
 
-        // Todo: modules can't be mirrored. That's not great UX though.
-
         buffer
     }
 
     pub fn fix_all_cells(&mut self) {
-        let chunk_coords = self.chunks.keys().cloned().collect_vec();
+        let chunk_coords: Vec<ChunkCoord> = self.chunks.iter().map(|c| c.chunk_coord).collect();
         for chunk_coord in chunk_coords {
             let chunk_first_cell = chunk_coord.first_cell_coord().0;
             for y in 0..CHUNK_SIZE {
@@ -177,7 +221,7 @@ impl Buffer {
     }
 
     pub fn cell_count(&self) -> usize {
-        self.chunks.values().map(|c| c.cell_count).sum()
+        self.chunks.iter().map(|c| c.cell_count).sum()
     }
 
     fn fix_cell(&mut self, cell_coord: CellCoord) {
@@ -312,6 +356,14 @@ impl Buffer {
 }
 
 impl BufferChunk {
+    pub fn new(chunk_coord: ChunkCoord) -> Self {
+        Self {
+            chunk_coord,
+            cells: Rc::new(RefCell::new([0_u8; CHUNK_BYTE_LEN])),
+            cell_count: 0,
+        }
+    }
+
     #[inline(always)]
     pub fn get_cell<T>(&self, c: T) -> UPC
     where
@@ -319,7 +371,7 @@ impl BufferChunk {
     {
         let coord: LocalCoord = c.into();
         let idx = (((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize) << LOG_UPC_BYTE_LEN;
-        UPC::from_slice(&self.cells[idx..idx + UPC_BYTE_LEN])
+        UPC::from_slice(&self.cells.borrow()[idx..idx + UPC_BYTE_LEN])
     }
 
     #[inline(always)]
@@ -329,25 +381,32 @@ impl BufferChunk {
     {
         let coord: LocalCoord = c.into();
         let idx = (((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize) << LOG_UPC_BYTE_LEN;
-        let slice = &mut self.cells[idx..idx + UPC_BYTE_LEN];
-        let existing = UPC::from_slice(slice);
+        let existing = UPC::from_slice(&self.cells.borrow()[idx..idx + UPC_BYTE_LEN]);
 
-        // Track cell count.
+        // Nothing else to do if the existing and set cell are the same (no need to check for
+        // ownership even; nothing was updated).
+        if existing == cell {
+            return;
+        }
+
+        // Track cell counts
         if existing == Default::default() && cell != Default::default() {
             self.cell_count += 1;
         } else if existing != Default::default() && cell == Default::default() {
             self.cell_count -= 1;
         }
 
+        // Take ownership of the cell data and set it.
+        let cells = self.get_cells_mut();
+        let slice = &mut cells[idx..idx + UPC_BYTE_LEN];
         slice.copy_from_slice(&cell.0);
     }
-}
 
-impl Default for BufferChunk {
-    fn default() -> Self {
-        Self {
-            cells: vec![0_u8; CHUNK_CELL_COUNT * UPC_BYTE_LEN],
-            cell_count: Default::default(),
-        }
+    pub fn get_cells(&self) -> Ref<[u8; CHUNK_BYTE_LEN]> {
+        self.cells.borrow()
+    }
+
+    pub fn get_cells_mut(&mut self) -> &mut [u8; CHUNK_BYTE_LEN] {
+        Rc::make_mut(&mut self.cells).get_mut()
     }
 }

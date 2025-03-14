@@ -4,9 +4,9 @@ use wasm_bindgen::prelude::*;
 
 use crate::upc::LOG_UPC_BYTE_LEN;
 
-pub(crate) const CHUNK_SIZE: usize = 128;
-pub(crate) const CHUNK_CELL_COUNT: usize = CHUNK_SIZE * CHUNK_SIZE;
 pub(crate) const LOG_CHUNK_SIZE: usize = 7;
+pub(crate) const CHUNK_SIZE: usize = 1 << LOG_CHUNK_SIZE;
+pub(crate) const CHUNK_CELL_COUNT: usize = CHUNK_SIZE * CHUNK_SIZE;
 const UPPER_MASK: i32 = !((CHUNK_SIZE as i32) - 1);
 const LOWER_MASK: usize = CHUNK_SIZE - 1;
 

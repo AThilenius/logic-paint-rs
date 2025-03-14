@@ -38,69 +38,8 @@ export class BoolState {
  */
   released: boolean;
 }
-/**
- * Buffers are an infinite grid of cells, where each cell is 4 bytes. Things are split into
- * chunks, where each chunk stores a simple Vec<u8>, and Chunks are indexed by their chunk
- * coordinate on the infinite grid. Chunks with zero non-default cells take up no memory.
- *
- * This struct is cheap to clone, as chunks are Copy-On-Write thanks to `im` HashMap. Sockets
- * however are cloned in their entirety, because they are relatively small.
- */
 export class Buffer {
   free(): void;
-  constructor();
-  /**
-   * @param {CellCoord} cell_coord
-   * @returns {UPC}
-   */
-  get_cell(cell_coord: CellCoord): UPC;
-  /**
-   * @param {CellCoord} cell_coord
-   * @param {UPC} cell
-   */
-  set_cell(cell_coord: CellCoord, cell: UPC): void;
-  /**
-   * @param {Selection} selection
-   * @param {CellCoord} anchor
-   * @returns {Buffer}
-   */
-  clone_selection(selection: Selection, anchor: CellCoord): Buffer;
-  /**
-   * @param {CellCoord} cell_coord
-   * @param {Buffer} buffer
-   */
-  paste_at(cell_coord: CellCoord, buffer: Buffer): void;
-  /**
-   * @returns {Buffer}
-   */
-  rotate_to_new(): Buffer;
-  /**
-   * @returns {Buffer}
-   */
-  mirror_to_new(): Buffer;
-  fix_all_cells(): void;
-  /**
-   * @returns {number}
-   */
-  cell_count(): number;
-  /**
-   * @returns {string}
-   */
-  to_base64_string(): string;
-  /**
-   * @returns {Uint8Array}
-   */
-  to_bytes(): Uint8Array;
-  /**
-   * @param {string} base_64_string
-   * @returns {Buffer}
-   */
-  static from_base64_string(base_64_string: string): Buffer;
-  /**
-   * @param {Uint8Array} bytes
-   * @returns {Buffer}
-   */
-  static from_bytes(bytes: Uint8Array): Buffer;
   /**
    * @param {CellCoord} arg0
    * @param {CellCoord} arg1
@@ -157,6 +96,59 @@ export class Buffer {
    * @param {CellCoord} cell_coord
    */
   clear_cell_metal(cell_coord: CellCoord): void;
+  constructor();
+  /**
+   * @param {CellCoord} cell_coord
+   * @returns {UPC}
+   */
+  get_cell(cell_coord: CellCoord): UPC;
+  /**
+   * @param {CellCoord} cell_coord
+   * @param {UPC} cell
+   */
+  set_cell(cell_coord: CellCoord, cell: UPC): void;
+  /**
+   * @param {Selection} selection
+   * @param {CellCoord} anchor
+   * @returns {Buffer}
+   */
+  clone_selection(selection: Selection, anchor: CellCoord): Buffer;
+  /**
+   * @param {CellCoord} cell_coord
+   * @param {Buffer} buffer
+   */
+  paste_at(cell_coord: CellCoord, buffer: Buffer): void;
+  /**
+   * @returns {Buffer}
+   */
+  rotate_to_new(): Buffer;
+  /**
+   * @returns {Buffer}
+   */
+  mirror_to_new(): Buffer;
+  fix_all_cells(): void;
+  /**
+   * @returns {number}
+   */
+  cell_count(): number;
+  /**
+   * @returns {string}
+   */
+  to_base64_string(): string;
+  /**
+   * @returns {Uint8Array}
+   */
+  to_bytes(): Uint8Array;
+  /**
+   * @param {string} base_64_string
+   * @returns {Buffer}
+   */
+  static from_base64_string(base_64_string: string): Buffer;
+  /**
+   * @param {Uint8Array} bytes
+   * @returns {Buffer}
+   */
+  static from_bytes(bytes: Uint8Array): Buffer;
 }
 export class Camera {
   free(): void;
@@ -397,7 +389,10 @@ export class Drag {
  */
 export class Editor {
   free(): void;
-  constructor();
+  /**
+   * @param {Buffer} buffer
+   */
+  constructor(buffer: Buffer);
   /**
    * @param {IoState} io_state
    * @param {Camera} camera
@@ -429,6 +424,7 @@ export class Editor {
 export class EditorDispatchResult {
   free(): void;
   buffer_persist?: Buffer;
+  camera?: Camera;
   tools_persist: (ToolPersist)[];
 }
 /**
@@ -610,6 +606,7 @@ export class IoState {
   keys: (KeyState)[];
   primary: BoolState;
   screen_point: Vec2;
+  scroll_button: BoolState;
   scroll_delta_y: number;
   secondary: BoolState;
 }
@@ -1095,6 +1092,54 @@ export class Viewport {
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
+  readonly import_legacy_blueprint: (a: number, b: number) => Array;
+  readonly buffer_draw_si: (a: number, b: number, c: number, d: number, e: number) => void;
+  readonly buffer_draw_metal: (a: number, b: number, c: number, d: number) => void;
+  readonly buffer_clear_si: (a: number, b: number, c: number, d: number) => void;
+  readonly buffer_clear_metal: (a: number, b: number, c: number, d: number) => void;
+  readonly buffer_draw_via: (a: number, b: number) => void;
+  readonly buffer_clear_selection: (a: number, b: number) => void;
+  readonly buffer_clear_selection_border: (a: number, b: number) => void;
+  readonly buffer_draw_si_link: (a: number, b: number, c: number, d: number) => void;
+  readonly buffer_draw_metal_link: (a: number, b: number, c: number) => void;
+  readonly buffer_clear_cell_si: (a: number, b: number) => void;
+  readonly buffer_clear_cell_metal: (a: number, b: number) => void;
+  readonly __wbg_mask_free: (a: number, b: number) => void;
+  readonly __wbg_pin_free: (a: number, b: number) => void;
+  readonly __wbg_get_pin_cell_coord: (a: number) => number;
+  readonly __wbg_set_pin_cell_coord: (a: number, b: number) => void;
+  readonly __wbg_get_pin_trigger: (a: number) => number;
+  readonly __wbg_set_pin_trigger: (a: number, b: number) => void;
+  readonly __wbg_get_pin_si_output_high: (a: number) => number;
+  readonly __wbg_set_pin_si_output_high: (a: number, b: number) => void;
+  readonly __wbg_get_pin_si_input_high: (a: number) => number;
+  readonly __wbg_set_pin_si_input_high: (a: number, b: number) => void;
+  readonly __wbg_socket_free: (a: number, b: number) => void;
+  readonly __wbg_get_socket_always_update: (a: number) => number;
+  readonly __wbg_set_socket_always_update: (a: number, b: number) => void;
+  readonly pin_new: (a: number, b: number) => number;
+  readonly socket_new: (a: number, b: number, c: number, d: number) => number;
+  readonly main: () => void;
+  readonly __wbg_camera_free: (a: number, b: number) => void;
+  readonly __wbg_get_camera_translation: (a: number) => number;
+  readonly __wbg_set_camera_translation: (a: number, b: number) => void;
+  readonly __wbg_get_camera_scale: (a: number) => number;
+  readonly __wbg_set_camera_scale: (a: number, b: number) => void;
+  readonly __wbg_get_camera_size: (a: number) => number;
+  readonly __wbg_set_camera_size: (a: number, b: number) => void;
+  readonly camera_new_translation_scale: (a: number, b: number) => number;
+  readonly camera_project_screen_point_to_world: (a: number, b: number) => number;
+  readonly camera_project_screen_point_to_cell: (a: number, b: number) => number;
+  readonly camera_project_cell_coord_to_screen_point: (a: number, b: number) => number;
+  readonly __wbg_compilerresults_free: (a: number, b: number) => void;
+  readonly __wbg_atom_free: (a: number, b: number) => void;
+  readonly __wbg_get_atom_coord: (a: number) => number;
+  readonly __wbg_set_atom_coord: (a: number, b: number) => void;
+  readonly __wbg_get_atom_part: (a: number) => number;
+  readonly __wbg_set_atom_part: (a: number, b: number) => void;
+  readonly compilerresults_from_buffer: (a: number) => number;
+  readonly compilerresults_get_trace_atoms: (a: number, b: number) => Array;
+  readonly __wbg_upc_free: (a: number, b: number) => void;
   readonly upc_normalize: (a: number) => number;
   readonly upc_denormalize: (a: number) => number;
   readonly __wbg_normalizedcell_free: (a: number, b: number) => void;
@@ -1111,21 +1156,6 @@ export interface InitOutput {
   readonly __wbg_set_placement_down: (a: number, b: number) => void;
   readonly __wbg_get_placement_left: (a: number) => number;
   readonly __wbg_set_placement_left: (a: number, b: number) => void;
-  readonly __wbg_upc_free: (a: number, b: number) => void;
-  readonly __wbg_viewport_free: (a: number, b: number) => void;
-  readonly viewport_new: (a: number) => number;
-  readonly viewport_draw: (a: number, b: number, c: number, d: number) => void;
-  readonly __wbg_camera_free: (a: number, b: number) => void;
-  readonly __wbg_get_camera_translation: (a: number) => number;
-  readonly __wbg_set_camera_translation: (a: number, b: number) => void;
-  readonly __wbg_get_camera_scale: (a: number) => number;
-  readonly __wbg_set_camera_scale: (a: number, b: number) => void;
-  readonly __wbg_get_camera_size: (a: number) => number;
-  readonly __wbg_set_camera_size: (a: number, b: number) => void;
-  readonly camera_new_translation_scale: (a: number, b: number) => number;
-  readonly camera_project_screen_point_to_world: (a: number, b: number) => number;
-  readonly camera_project_screen_point_to_cell: (a: number, b: number) => number;
-  readonly camera_project_cell_coord_to_screen_point: (a: number, b: number) => number;
   readonly __wbg_buffer_free: (a: number, b: number) => void;
   readonly buffer_new: () => number;
   readonly buffer_get_cell: (a: number, b: number) => number;
@@ -1136,24 +1166,43 @@ export interface InitOutput {
   readonly buffer_mirror_to_new: (a: number) => number;
   readonly buffer_fix_all_cells: (a: number) => void;
   readonly buffer_cell_count: (a: number) => number;
-  readonly __wbg_pin_free: (a: number, b: number) => void;
-  readonly __wbg_get_pin_cell_coord: (a: number) => number;
-  readonly __wbg_set_pin_cell_coord: (a: number, b: number) => void;
-  readonly __wbg_get_pin_trigger: (a: number) => number;
-  readonly __wbg_set_pin_trigger: (a: number, b: number) => void;
-  readonly __wbg_get_pin_si_output_high: (a: number) => number;
-  readonly __wbg_set_pin_si_output_high: (a: number, b: number) => void;
-  readonly __wbg_get_pin_si_input_high: (a: number) => number;
-  readonly __wbg_set_pin_si_input_high: (a: number, b: number) => void;
-  readonly __wbg_socket_free: (a: number, b: number) => void;
-  readonly __wbg_get_socket_always_update: (a: number) => number;
-  readonly __wbg_set_socket_always_update: (a: number, b: number) => void;
-  readonly pin_new: (a: number, b: number) => number;
-  readonly socket_new: (a: number, b: number, c: number, d: number) => number;
-  readonly buffer_to_base64_string: (a: number, b: number) => void;
-  readonly buffer_to_bytes: (a: number, b: number) => void;
-  readonly buffer_from_base64_string: (a: number, b: number, c: number) => void;
-  readonly buffer_from_bytes: (a: number, b: number, c: number) => void;
+  readonly __wbg_viewport_free: (a: number, b: number) => void;
+  readonly viewport_new: (a: number) => number;
+  readonly viewport_draw: (a: number, b: number, c: number) => Array;
+  readonly __wbg_selection_free: (a: number, b: number) => void;
+  readonly __wbg_get_selection_lower_left: (a: number) => number;
+  readonly __wbg_set_selection_lower_left: (a: number, b: number) => void;
+  readonly __wbg_get_selection_upper_right: (a: number) => number;
+  readonly __wbg_set_selection_upper_right: (a: number, b: number) => void;
+  readonly __wbg_cellcoord_free: (a: number, b: number) => void;
+  readonly __wbg_get_cellcoord_0: (a: number) => number;
+  readonly __wbg_set_cellcoord_0: (a: number, b: number) => void;
+  readonly cellcoord__wasm_ctor: (a: number, b: number) => number;
+  readonly __wbg_editor_free: (a: number, b: number) => void;
+  readonly __wbg_get_editor_buffer: (a: number) => number;
+  readonly __wbg_set_editor_buffer: (a: number, b: number) => void;
+  readonly __wbg_get_editor_mask: (a: number) => number;
+  readonly __wbg_set_editor_mask: (a: number, b: number) => void;
+  readonly __wbg_get_editor_selection: (a: number) => number;
+  readonly __wbg_set_editor_selection: (a: number, b: number) => void;
+  readonly __wbg_get_editor_cursor_coord: (a: number) => number;
+  readonly __wbg_set_editor_cursor_coord: (a: number, b: number) => void;
+  readonly __wbg_get_editor_cursor_style: (a: number) => Array;
+  readonly __wbg_set_editor_cursor_style: (a: number, b: number, c: number) => void;
+  readonly __wbg_editordispatchresult_free: (a: number, b: number) => void;
+  readonly __wbg_get_editordispatchresult_buffer_persist: (a: number) => number;
+  readonly __wbg_set_editordispatchresult_buffer_persist: (a: number, b: number) => void;
+  readonly __wbg_get_editordispatchresult_tools_persist: (a: number) => Array;
+  readonly __wbg_set_editordispatchresult_tools_persist: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_editordispatchresult_camera: (a: number) => number;
+  readonly __wbg_set_editordispatchresult_camera: (a: number, b: number) => void;
+  readonly __wbg_toolpersist_free: (a: number, b: number) => void;
+  readonly __wbg_get_toolpersist_tool_name: (a: number) => Array;
+  readonly __wbg_set_toolpersist_tool_name: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_toolpersist_serialized_state: (a: number) => Array;
+  readonly __wbg_set_toolpersist_serialized_state: (a: number, b: number, c: number) => void;
+  readonly editor_new: (a: number) => number;
+  readonly editor_dispatch_event: (a: number, b: number, c: number) => number;
   readonly __wbg_boolstate_free: (a: number, b: number) => void;
   readonly __wbg_get_boolstate_clicked: (a: number) => number;
   readonly __wbg_set_boolstate_clicked: (a: number, b: number) => void;
@@ -1162,9 +1211,9 @@ export interface InitOutput {
   readonly __wbg_get_boolstate_released: (a: number) => number;
   readonly __wbg_set_boolstate_released: (a: number, b: number) => void;
   readonly __wbg_keystate_free: (a: number, b: number) => void;
-  readonly __wbg_get_keystate_key_code: (a: number, b: number) => void;
+  readonly __wbg_get_keystate_key_code: (a: number) => Array;
   readonly __wbg_set_keystate_key_code: (a: number, b: number, c: number) => void;
-  readonly __wbg_get_keystate_key: (a: number, b: number) => void;
+  readonly __wbg_get_keystate_key: (a: number) => Array;
   readonly __wbg_set_keystate_key: (a: number, b: number, c: number) => void;
   readonly __wbg_get_keystate_state: (a: number) => number;
   readonly __wbg_set_keystate_state: (a: number, b: number) => void;
@@ -1180,9 +1229,11 @@ export interface InitOutput {
   readonly __wbg_set_iostate_primary: (a: number, b: number) => void;
   readonly __wbg_get_iostate_secondary: (a: number) => number;
   readonly __wbg_set_iostate_secondary: (a: number, b: number) => void;
+  readonly __wbg_get_iostate_scroll_button: (a: number) => number;
+  readonly __wbg_set_iostate_scroll_button: (a: number, b: number) => void;
   readonly __wbg_get_iostate_drag: (a: number) => number;
   readonly __wbg_set_iostate_drag: (a: number, b: number) => void;
-  readonly __wbg_get_iostate_keys: (a: number, b: number) => void;
+  readonly __wbg_get_iostate_keys: (a: number) => Array;
   readonly __wbg_set_iostate_keys: (a: number, b: number, c: number) => void;
   readonly __wbg_get_iostate_screen_point: (a: number) => number;
   readonly __wbg_set_iostate_screen_point: (a: number, b: number) => void;
@@ -1198,66 +1249,34 @@ export interface InitOutput {
   readonly iostate_event_wheel: (a: number, b: number) => void;
   readonly iostate_get_key: (a: number, b: number, c: number) => number;
   readonly iostate_get_key_code: (a: number, b: number, c: number) => number;
-  readonly iostate_get_drag_path: (a: number, b: number) => void;
-  readonly buffer_draw_si: (a: number, b: number, c: number, d: number, e: number) => void;
-  readonly buffer_draw_metal: (a: number, b: number, c: number, d: number) => void;
-  readonly buffer_clear_si: (a: number, b: number, c: number, d: number) => void;
-  readonly buffer_clear_metal: (a: number, b: number, c: number, d: number) => void;
-  readonly buffer_draw_via: (a: number, b: number) => void;
-  readonly buffer_clear_selection: (a: number, b: number) => void;
-  readonly buffer_clear_selection_border: (a: number, b: number) => void;
-  readonly buffer_draw_si_link: (a: number, b: number, c: number, d: number) => void;
-  readonly buffer_draw_metal_link: (a: number, b: number, c: number) => void;
-  readonly buffer_clear_cell_si: (a: number, b: number) => void;
-  readonly buffer_clear_cell_metal: (a: number, b: number) => void;
-  readonly __wbg_cellcoord_free: (a: number, b: number) => void;
-  readonly __wbg_get_cellcoord_0: (a: number) => number;
-  readonly __wbg_set_cellcoord_0: (a: number, b: number) => void;
-  readonly cellcoord__wasm_ctor: (a: number, b: number) => number;
-  readonly __wbg_editor_free: (a: number, b: number) => void;
-  readonly __wbg_get_editor_buffer: (a: number) => number;
-  readonly __wbg_set_editor_buffer: (a: number, b: number) => void;
-  readonly __wbg_get_editor_mask: (a: number) => number;
-  readonly __wbg_set_editor_mask: (a: number, b: number) => void;
-  readonly __wbg_get_editor_selection: (a: number) => number;
-  readonly __wbg_set_editor_selection: (a: number, b: number) => void;
-  readonly __wbg_get_editor_cursor_coord: (a: number) => number;
-  readonly __wbg_set_editor_cursor_coord: (a: number, b: number) => void;
-  readonly __wbg_get_editor_cursor_style: (a: number, b: number) => void;
-  readonly __wbg_set_editor_cursor_style: (a: number, b: number, c: number) => void;
-  readonly __wbg_editordispatchresult_free: (a: number, b: number) => void;
-  readonly __wbg_get_editordispatchresult_buffer_persist: (a: number) => number;
-  readonly __wbg_set_editordispatchresult_buffer_persist: (a: number, b: number) => void;
-  readonly __wbg_get_editordispatchresult_tools_persist: (a: number, b: number) => void;
-  readonly __wbg_set_editordispatchresult_tools_persist: (a: number, b: number, c: number) => void;
-  readonly __wbg_toolpersist_free: (a: number, b: number) => void;
-  readonly __wbg_get_toolpersist_tool_name: (a: number, b: number) => void;
-  readonly __wbg_set_toolpersist_tool_name: (a: number, b: number, c: number) => void;
-  readonly __wbg_get_toolpersist_serialized_state: (a: number, b: number) => void;
-  readonly __wbg_set_toolpersist_serialized_state: (a: number, b: number, c: number) => void;
-  readonly editor_new: () => number;
-  readonly editor_dispatch_event: (a: number, b: number, c: number) => number;
-  readonly import_legacy_blueprint: (a: number, b: number, c: number) => void;
-  readonly __wbg_compilerresults_free: (a: number, b: number) => void;
-  readonly __wbg_atom_free: (a: number, b: number) => void;
-  readonly __wbg_get_atom_coord: (a: number) => number;
-  readonly __wbg_set_atom_coord: (a: number, b: number) => void;
-  readonly __wbg_get_atom_part: (a: number) => number;
-  readonly __wbg_set_atom_part: (a: number, b: number) => void;
-  readonly compilerresults_from_buffer: (a: number) => number;
-  readonly compilerresults_get_trace_atoms: (a: number, b: number, c: number) => void;
-  readonly __wbg_mask_free: (a: number, b: number) => void;
-  readonly __wbg_selection_free: (a: number, b: number) => void;
-  readonly __wbg_get_selection_lower_left: (a: number) => number;
-  readonly __wbg_set_selection_lower_left: (a: number, b: number) => void;
-  readonly __wbg_get_selection_upper_right: (a: number) => number;
-  readonly __wbg_set_selection_upper_right: (a: number, b: number) => void;
-  readonly main: () => void;
+  readonly iostate_get_drag_path: (a: number) => Array;
+  readonly buffer_to_base64_string: (a: number) => Array;
+  readonly buffer_to_bytes: (a: number) => Array;
+  readonly buffer_from_base64_string: (a: number, b: number) => Array;
+  readonly buffer_from_bytes: (a: number, b: number) => Array;
+  readonly __wbg_vec2_free: (a: number, b: number) => void;
   readonly __wbg_get_vec2_x: (a: number) => number;
   readonly __wbg_set_vec2_x: (a: number, b: number) => void;
   readonly __wbg_get_vec2_y: (a: number) => number;
   readonly __wbg_set_vec2_y: (a: number, b: number) => void;
   readonly vec2_wasm_bindgen_ctor: (a: number, b: number) => number;
+  readonly __wbg_mat3a_free: (a: number, b: number) => void;
+  readonly __wbg_get_mat3a_x_axis: (a: number) => number;
+  readonly __wbg_set_mat3a_x_axis: (a: number, b: number) => void;
+  readonly __wbg_get_mat3a_y_axis: (a: number) => number;
+  readonly __wbg_set_mat3a_y_axis: (a: number, b: number) => void;
+  readonly __wbg_get_mat3a_z_axis: (a: number) => number;
+  readonly __wbg_set_mat3a_z_axis: (a: number, b: number) => void;
+  readonly mat3a_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
+  readonly __wbg_quat_free: (a: number, b: number) => void;
+  readonly __wbg_get_quat_x: (a: number) => number;
+  readonly __wbg_set_quat_x: (a: number, b: number) => void;
+  readonly __wbg_get_quat_y: (a: number) => number;
+  readonly __wbg_set_quat_y: (a: number, b: number) => void;
+  readonly __wbg_get_quat_z: (a: number) => number;
+  readonly __wbg_set_quat_z: (a: number, b: number) => void;
+  readonly __wbg_get_quat_w: (a: number) => number;
+  readonly __wbg_set_quat_w: (a: number, b: number) => void;
   readonly __wbg_vec3a_free: (a: number, b: number) => void;
   readonly __wbg_get_vec3a_x: (a: number) => number;
   readonly __wbg_set_vec3a_x: (a: number, b: number) => void;
@@ -1266,119 +1285,18 @@ export interface InitOutput {
   readonly __wbg_get_vec3a_z: (a: number) => number;
   readonly __wbg_set_vec3a_z: (a: number, b: number) => void;
   readonly vec3a_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
-  readonly __wbg_get_vec4_w: (a: number) => number;
-  readonly __wbg_set_vec4_w: (a: number, b: number) => void;
-  readonly vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_ivec2_free: (a: number, b: number) => void;
-  readonly __wbg_get_ivec2_x: (a: number) => number;
-  readonly __wbg_set_ivec2_x: (a: number, b: number) => void;
-  readonly __wbg_get_ivec2_y: (a: number) => number;
-  readonly __wbg_set_ivec2_y: (a: number, b: number) => void;
-  readonly ivec2_wasm_bindgen_ctor: (a: number, b: number) => number;
-  readonly __wbg_ivec4_free: (a: number, b: number) => void;
-  readonly __wbg_get_ivec4_z: (a: number) => number;
-  readonly __wbg_set_ivec4_z: (a: number, b: number) => void;
-  readonly __wbg_get_ivec4_w: (a: number) => number;
-  readonly __wbg_set_ivec4_w: (a: number, b: number) => void;
-  readonly ivec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_get_vec4_x: (a: number) => number;
-  readonly __wbg_get_vec4_y: (a: number) => number;
-  readonly __wbg_get_vec4_z: (a: number) => number;
-  readonly __wbg_get_ivec4_x: (a: number) => number;
-  readonly __wbg_get_ivec4_y: (a: number) => number;
-  readonly __wbg_vec4_free: (a: number, b: number) => void;
-  readonly __wbg_vec2_free: (a: number, b: number) => void;
-  readonly __wbg_set_vec4_x: (a: number, b: number) => void;
-  readonly __wbg_set_vec4_y: (a: number, b: number) => void;
-  readonly __wbg_set_vec4_z: (a: number, b: number) => void;
-  readonly __wbg_set_ivec4_x: (a: number, b: number) => void;
-  readonly __wbg_set_ivec4_y: (a: number, b: number) => void;
-  readonly __wbg_u64vec2_free: (a: number, b: number) => void;
-  readonly __wbg_get_u64vec2_x: (a: number) => number;
-  readonly __wbg_set_u64vec2_x: (a: number, b: number) => void;
-  readonly __wbg_get_u64vec2_y: (a: number) => number;
-  readonly __wbg_set_u64vec2_y: (a: number, b: number) => void;
-  readonly u64vec2_wasm_bindgen_ctor: (a: number, b: number) => number;
-  readonly __wbg_u64vec4_free: (a: number, b: number) => void;
-  readonly __wbg_get_u64vec4_z: (a: number) => number;
-  readonly __wbg_set_u64vec4_z: (a: number, b: number) => void;
-  readonly __wbg_get_u64vec4_w: (a: number) => number;
-  readonly __wbg_set_u64vec4_w: (a: number, b: number) => void;
-  readonly u64vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_get_u64vec4_x: (a: number) => number;
-  readonly __wbg_get_u64vec4_y: (a: number) => number;
-  readonly __wbg_set_u64vec4_x: (a: number, b: number) => void;
-  readonly __wbg_set_u64vec4_y: (a: number, b: number) => void;
   readonly __wbg_dvec2_free: (a: number, b: number) => void;
   readonly __wbg_get_dvec2_x: (a: number) => number;
   readonly __wbg_set_dvec2_x: (a: number, b: number) => void;
   readonly __wbg_get_dvec2_y: (a: number) => number;
   readonly __wbg_set_dvec2_y: (a: number, b: number) => void;
   readonly dvec2_wasm_bindgen_ctor: (a: number, b: number) => number;
-  readonly __wbg_dvec4_free: (a: number, b: number) => void;
-  readonly __wbg_get_dvec4_z: (a: number) => number;
-  readonly __wbg_set_dvec4_z: (a: number, b: number) => void;
-  readonly __wbg_get_dvec4_w: (a: number) => number;
-  readonly __wbg_set_dvec4_w: (a: number, b: number) => void;
-  readonly dvec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_i64vec2_free: (a: number, b: number) => void;
   readonly __wbg_get_i64vec2_x: (a: number) => number;
   readonly __wbg_set_i64vec2_x: (a: number, b: number) => void;
   readonly __wbg_get_i64vec2_y: (a: number) => number;
   readonly __wbg_set_i64vec2_y: (a: number, b: number) => void;
   readonly i64vec2_wasm_bindgen_ctor: (a: number, b: number) => number;
-  readonly __wbg_u64vec3_free: (a: number, b: number) => void;
-  readonly __wbg_get_u64vec3_z: (a: number) => number;
-  readonly __wbg_set_u64vec3_z: (a: number, b: number) => void;
-  readonly u64vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
-  readonly __wbg_get_dvec4_x: (a: number) => number;
-  readonly __wbg_get_dvec4_y: (a: number) => number;
-  readonly __wbg_get_u64vec3_x: (a: number) => number;
-  readonly __wbg_get_u64vec3_y: (a: number) => number;
-  readonly __wbg_i64vec2_free: (a: number, b: number) => void;
-  readonly __wbg_set_dvec4_x: (a: number, b: number) => void;
-  readonly __wbg_set_dvec4_y: (a: number, b: number) => void;
-  readonly __wbg_set_u64vec3_x: (a: number, b: number) => void;
-  readonly __wbg_set_u64vec3_y: (a: number, b: number) => void;
-  readonly __wbg_mat4_free: (a: number, b: number) => void;
-  readonly __wbg_get_mat4_x_axis: (a: number) => number;
-  readonly __wbg_set_mat4_x_axis: (a: number, b: number) => void;
-  readonly __wbg_get_mat4_y_axis: (a: number) => number;
-  readonly __wbg_set_mat4_y_axis: (a: number, b: number) => void;
-  readonly __wbg_get_mat4_z_axis: (a: number) => number;
-  readonly __wbg_set_mat4_z_axis: (a: number, b: number) => void;
-  readonly __wbg_get_mat4_w_axis: (a: number) => number;
-  readonly __wbg_set_mat4_w_axis: (a: number, b: number) => void;
-  readonly mat4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
-  readonly __wbg_i16vec2_free: (a: number, b: number) => void;
-  readonly __wbg_get_i16vec2_x: (a: number) => number;
-  readonly __wbg_set_i16vec2_x: (a: number, b: number) => void;
-  readonly __wbg_get_i16vec2_y: (a: number) => number;
-  readonly __wbg_set_i16vec2_y: (a: number, b: number) => void;
-  readonly i16vec2_wasm_bindgen_ctor: (a: number, b: number) => number;
-  readonly __wbg_i16vec3_free: (a: number, b: number) => void;
-  readonly __wbg_get_i16vec3_z: (a: number) => number;
-  readonly __wbg_set_i16vec3_z: (a: number, b: number) => void;
-  readonly i16vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
-  readonly __wbg_get_i16vec4_w: (a: number) => number;
-  readonly __wbg_set_i16vec4_w: (a: number, b: number) => void;
-  readonly i16vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_uvec2_free: (a: number, b: number) => void;
-  readonly __wbg_get_uvec2_x: (a: number) => number;
-  readonly __wbg_set_uvec2_x: (a: number, b: number) => void;
-  readonly __wbg_get_uvec2_y: (a: number) => number;
-  readonly __wbg_set_uvec2_y: (a: number, b: number) => void;
-  readonly uvec2_wasm_bindgen_ctor: (a: number, b: number) => number;
-  readonly __wbg_set_i16vec3_x: (a: number, b: number) => void;
-  readonly __wbg_set_i16vec3_y: (a: number, b: number) => void;
-  readonly __wbg_set_i16vec4_x: (a: number, b: number) => void;
-  readonly __wbg_set_i16vec4_y: (a: number, b: number) => void;
-  readonly __wbg_set_i16vec4_z: (a: number, b: number) => void;
-  readonly __wbg_get_i16vec3_x: (a: number) => number;
-  readonly __wbg_get_i16vec3_y: (a: number) => number;
-  readonly __wbg_get_i16vec4_x: (a: number) => number;
-  readonly __wbg_get_i16vec4_y: (a: number) => number;
-  readonly __wbg_get_i16vec4_z: (a: number) => number;
-  readonly __wbg_i16vec4_free: (a: number, b: number) => void;
   readonly __wbg_mat3_free: (a: number, b: number) => void;
   readonly __wbg_get_mat3_x_axis: (a: number) => number;
   readonly __wbg_set_mat3_x_axis: (a: number, b: number) => void;
@@ -1387,6 +1305,68 @@ export interface InitOutput {
   readonly __wbg_get_mat3_z_axis: (a: number) => number;
   readonly __wbg_set_mat3_z_axis: (a: number, b: number) => void;
   readonly mat3_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
+  readonly __wbg_mat2_free: (a: number, b: number) => void;
+  readonly __wbg_get_mat2_x_axis: (a: number) => number;
+  readonly __wbg_set_mat2_x_axis: (a: number, b: number) => void;
+  readonly __wbg_get_mat2_y_axis: (a: number) => number;
+  readonly __wbg_set_mat2_y_axis: (a: number, b: number) => void;
+  readonly mat2_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_vec4_free: (a: number, b: number) => void;
+  readonly __wbg_get_vec4_x: (a: number) => number;
+  readonly __wbg_set_vec4_x: (a: number, b: number) => void;
+  readonly __wbg_get_vec4_y: (a: number) => number;
+  readonly __wbg_set_vec4_y: (a: number, b: number) => void;
+  readonly __wbg_get_vec4_z: (a: number) => number;
+  readonly __wbg_set_vec4_z: (a: number, b: number) => void;
+  readonly __wbg_get_vec4_w: (a: number) => number;
+  readonly __wbg_set_vec4_w: (a: number, b: number) => void;
+  readonly vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_ivec4_free: (a: number, b: number) => void;
+  readonly __wbg_get_ivec4_x: (a: number) => number;
+  readonly __wbg_set_ivec4_x: (a: number, b: number) => void;
+  readonly __wbg_get_ivec4_y: (a: number) => number;
+  readonly __wbg_set_ivec4_y: (a: number, b: number) => void;
+  readonly __wbg_get_ivec4_z: (a: number) => number;
+  readonly __wbg_set_ivec4_z: (a: number, b: number) => void;
+  readonly __wbg_get_ivec4_w: (a: number) => number;
+  readonly __wbg_set_ivec4_w: (a: number, b: number) => void;
+  readonly ivec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_uvec3_free: (a: number, b: number) => void;
+  readonly __wbg_get_uvec3_x: (a: number) => number;
+  readonly __wbg_set_uvec3_x: (a: number, b: number) => void;
+  readonly __wbg_get_uvec3_y: (a: number) => number;
+  readonly __wbg_set_uvec3_y: (a: number, b: number) => void;
+  readonly __wbg_get_uvec3_z: (a: number) => number;
+  readonly __wbg_set_uvec3_z: (a: number, b: number) => void;
+  readonly uvec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
+  readonly __wbg_u64vec2_free: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec2_x: (a: number) => number;
+  readonly __wbg_set_u64vec2_x: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec2_y: (a: number) => number;
+  readonly __wbg_set_u64vec2_y: (a: number, b: number) => void;
+  readonly u64vec2_wasm_bindgen_ctor: (a: number, b: number) => number;
+  readonly __wbg_dmat2_free: (a: number, b: number) => void;
+  readonly __wbg_get_dmat2_x_axis: (a: number) => number;
+  readonly __wbg_set_dmat2_x_axis: (a: number, b: number) => void;
+  readonly __wbg_get_dmat2_y_axis: (a: number) => number;
+  readonly __wbg_set_dmat2_y_axis: (a: number, b: number) => void;
+  readonly dmat2_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_dmat4_free: (a: number, b: number) => void;
+  readonly __wbg_get_dmat4_x_axis: (a: number) => number;
+  readonly __wbg_set_dmat4_x_axis: (a: number, b: number) => void;
+  readonly __wbg_get_dmat4_y_axis: (a: number) => number;
+  readonly __wbg_set_dmat4_y_axis: (a: number, b: number) => void;
+  readonly __wbg_get_dmat4_z_axis: (a: number) => number;
+  readonly __wbg_set_dmat4_z_axis: (a: number, b: number) => void;
+  readonly __wbg_get_dmat4_w_axis: (a: number) => number;
+  readonly __wbg_set_dmat4_w_axis: (a: number, b: number) => void;
+  readonly dmat4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
+  readonly __wbg_u16vec2_free: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec2_x: (a: number) => number;
+  readonly __wbg_set_u16vec2_x: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec2_y: (a: number) => number;
+  readonly __wbg_set_u16vec2_y: (a: number, b: number) => void;
+  readonly u16vec2_wasm_bindgen_ctor: (a: number, b: number) => number;
   readonly __wbg_ivec3_free: (a: number, b: number) => void;
   readonly __wbg_get_ivec3_x: (a: number) => number;
   readonly __wbg_set_ivec3_x: (a: number, b: number) => void;
@@ -1395,12 +1375,6 @@ export interface InitOutput {
   readonly __wbg_get_ivec3_z: (a: number) => number;
   readonly __wbg_set_ivec3_z: (a: number, b: number) => void;
   readonly ivec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
-  readonly __wbg_dmat2_free: (a: number, b: number) => void;
-  readonly __wbg_get_dmat2_x_axis: (a: number) => number;
-  readonly __wbg_set_dmat2_x_axis: (a: number, b: number) => void;
-  readonly __wbg_get_dmat2_y_axis: (a: number) => number;
-  readonly __wbg_set_dmat2_y_axis: (a: number, b: number) => void;
-  readonly dmat2_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
   readonly __wbg_dmat3_free: (a: number, b: number) => void;
   readonly __wbg_get_dmat3_x_axis: (a: number) => number;
   readonly __wbg_set_dmat3_x_axis: (a: number, b: number) => void;
@@ -1419,96 +1393,13 @@ export interface InitOutput {
   readonly __wbg_get_dquat_w: (a: number) => number;
   readonly __wbg_set_dquat_w: (a: number, b: number) => void;
   readonly __wbg_dvec3_free: (a: number, b: number) => void;
-  readonly dvec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
-  readonly __wbg_uvec3_free: (a: number, b: number) => void;
-  readonly __wbg_get_uvec3_x: (a: number) => number;
-  readonly __wbg_set_uvec3_x: (a: number, b: number) => void;
-  readonly __wbg_get_uvec3_y: (a: number) => number;
-  readonly __wbg_set_uvec3_y: (a: number, b: number) => void;
-  readonly __wbg_get_uvec3_z: (a: number) => number;
-  readonly __wbg_set_uvec3_z: (a: number, b: number) => void;
-  readonly uvec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
-  readonly __wbg_uvec4_free: (a: number, b: number) => void;
-  readonly __wbg_get_uvec4_w: (a: number) => number;
-  readonly __wbg_set_uvec4_w: (a: number, b: number) => void;
-  readonly uvec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
   readonly __wbg_get_dvec3_x: (a: number) => number;
-  readonly __wbg_get_dvec3_y: (a: number) => number;
-  readonly __wbg_get_dvec3_z: (a: number) => number;
-  readonly __wbg_get_uvec4_x: (a: number) => number;
-  readonly __wbg_get_uvec4_y: (a: number) => number;
-  readonly __wbg_get_uvec4_z: (a: number) => number;
   readonly __wbg_set_dvec3_x: (a: number, b: number) => void;
+  readonly __wbg_get_dvec3_y: (a: number) => number;
   readonly __wbg_set_dvec3_y: (a: number, b: number) => void;
+  readonly __wbg_get_dvec3_z: (a: number) => number;
   readonly __wbg_set_dvec3_z: (a: number, b: number) => void;
-  readonly __wbg_set_uvec4_x: (a: number, b: number) => void;
-  readonly __wbg_set_uvec4_y: (a: number, b: number) => void;
-  readonly __wbg_set_uvec4_z: (a: number, b: number) => void;
-  readonly __wbg_mat2_free: (a: number, b: number) => void;
-  readonly __wbg_get_mat2_x_axis: (a: number) => number;
-  readonly __wbg_set_mat2_x_axis: (a: number, b: number) => void;
-  readonly __wbg_get_mat2_y_axis: (a: number) => number;
-  readonly __wbg_set_mat2_y_axis: (a: number, b: number) => void;
-  readonly mat2_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_mat3a_free: (a: number, b: number) => void;
-  readonly __wbg_get_mat3a_x_axis: (a: number) => number;
-  readonly __wbg_set_mat3a_x_axis: (a: number, b: number) => void;
-  readonly __wbg_get_mat3a_y_axis: (a: number) => number;
-  readonly __wbg_set_mat3a_y_axis: (a: number, b: number) => void;
-  readonly __wbg_get_mat3a_z_axis: (a: number) => number;
-  readonly __wbg_set_mat3a_z_axis: (a: number, b: number) => void;
-  readonly mat3a_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
-  readonly __wbg_dmat4_free: (a: number, b: number) => void;
-  readonly __wbg_get_dmat4_x_axis: (a: number) => number;
-  readonly __wbg_set_dmat4_x_axis: (a: number, b: number) => void;
-  readonly __wbg_get_dmat4_y_axis: (a: number) => number;
-  readonly __wbg_set_dmat4_y_axis: (a: number, b: number) => void;
-  readonly __wbg_get_dmat4_z_axis: (a: number) => number;
-  readonly __wbg_set_dmat4_z_axis: (a: number, b: number) => void;
-  readonly __wbg_get_dmat4_w_axis: (a: number) => number;
-  readonly __wbg_set_dmat4_w_axis: (a: number, b: number) => void;
-  readonly dmat4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
-  readonly __wbg_u16vec2_free: (a: number, b: number) => void;
-  readonly __wbg_get_u16vec2_x: (a: number) => number;
-  readonly __wbg_set_u16vec2_x: (a: number, b: number) => void;
-  readonly __wbg_get_u16vec2_y: (a: number) => number;
-  readonly __wbg_set_u16vec2_y: (a: number, b: number) => void;
-  readonly u16vec2_wasm_bindgen_ctor: (a: number, b: number) => number;
-  readonly __wbg_u16vec3_free: (a: number, b: number) => void;
-  readonly __wbg_get_u16vec3_z: (a: number) => number;
-  readonly __wbg_set_u16vec3_z: (a: number, b: number) => void;
-  readonly u16vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
-  readonly __wbg_get_u16vec4_w: (a: number) => number;
-  readonly __wbg_set_u16vec4_w: (a: number, b: number) => void;
-  readonly u16vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_set_u16vec3_x: (a: number, b: number) => void;
-  readonly __wbg_set_u16vec3_y: (a: number, b: number) => void;
-  readonly __wbg_set_u16vec4_x: (a: number, b: number) => void;
-  readonly __wbg_set_u16vec4_y: (a: number, b: number) => void;
-  readonly __wbg_set_u16vec4_z: (a: number, b: number) => void;
-  readonly __wbg_get_u16vec3_x: (a: number) => number;
-  readonly __wbg_get_u16vec3_y: (a: number) => number;
-  readonly __wbg_get_u16vec4_x: (a: number) => number;
-  readonly __wbg_get_u16vec4_y: (a: number) => number;
-  readonly __wbg_get_u16vec4_z: (a: number) => number;
-  readonly __wbg_u16vec4_free: (a: number, b: number) => void;
-  readonly __wbg_vec3_free: (a: number, b: number) => void;
-  readonly __wbg_get_vec3_x: (a: number) => number;
-  readonly __wbg_set_vec3_x: (a: number, b: number) => void;
-  readonly __wbg_get_vec3_y: (a: number) => number;
-  readonly __wbg_set_vec3_y: (a: number, b: number) => void;
-  readonly __wbg_get_vec3_z: (a: number) => number;
-  readonly __wbg_set_vec3_z: (a: number, b: number) => void;
-  readonly vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
-  readonly __wbg_quat_free: (a: number, b: number) => void;
-  readonly __wbg_get_quat_x: (a: number) => number;
-  readonly __wbg_set_quat_x: (a: number, b: number) => void;
-  readonly __wbg_get_quat_y: (a: number) => number;
-  readonly __wbg_set_quat_y: (a: number, b: number) => void;
-  readonly __wbg_get_quat_z: (a: number) => number;
-  readonly __wbg_set_quat_z: (a: number, b: number) => void;
-  readonly __wbg_get_quat_w: (a: number) => number;
-  readonly __wbg_set_quat_w: (a: number, b: number) => void;
+  readonly dvec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
   readonly __wbg_i64vec3_free: (a: number, b: number) => void;
   readonly __wbg_get_i64vec3_x: (a: number) => number;
   readonly __wbg_set_i64vec3_x: (a: number, b: number) => void;
@@ -1518,21 +1409,134 @@ export interface InitOutput {
   readonly __wbg_set_i64vec3_z: (a: number, b: number) => void;
   readonly i64vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
   readonly __wbg_i64vec4_free: (a: number, b: number) => void;
+  readonly __wbg_get_i64vec4_x: (a: number) => number;
+  readonly __wbg_set_i64vec4_x: (a: number, b: number) => void;
+  readonly __wbg_get_i64vec4_y: (a: number) => number;
+  readonly __wbg_set_i64vec4_y: (a: number, b: number) => void;
+  readonly __wbg_get_i64vec4_z: (a: number) => number;
+  readonly __wbg_set_i64vec4_z: (a: number, b: number) => void;
   readonly __wbg_get_i64vec4_w: (a: number) => number;
   readonly __wbg_set_i64vec4_w: (a: number, b: number) => void;
   readonly i64vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_get_i64vec4_x: (a: number) => number;
-  readonly __wbg_get_i64vec4_y: (a: number) => number;
-  readonly __wbg_get_i64vec4_z: (a: number) => number;
-  readonly __wbg_set_i64vec4_x: (a: number, b: number) => void;
-  readonly __wbg_set_i64vec4_y: (a: number, b: number) => void;
-  readonly __wbg_set_i64vec4_z: (a: number, b: number) => void;
+  readonly __wbg_u16vec3_free: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec3_x: (a: number) => number;
+  readonly __wbg_set_u16vec3_x: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec3_y: (a: number) => number;
+  readonly __wbg_set_u16vec3_y: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec3_z: (a: number) => number;
+  readonly __wbg_set_u16vec3_z: (a: number, b: number) => void;
+  readonly u16vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
+  readonly __wbg_uvec2_free: (a: number, b: number) => void;
+  readonly __wbg_get_uvec2_x: (a: number) => number;
+  readonly __wbg_set_uvec2_x: (a: number, b: number) => void;
+  readonly __wbg_get_uvec2_y: (a: number) => number;
+  readonly __wbg_set_uvec2_y: (a: number, b: number) => void;
+  readonly uvec2_wasm_bindgen_ctor: (a: number, b: number) => number;
+  readonly __wbg_uvec4_free: (a: number, b: number) => void;
+  readonly __wbg_get_uvec4_x: (a: number) => number;
+  readonly __wbg_set_uvec4_x: (a: number, b: number) => void;
+  readonly __wbg_get_uvec4_y: (a: number) => number;
+  readonly __wbg_set_uvec4_y: (a: number, b: number) => void;
+  readonly __wbg_get_uvec4_z: (a: number) => number;
+  readonly __wbg_set_uvec4_z: (a: number, b: number) => void;
+  readonly __wbg_get_uvec4_w: (a: number) => number;
+  readonly __wbg_set_uvec4_w: (a: number, b: number) => void;
+  readonly uvec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_dvec4_free: (a: number, b: number) => void;
+  readonly __wbg_get_dvec4_x: (a: number) => number;
+  readonly __wbg_set_dvec4_x: (a: number, b: number) => void;
+  readonly __wbg_get_dvec4_y: (a: number) => number;
+  readonly __wbg_set_dvec4_y: (a: number, b: number) => void;
+  readonly __wbg_get_dvec4_z: (a: number) => number;
+  readonly __wbg_set_dvec4_z: (a: number, b: number) => void;
+  readonly __wbg_get_dvec4_w: (a: number) => number;
+  readonly __wbg_set_dvec4_w: (a: number, b: number) => void;
+  readonly dvec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_i16vec2_free: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec2_x: (a: number) => number;
+  readonly __wbg_set_i16vec2_x: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec2_y: (a: number) => number;
+  readonly __wbg_set_i16vec2_y: (a: number, b: number) => void;
+  readonly i16vec2_wasm_bindgen_ctor: (a: number, b: number) => number;
+  readonly __wbg_i16vec3_free: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec3_x: (a: number) => number;
+  readonly __wbg_set_i16vec3_x: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec3_y: (a: number) => number;
+  readonly __wbg_set_i16vec3_y: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec3_z: (a: number) => number;
+  readonly __wbg_set_i16vec3_z: (a: number, b: number) => void;
+  readonly i16vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
+  readonly __wbg_u16vec4_free: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec4_x: (a: number) => number;
+  readonly __wbg_set_u16vec4_x: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec4_y: (a: number) => number;
+  readonly __wbg_set_u16vec4_y: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec4_z: (a: number) => number;
+  readonly __wbg_set_u16vec4_z: (a: number, b: number) => void;
+  readonly __wbg_get_u16vec4_w: (a: number) => number;
+  readonly __wbg_set_u16vec4_w: (a: number, b: number) => void;
+  readonly u16vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_vec3_free: (a: number, b: number) => void;
+  readonly __wbg_get_vec3_x: (a: number) => number;
+  readonly __wbg_set_vec3_x: (a: number, b: number) => void;
+  readonly __wbg_get_vec3_y: (a: number) => number;
+  readonly __wbg_set_vec3_y: (a: number, b: number) => void;
+  readonly __wbg_get_vec3_z: (a: number) => number;
+  readonly __wbg_set_vec3_z: (a: number, b: number) => void;
+  readonly vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
+  readonly __wbg_ivec2_free: (a: number, b: number) => void;
+  readonly __wbg_get_ivec2_x: (a: number) => number;
+  readonly __wbg_set_ivec2_x: (a: number, b: number) => void;
+  readonly __wbg_get_ivec2_y: (a: number) => number;
+  readonly __wbg_set_ivec2_y: (a: number, b: number) => void;
+  readonly ivec2_wasm_bindgen_ctor: (a: number, b: number) => number;
+  readonly __wbg_u64vec4_free: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec4_x: (a: number) => number;
+  readonly __wbg_set_u64vec4_x: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec4_y: (a: number) => number;
+  readonly __wbg_set_u64vec4_y: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec4_z: (a: number) => number;
+  readonly __wbg_set_u64vec4_z: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec4_w: (a: number) => number;
+  readonly __wbg_set_u64vec4_w: (a: number, b: number) => void;
+  readonly u64vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_mat4_free: (a: number, b: number) => void;
+  readonly __wbg_get_mat4_x_axis: (a: number) => number;
+  readonly __wbg_set_mat4_x_axis: (a: number, b: number) => void;
+  readonly __wbg_get_mat4_y_axis: (a: number) => number;
+  readonly __wbg_set_mat4_y_axis: (a: number, b: number) => void;
+  readonly __wbg_get_mat4_z_axis: (a: number) => number;
+  readonly __wbg_set_mat4_z_axis: (a: number, b: number) => void;
+  readonly __wbg_get_mat4_w_axis: (a: number) => number;
+  readonly __wbg_set_mat4_w_axis: (a: number, b: number) => void;
+  readonly mat4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
+  readonly __wbg_i16vec4_free: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec4_x: (a: number) => number;
+  readonly __wbg_set_i16vec4_x: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec4_y: (a: number) => number;
+  readonly __wbg_set_i16vec4_y: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec4_z: (a: number) => number;
+  readonly __wbg_set_i16vec4_z: (a: number, b: number) => void;
+  readonly __wbg_get_i16vec4_w: (a: number) => number;
+  readonly __wbg_set_i16vec4_w: (a: number, b: number) => void;
+  readonly i16vec4_wasm_bindgen_ctor: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_u64vec3_free: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec3_x: (a: number) => number;
+  readonly __wbg_set_u64vec3_x: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec3_y: (a: number) => number;
+  readonly __wbg_set_u64vec3_y: (a: number, b: number) => void;
+  readonly __wbg_get_u64vec3_z: (a: number) => number;
+  readonly __wbg_set_u64vec3_z: (a: number, b: number) => void;
+  readonly u64vec3_wasm_bindgen_ctor: (a: number, b: number, c: number) => number;
   readonly memory: WebAssembly.Memory;
-  readonly __wbindgen_export_1: (a: number, b: number) => number;
-  readonly __wbindgen_export_2: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
-  readonly __wbindgen_export_3: (a: number, b: number, c: number) => void;
-  readonly __wbindgen_export_4: (a: number) => void;
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_export_3: WebAssembly.Table;
+  readonly __externref_table_dealloc: (a: number) => void;
+  readonly __externref_table_alloc: () => number;
+  readonly __externref_drop_slice: (a: number, b: number) => void;
+  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_exn_store: (a: number) => void;
   readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
   readonly __wbindgen_start: (a: number) => void;
 }

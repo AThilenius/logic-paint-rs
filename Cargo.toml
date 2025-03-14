@@ -19,10 +19,15 @@ base64 = "0.22"
 bincode = "2.0.0-rc.3"
 console_error_panic_hook = { version = "0.1", optional = true }
 futures = "0.3"
-glam = { git = "https://github.com/athilenius/glam-rs", default-features = false, features = ["serde", "bytemuck", "wasm-bindgen"] }
+glam = { git = "https://github.com/athilenius/glam-rs", default-features = false, features = [
+  "serde",
+  "bytemuck",
+  "wasm-bindgen",
+] }
 im = { version = "15.1", features = ["serde"] }
 itertools = "0.14"
 js-sys = "0.3"
+lazy_static = "1.5.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde-wasm-bindgen = "0.6"
 serde_json = "1.0"
@@ -31,7 +36,7 @@ thiserror = "2.0"
 tsify = "0.4"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-wasm_thread = { version = "0.3" }
+# wasm_thread = { version = "0.3" }
 
 [dev-dependencies]
 brotli = "7.0.0"
@@ -41,10 +46,12 @@ tiff = "0.9.1"
 [dependencies.web-sys]
 version = "0.3"
 features = [
+  "CssStyleDeclaration",
   "HtmlCanvasElement",
   "KeyboardEvent",
   "MouseEvent",
   "Performance",
+  "StyleSheet",
   "WebGl2RenderingContext",
   "WebGlBuffer",
   "WebGlProgram",
@@ -69,3 +76,5 @@ strip = true
 opt-level = 3
 lto = true
 panic = "abort"
+# Debug symbols
+debug = true

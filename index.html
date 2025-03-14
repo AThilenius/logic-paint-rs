@@ -1,0 +1,87 @@
+<html>
+  <head>
+    <title>Test page with a minimal editor in it</title>
+  </head>
+  <body>
+    <style>
+      body {
+        margin: 0;
+      }
+
+      canvas {
+        position: fixed;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      canvas:focus {
+        outline: none;
+      }
+    </style>
+    <script type="module">
+      addEventListener("TrunkApplicationStarted", (event) => {
+        const canvas = document.getElementById("canvas");
+        canvas.focus();
+
+        const wasm = window.wasmBindings;
+
+        let camera = new wasm.Camera(new wasm.Vec2(0, 0), 1);
+        const ioState = new wasm.IoState();
+        const viewport = new wasm.Viewport(canvas);
+        const editor = new wasm.Editor(new wasm.Buffer());
+
+        // Render loop
+        const render = () => {
+          viewport.draw(camera, editor);
+          requestAnimationFrame(render);
+        };
+        render();
+
+        // Event dispatch
+        const dispatch = () => {
+          const result = editor.dispatch_event(ioState, camera);
+          if (result.camera != null) {
+            camera = result.camera;
+          }
+          canvas.style.cursor = editor.cursor_style;
+        };
+
+        // Event hooks
+        canvas.onmousemove = (e) => {
+          ioState.event_mouse(e, camera);
+          dispatch();
+        };
+        canvas.onmousedown = (e) => {
+          ioState.event_mouse(e, camera);
+          dispatch();
+        };
+        canvas.onmouseup = (e) => {
+          ioState.event_mouse(e, camera);
+          dispatch();
+        };
+        canvas.onkeydown = (e) => {
+          ioState.event_key_down(e);
+          dispatch();
+        };
+        canvas.onkeyup = (e) => {
+          ioState.event_key_up(e);
+          dispatch();
+        };
+        canvas.onwheel = (e) => {
+          ioState.event_wheel(e);
+          dispatch();
+        };
+        canvas.onmouseenter = (_e) => {
+          ioState.event_mouse_presence(true);
+          dispatch();
+        };
+        canvas.onmouseleave = (_e) => {
+          ioState.event_mouse_presence(false);
+          dispatch();
+        };
+        canvas.oncontextmenu = (e) => e.preventDefault();
+      });
+    </script>
+    <canvas id="canvas" tabindex="0"> </canvas>
+  </body>
+</html>

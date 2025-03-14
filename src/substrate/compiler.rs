@@ -139,14 +139,14 @@ impl CompilerResults {
         }
 
         // Create an index for quickly copying trace states over to a BufferMask.
-        for (chunk_coord, chunk) in &buffer.chunks {
+        for chunk in &buffer.chunks {
             let mut trace_indexes = vec![];
 
             // TODO: This can be made a lot more efficient if compilation times ever become a
             // problem.
             for y in 0..CHUNK_SIZE {
                 for x in 0..CHUNK_SIZE {
-                    let coord = CellCoord::from_offset_into_chunk(&chunk_coord, x, y);
+                    let coord = CellCoord::from_offset_into_chunk(&chunk.chunk_coord, x, y);
 
                     // Skip empty cells.
                     if chunk.get_cell(coord.clone()) == Default::default() {
@@ -189,7 +189,7 @@ impl CompilerResults {
                 }
             }
 
-            trace_to_cell_part_index_by_chunk.insert(*chunk_coord, trace_indexes);
+            trace_to_cell_part_index_by_chunk.insert(chunk.chunk_coord, trace_indexes);
         }
 
         CompilerResults {
