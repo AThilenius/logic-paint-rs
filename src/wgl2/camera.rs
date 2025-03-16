@@ -62,28 +62,6 @@ impl Camera {
         )
     }
 
-    /// Returns a list of all currently-visible substrate chunks to this camera.
-    pub fn get_visible_chunk_coords(&self) -> HashSet<ChunkCoord> {
-        let lower_left: ChunkCoord = self
-            .project_screen_point_to_cell(Vec2::new(-1.0, self.size.y + 1.0))
-            .into();
-        let upper_right: ChunkCoord = self
-            .project_screen_point_to_cell(Vec2::new(self.size.x + 1.0, -1.0))
-            .into();
-
-        let mut v = HashSet::new();
-        v.reserve(
-            ((upper_right.0.y - lower_left.0.y) * (upper_right.0.x - lower_left.0.x)) as usize,
-        );
-        for y in lower_left.0.y..(upper_right.0.y + 1) {
-            for x in lower_left.0.x..(upper_right.0.x + 1) {
-                v.insert(ChunkCoord(IVec2::new(x, y)));
-            }
-        }
-
-        v
-    }
-
     fn update_proj_matrix(&mut self) {
         let scale = 2000.0;
         let w = self.size.x / scale;

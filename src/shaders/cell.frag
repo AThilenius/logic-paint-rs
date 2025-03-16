@@ -9,8 +9,10 @@ uniform float time;
 uniform usampler2D cells_texture_sampler;
 uniform usampler2D mask_texture_sampler;
 
-// Style uniforms
+// Coord computation
 uniform ivec2 chunk_start_cell_offset;
+
+// Style uniforms
 const vec4 n_color = vec4(0.98, 0.0, 0.77, 1.0);
 const vec4 p_color = vec4(0.0, 0.87, 1.0, 1.0);
 const vec3 metal_color = vec3(0.2, 0.2, 0.2);
@@ -84,12 +86,13 @@ bool connection_gate(
 }
 
 void main() {
-    vec2 float_local_coord = v_uv * 128.0;
-    uvec2 local_coord = clamp(
-        uvec2(floor(float_local_coord)),
-        uvec2(0),
-        uvec2(127)
-    );
+    vec2 float_local_coord = v_uv;
+    // uvec2 local_coord = clamp(
+    //     uvec2(floor(float_local_coord)),
+    //     uvec2(0),
+    //     uvec2(127)
+    // );
+    uvec2 local_coord = uvec2(floor(float_local_coord));
     ivec2 cell_coord = chunk_start_cell_offset + ivec2(local_coord);
     vec2 tile_uv = fract(float_local_coord);
 

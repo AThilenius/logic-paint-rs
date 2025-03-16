@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use glam::Vec2;
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
@@ -16,7 +17,6 @@ pub struct Viewport {
     render_chunks: HashMap<ChunkCoord, RenderChunk>,
     canvas: HtmlCanvasElement,
     gl: WebGl2RenderingContext,
-    empty_texture: Texture,
 }
 
 struct RenderChunk {
@@ -39,14 +39,12 @@ impl Viewport {
             .expect("cast get_context_with_context_options into WebGL2RenderingContext");
 
         let program = CellProgram::compile(&gl).expect("glsl programs to compile");
-        let empty_texture = Texture::new_chunk_texture(&gl).expect("webgl textures to create");
 
         Self {
             render_chunks: Default::default(),
             program,
             canvas,
             gl,
-            empty_texture,
         }
     }
 
@@ -92,54 +90,76 @@ impl Viewport {
                 .unwrap_or((i32::MIN, i32::MIN).into()),
         );
 
-        // Get chunks visible to the camera.
-        let visible_chunks = camera.get_visible_chunk_coords();
+        // Compute the lower-left and upper-right chunk coords visible to the camera.
+        let ll: ChunkCoord = camera
+            .project_screen_point_to_cell(Vec2::new(-1.0, camera.size.y + 1.0))
+            .into();
+        let ur: ChunkCoord = camera
+            .project_screen_point_to_cell(Vec2::new(camera.size.x + 1.0, -1.0))
+            .into();
+        let width = ur.0.x - ll.0.x;
+        let height = ur.0.y - ll.0.y;
 
-        // Drop RenderChunks that aren't visible any more.
-        self.render_chunks.retain(|c, _| visible_chunks.contains(c));
+        // Render the background VAO.
+        let vao = QuadVao::new(&self.gl, &self.program, &ll, width.max(height) as u32 + 1)?;
+        // Bind empty cell and mask textures
+        self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
+        self.gl
+            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
 
-        for chunk_coord in visible_chunks {
-            let render_chunk = if let Some(crc) = self.render_chunks.get_mut(&chunk_coord) {
+        self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
+        self.gl
+            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
+
+        self.program
+            .chunk_start_cell_offset
+            .set(&self.gl, ll.first_cell_coord().0);
+
+        // Bind the VAO and draw
+        vao.bind();
+        self.gl.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
+
+        // Then render all non-empty chunks
+        for chunk in &editor.buffer.chunks {
+            // Frustum cull chunks that aren't visible
+            let coord = chunk.chunk_coord;
+            if coord.0.x < ll.0.x || coord.0.x > ur.0.x || coord.0.y < ll.0.y || coord.0.y > ur.0.y
+            {
+                continue;
+            }
+
+            let render_chunk = if let Some(crc) = self.render_chunks.get_mut(&coord) {
                 crc
             } else {
-                let vao = QuadVao::new(&self.gl, &self.program, &chunk_coord)?;
+                let vao = QuadVao::new(&self.gl, &self.program, &coord, 1)?;
                 let cell_texture = Texture::new_chunk_texture(&self.gl)?;
                 let mask_texture = Texture::new_chunk_texture(&self.gl)?;
                 self.render_chunks.insert(
-                    chunk_coord.clone(),
+                    coord.clone(),
                     RenderChunk {
                         cell_texture,
                         mask_texture,
                         vao,
                     },
                 );
-                self.render_chunks.get_mut(&chunk_coord).unwrap()
+                self.render_chunks.get_mut(&coord).unwrap()
             };
 
             // Update and bind the cell texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
 
-            if let Some(buffer_chunk) = editor
-                .buffer
-                .chunks
-                .iter()
-                .find(|c| c.chunk_coord == chunk_coord)
-            {
-                render_chunk
-                    .cell_texture
-                    .set_pixels(&buffer_chunk.get_cells()[..])?;
+            // Blit cells
+            render_chunk
+                .cell_texture
+                .set_pixels(&chunk.get_cells()[..])?;
 
-                // Bind the render chunk's texture as it's non-empty.
-                render_chunk.cell_texture.bind();
-            } else {
-                // Bind the empty texture.
-                self.empty_texture.bind();
-            }
+            // Bind the render chunk's texture as it's non-empty.
+            render_chunk.cell_texture.bind();
 
             // Update and bind the mask texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
 
-            if let Some(mask_chunk) = editor.mask.get_chunk(chunk_coord) {
+            if let Some(mask_chunk) = editor.mask.get_chunk(coord) {
                 render_chunk
                     .mask_texture
                     .set_pixels(&mask_chunk.cells[..])?;
@@ -148,13 +168,14 @@ impl Viewport {
                 render_chunk.mask_texture.bind();
             } else {
                 // Bind the empty texture.
-                self.empty_texture.bind();
+                self.gl
+                    .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
             }
 
             // Update the per-chunk program uniforms
             self.program
                 .chunk_start_cell_offset
-                .set(&self.gl, chunk_coord.first_cell_coord().0);
+                .set(&self.gl, coord.first_cell_coord().0);
 
             // Bind the VAO and draw
             render_chunk.vao.bind();

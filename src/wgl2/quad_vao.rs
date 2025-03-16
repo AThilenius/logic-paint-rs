@@ -1,6 +1,7 @@
+use glam::UVec2;
 use web_sys::{WebGl2RenderingContext, WebGlBuffer, WebGlVertexArrayObject};
 
-use crate::coords::ChunkCoord;
+use crate::coords::{ChunkCoord, CHUNK_SIZE};
 
 use super::CellProgram;
 
@@ -15,24 +16,28 @@ impl QuadVao {
         ctx: &WebGl2RenderingContext,
         program: &CellProgram,
         chunk_coord: &ChunkCoord,
+        // The number of CHUNKs (both width and height) this VAO should span.
+        size: u32,
     ) -> Result<QuadVao, String> {
         let l = chunk_coord.0.as_vec2();
+        let s = size as f32;
         let vertices: [f32; 12] = [
             l.x,
             l.y,
-            l.x + 1.0,
+            l.x + s,
             l.y,
-            l.x + 1.0,
-            l.y + 1.0,
+            l.x + s,
+            l.y + s,
             l.x,
             l.y,
-            l.x + 1.0,
-            l.y + 1.0,
+            l.x + s,
+            l.y + s,
             l.x,
-            l.y + 1.0,
+            l.y + s,
         ];
 
-        let uvs: [f32; 12] = [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+        let c = (size * CHUNK_SIZE as u32) as f32;
+        let uvs: [f32; 12] = [0.0, 0.0, c, 0.0, c, c, 0.0, 0.0, c, c, 0.0, c];
 
         let vao = ctx
             .create_vertex_array()
