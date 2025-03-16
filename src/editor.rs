@@ -2,12 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     coords::CellCoord,
-    log,
-    substrate::{
-        buffer::{Buffer, COUNT},
-        io::IoState,
-        mask::Mask,
-    },
+    substrate::{buffer::Buffer, io::IoState, mask::Mask},
     tools::{
         camera_controller::ToolCameraController, draw_metal::ToolPaintMetal, draw_si::ToolPaintSi,
         visual::ToolVisual, Tool, ToolInput, ToolOutput,
@@ -95,7 +90,6 @@ impl Editor {
     }
 
     pub fn dispatch_event(&mut self, io_state: &IoState, camera: &Camera) -> EditorDispatchResult {
-        let start = *COUNT.lock().unwrap().borrow();
         self.cursor_coord = Some(io_state.cell);
 
         let active_tool = self.active_tool.clone();
@@ -160,9 +154,6 @@ impl Editor {
 
             self.handle_dispatch_result(&mut dispatch_result, self.active_tool.to_string(), output);
         }
-
-        let end = *COUNT.lock().unwrap().borrow();
-        log!("Dispatch called set {} times", end - start);
 
         dispatch_result
     }

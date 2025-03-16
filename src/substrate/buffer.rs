@@ -1,26 +1,19 @@
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
-    sync::Mutex,
 };
 
 use glam::{IVec2, UVec2};
-use lazy_static::lazy_static;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_CELL_COUNT, CHUNK_SIZE, LOG_CHUNK_SIZE},
-    log,
     socket::Socket,
     upc::{Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
     utils::Selection,
 };
 
 const CHUNK_BYTE_LEN: usize = CHUNK_CELL_COUNT * UPC_BYTE_LEN;
-
-lazy_static! {
-    pub static ref COUNT: Mutex<RefCell<u64>> = Mutex::new(RefCell::new(0));
-}
 
 #[derive(Default, Clone)]
 #[wasm_bindgen]
@@ -73,7 +66,6 @@ impl Buffer {
 
     pub fn set_cell(&mut self, cell_coord: CellCoord, cell: UPC) {
         let chunk_coord: ChunkCoord = cell_coord.into();
-        *COUNT.lock().unwrap().borrow_mut() += 1;
 
         // Existing chunks
         for chunk in &mut self.chunks {
@@ -166,8 +158,6 @@ impl Buffer {
 
     pub fn rotate_to_new(&self) -> Self {
         let mut buffer = Self::default();
-
-        log!("Rotate called on buffer with {} chunks", self.chunks.len());
 
         for chunk in &self.chunks {
             for y in 0..CHUNK_SIZE {

@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    log,
-    substrate::buffer::{Buffer, COUNT},
-    utils::Selection,
-};
+use crate::{substrate::buffer::Buffer, utils::Selection};
 
 use super::{Tool, ToolInput, ToolOutput};
 
@@ -52,8 +48,6 @@ impl Tool for ToolVisual {
             active, io_state, ..
         }: &ToolInput,
     ) -> ToolOutput {
-        let start = *COUNT.lock().unwrap().borrow();
-
         if io_state.get_key_code("Escape").clicked {
             self.selection = Default::default();
             self.mouse_follow_buffer = None;
@@ -179,9 +173,6 @@ impl Tool for ToolVisual {
         if let Some(mouse_follow_buffer) = &self.mouse_follow_buffer {
             buffer.paste_at(io_state.cell, mouse_follow_buffer)
         }
-
-        let end = *COUNT.lock().unwrap().borrow();
-        log!("Visual tool called set {} times", end - start);
 
         ToolOutput {
             buffer: Some(buffer),
