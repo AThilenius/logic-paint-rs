@@ -133,6 +133,8 @@ pub enum Bit {
     METAL_DIR_DOWN,
     METAL_DIR_LEFT,
     VIA,
+    SOCKET,
+    BOND_PAD,
 }
 
 impl Bit {
@@ -155,6 +157,8 @@ impl Bit {
             Bit::METAL_DIR_DOWN => upc[1] & (1 << 4) > 0,
             Bit::METAL_DIR_LEFT => upc[1] & (1 << 3) > 0,
             Bit::VIA => upc[1] & (1 << 2) > 0,
+            Bit::SOCKET => upc[1] & (1 << 1) > 0,
+            Bit::BOND_PAD => upc[1] & (1 << 0) > 0,
         }
     }
 
@@ -178,6 +182,8 @@ impl Bit {
                 Bit::METAL_DIR_DOWN => upc[1] |= 1 << 4,
                 Bit::METAL_DIR_LEFT => upc[1] |= 1 << 3,
                 Bit::VIA => upc[1] |= 1 << 2,
+                Bit::SOCKET => upc[1] |= 1 << 1,
+                Bit::BOND_PAD => upc[1] |= 1 << 0,
             }
         } else {
             match bit {
@@ -196,6 +202,8 @@ impl Bit {
                 Bit::METAL_DIR_DOWN => upc[1] &= !(1 << 4),
                 Bit::METAL_DIR_LEFT => upc[1] &= !(1 << 3),
                 Bit::VIA => upc[1] &= !(1 << 2),
+                Bit::SOCKET => upc[1] &= !(1 << 1),
+                Bit::BOND_PAD => upc[1] &= !(1 << 0),
             }
         }
     }
@@ -216,7 +224,12 @@ pub struct NormalizedCell {
 #[tsify(into_wasm_abi, from_wasm_abi)]
 pub enum Metal {
     None,
-    Trace { has_via: bool, placement: Placement },
+    Trace {
+        has_via: bool,
+        has_socket: bool,
+        has_bond_pad: bool,
+        placement: Placement,
+    },
 }
 
 impl Default for Metal {
@@ -256,6 +269,8 @@ impl From<UPC> for NormalizedCell {
         if upc.get_bit(Bit::METAL) {
             cell.metal = Metal::Trace {
                 has_via: upc.get_bit(Bit::VIA),
+                has_socket: upc.get_bit(Bit::SOCKET),
+                has_bond_pad: upc.get_bit(Bit::BOND_PAD),
                 placement: Placement {
                     up: upc.get_bit(Bit::METAL_DIR_UP),
                     right: upc.get_bit(Bit::METAL_DIR_RIGHT),
@@ -305,9 +320,17 @@ impl From<NormalizedCell> for UPC {
     fn from(cell: NormalizedCell) -> Self {
         let mut upc = Self::default();
 
-        if let Metal::Trace { has_via, placement } = cell.metal {
+        if let Metal::Trace {
+            has_via,
+            has_socket,
+            has_bond_pad,
+            placement,
+        } = cell.metal
+        {
             upc.set_bit(Bit::METAL);
             Bit::set(&mut upc, Bit::VIA, has_via);
+            Bit::set(&mut upc, Bit::SOCKET, has_socket);
+            Bit::set(&mut upc, Bit::BOND_PAD, has_bond_pad);
             Bit::set(&mut upc, Bit::METAL_DIR_UP, placement.up);
             Bit::set(&mut upc, Bit::METAL_DIR_RIGHT, placement.right);
             Bit::set(&mut upc, Bit::METAL_DIR_DOWN, placement.down);

@@ -23,6 +23,10 @@ pub struct ToolVisual {
 }
 
 impl Tool for ToolVisual {
+    fn tool_name(&self) -> &str {
+        "visual"
+    }
+
     fn activate(&mut self, buffer: Buffer) -> ToolOutput {
         self.checkpoint = buffer;
         ToolOutput {

@@ -16,6 +16,10 @@ pub struct ToolPaintMetal {
 }
 
 impl Tool for ToolPaintMetal {
+    fn tool_name(&self) -> &str {
+        "paint-metal"
+    }
+
     fn activate(&mut self, buffer: Buffer) -> ToolOutput {
         self.drawing = false;
         self.checkpoint = buffer;

@@ -22,7 +22,7 @@ pub struct Pin {
 
 #[wasm_bindgen]
 #[derive(Clone, PartialEq, Eq)]
-pub struct Socket {
+pub struct Module {
     // If the socket should be updated every clock or not.
     pub always_update: bool,
 
@@ -52,7 +52,7 @@ impl Pin {
 }
 
 #[wasm_bindgen]
-impl Socket {
+impl Module {
     #[wasm_bindgen(constructor)]
     pub fn new(pins: Vec<Pin>, always_update: bool, update_callback: js_sys::Function) -> Self {
         Self {

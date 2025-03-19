@@ -1,11 +1,14 @@
 <html>
   <head>
     <title>Test page with a minimal editor in it</title>
+    <meta name="theme-color" content="#000000" />
+    <link data-trunk rel="copy-file" href="misc/cpu.lpbp" />
   </head>
   <body>
     <style>
       body {
         margin: 0;
+        background: black;
       }
 
       canvas {
@@ -19,16 +22,21 @@
       }
     </style>
     <script type="module">
-      addEventListener("TrunkApplicationStarted", (event) => {
+      addEventListener("TrunkApplicationStarted", async (event) => {
         const canvas = document.getElementById("canvas");
         canvas.focus();
 
         const wasm = window.wasmBindings;
 
+        // Load legacy cpu.lpbp
+        let res = await fetch("cpu.lpbp");
+        let text = await res.text();
+        let buffer = wasm.import_legacy_blueprint(text);
+
         let camera = new wasm.Camera(new wasm.Vec2(0, 0), 1);
         const ioState = new wasm.IoState();
         const viewport = new wasm.Viewport(canvas);
-        const editor = new wasm.Editor(new wasm.Buffer());
+        const editor = new wasm.Editor(buffer);
 
         // Render loop
         const render = () => {

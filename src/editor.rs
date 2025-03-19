@@ -5,7 +5,7 @@ use crate::{
     substrate::{buffer::Buffer, io::IoState, mask::Mask},
     tools::{
         camera_controller::ToolCameraController, draw_metal::ToolPaintMetal, draw_si::ToolPaintSi,
-        visual::ToolVisual, Tool, ToolInput, ToolOutput,
+        place_socket::ToolPlaceSocket, visual::ToolVisual, Tool, ToolInput, ToolOutput,
     },
     utils::Selection,
     wgl2::Camera,
@@ -34,11 +34,11 @@ pub struct Editor {
     /// The CSS style that should be applied to the cursor.
     pub cursor_style: String,
 
-    /// The current mode of the standard editor.
-    /// mode: Mode,
-    tools: HashMap<String, Box<dyn Tool>>,
+    /// All loaded tools
+    tools: Vec<Box<dyn Tool>>,
 
-    active_tool: String,
+    /// The active tool
+    active_tool: usize,
 }
 
 #[wasm_bindgen(getter_with_clone)]
@@ -59,40 +59,35 @@ pub struct ToolPersist {
 impl Editor {
     #[wasm_bindgen(constructor)]
     pub fn new(buffer: Buffer) -> Self {
+        let mut tools = vec![];
+
+        // Create and activate visual as the default tool
         let mut visual = ToolVisual::default();
         let tool_output = visual.activate(buffer.clone());
 
+        // Store tools
+        tools.push(Box::new(visual) as Box<dyn Tool>);
+        tools.push(Box::new(ToolPaintSi::default()) as Box<dyn Tool>);
+        tools.push(Box::new(ToolPaintMetal::default()) as Box<dyn Tool>);
+        tools.push(Box::new(ToolPlaceSocket::default()) as Box<dyn Tool>);
+        tools.push(Box::new(ToolCameraController::default()) as Box<dyn Tool>);
+
         Self {
-            buffer: Default::default(),
+            buffer,
             mask: Default::default(),
             selection: Default::default(),
             cursor_coord: None,
             cursor_style: tool_output
                 .cursor_style
                 .unwrap_or_else(|| "default".to_string()),
-            tools: HashMap::from([
-                ("visual".to_string(), Box::new(visual) as Box<dyn Tool>),
-                (
-                    "paint-si".to_string(),
-                    Box::new(ToolPaintSi::default()) as Box<dyn Tool>,
-                ),
-                (
-                    "paint-metal".to_string(),
-                    Box::new(ToolPaintMetal::default()) as Box<dyn Tool>,
-                ),
-                (
-                    "camera-controller".to_string(),
-                    Box::new(ToolCameraController::default()) as Box<dyn Tool>,
-                ),
-            ]),
-            active_tool: "visual".to_string(),
+            tools,
+            active_tool: 0,
         }
     }
 
     pub fn dispatch_event(&mut self, io_state: &IoState, camera: &Camera) -> EditorDispatchResult {
         self.cursor_coord = Some(io_state.cell);
 
-        let active_tool = self.active_tool.clone();
         let mut new_active = None;
         let mut dispatch_result = EditorDispatchResult {
             buffer_persist: None,
@@ -108,51 +103,39 @@ impl Editor {
             selection: self.selection,
         };
 
+        let a = self.active_tool;
         let owned_output: Vec<_> = self
             .tools
             .iter_mut()
-            .map(|(name, tool)| {
-                tool_input.active = *name == active_tool;
+            .enumerate()
+            .map(|(idx, tool)| {
+                tool_input.active = idx == a;
                 let output = tool.dispatch_event(&tool_input);
-                (name.to_string(), output)
+                (idx, output)
             })
             .collect();
 
-        for (name, output) in owned_output {
-            if output.take_active && new_active.is_none() && name != self.active_tool {
-                new_active = Some(name.to_string());
+        for (idx, output) in owned_output {
+            if output.take_active && new_active.is_none() && idx != self.active_tool {
+                new_active = Some(idx);
             }
 
-            self.handle_dispatch_result(&mut dispatch_result, name, output);
+            self.handle_dispatch_result(&mut dispatch_result, idx, output);
         }
 
         if let Some(new_active) = new_active {
-            if self.active_tool != "none" {
-                tool_input.active = false;
-                let output = self
-                    .tools
-                    .get_mut(&self.active_tool)
-                    .unwrap()
-                    .deactivate(self.buffer.clone());
+            tool_input.active = false;
+            let output = self.tools[self.active_tool].deactivate(self.buffer.clone());
 
-                self.selection = Default::default();
+            self.selection = Default::default();
 
-                self.handle_dispatch_result(
-                    &mut dispatch_result,
-                    self.active_tool.to_string(),
-                    output,
-                );
-            }
+            self.handle_dispatch_result(&mut dispatch_result, self.active_tool, output);
 
             tool_input.active = true;
             self.active_tool = new_active;
-            let output = self
-                .tools
-                .get_mut(&self.active_tool)
-                .unwrap()
-                .activate(self.buffer.clone());
+            let output = self.tools[self.active_tool].activate(self.buffer.clone());
 
-            self.handle_dispatch_result(&mut dispatch_result, self.active_tool.to_string(), output);
+            self.handle_dispatch_result(&mut dispatch_result, self.active_tool, output);
         }
 
         dispatch_result
@@ -161,7 +144,7 @@ impl Editor {
     fn handle_dispatch_result(
         &mut self,
         dispatch_result: &mut EditorDispatchResult,
-        name: String,
+        idx: usize,
         output: ToolOutput,
     ) {
         if let Some(buffer) = output.buffer {
@@ -190,7 +173,7 @@ impl Editor {
 
         if let Some(bytes) = output.persist_tool_state {
             dispatch_result.tools_persist.push(ToolPersist {
-                tool_name: name,
+                tool_name: self.tools[idx].tool_name().to_string(),
                 serialized_state: bytes,
             });
         }

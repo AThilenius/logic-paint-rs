@@ -20,6 +20,7 @@ const vec3 active_color = vec3(1.0, 1.0, 1.0);
 const vec3 active_blend_strength_si_gate_metal = vec3(0.8, 0.8, 0.5);
 const vec3 grid_color = vec3(1.0, 1.0, 1.0);
 const vec3 background_color = vec3(0.0, 0.0, 0.0);
+const vec3 socket_color = vec3(1.0, 0.0, 0.0);
 const float grid_blend_strength = 0.065;
 const float metal_over_si_blend = 0.75;
 
@@ -87,11 +88,6 @@ bool connection_gate(
 
 void main() {
     vec2 float_local_coord = v_uv;
-    // uvec2 local_coord = clamp(
-    //     uvec2(floor(float_local_coord)),
-    //     uvec2(0),
-    //     uvec2(127)
-    // );
     uvec2 local_coord = uvec2(floor(float_local_coord));
     ivec2 cell_coord = chunk_start_cell_offset + ivec2(local_coord);
     vec2 tile_uv = fract(float_local_coord);
@@ -115,6 +111,7 @@ void main() {
     bool metal_dir_down = (cells.g & (1u << 4u)) > 0u;
     bool metal_dir_left = (cells.g & (1u << 3u)) > 0u;
     bool via = (cells.g & (1u << 2u)) > 0u;
+    bool socket = (cells.g & (1u << 1u)) > 0u;
 
     // Derrived values
     bool is_mosfet = mosfet_horizontal || mosfet_vertical;
@@ -216,6 +213,9 @@ void main() {
     // Linear color blending.
     // Start with base (checker) color.
     vec3 color = mix(background_color, grid_color, grid_blend);
+
+    // Socket overrides background color
+    color = mix(color, socket_color, socket ? 1.0 : 0.0);
 
     // Cursor follow highlight.
     color = mix(

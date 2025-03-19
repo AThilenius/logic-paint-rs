@@ -1,3 +1,8 @@
+use camera_controller::ToolCameraController;
+use draw_metal::ToolPaintMetal;
+use draw_si::ToolPaintSi;
+use visual::ToolVisual;
+
 use crate::{
     substrate::{buffer::Buffer, io::IoState, mask::Mask},
     utils::Selection,
@@ -7,9 +12,12 @@ use crate::{
 pub mod camera_controller;
 pub mod draw_metal;
 pub mod draw_si;
+pub mod place_socket;
 pub mod visual;
 
 pub trait Tool {
+    fn tool_name(&self) -> &str;
+
     fn activate(&mut self, buffer: Buffer) -> ToolOutput {
         let _ = buffer;
         Default::default()

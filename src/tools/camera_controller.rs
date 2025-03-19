@@ -8,6 +8,10 @@ pub struct ToolCameraController {
 }
 
 impl Tool for ToolCameraController {
+    fn tool_name(&self) -> &str {
+        "camera-controller"
+    }
+
     fn dispatch_event(
         &mut self,
         ToolInput {

@@ -8,9 +8,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_CELL_COUNT, CHUNK_SIZE, LOG_CHUNK_SIZE},
-    socket::Socket,
-    upc::{Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
-    utils::Selection,
+    upc::{Bit, Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
+    utils::{names::make_name_unique, Selection},
 };
 
 const CHUNK_BYTE_LEN: usize = CHUNK_CELL_COUNT * UPC_BYTE_LEN;
@@ -26,7 +25,8 @@ pub struct Buffer {
     /// be copied (the one that was copy-on-write updated).
     #[wasm_bindgen(skip)]
     pub chunks: Vec<BufferChunk>,
-    /// TODO: Copy On Write
+
+    /// A socket is a named GPIO in the buffer, connected to the metal layer.
     #[wasm_bindgen(skip)]
     pub sockets: Vec<Socket>,
 }
@@ -45,6 +45,15 @@ pub struct BufferChunk {
     cells: Rc<RefCell<[u8; CHUNK_BYTE_LEN]>>,
 }
 
+#[derive(Clone)]
+pub struct Socket {
+    /// The unique (within a Buffer) name of the socket.
+    pub name: String,
+
+    /// Where the socket is in the buffer. Not to be confused with the bond pad around it.
+    pub cell_coord: CellCoord,
+}
+
 #[wasm_bindgen]
 impl Buffer {
     #[wasm_bindgen(constructor)]
@@ -52,6 +61,7 @@ impl Buffer {
         Default::default()
     }
 
+    /// Gets the cell at the given location, returning default if the chunk doesn't exist.
     pub fn get_cell(&self, cell_coord: CellCoord) -> UPC {
         let chunk_coord: ChunkCoord = cell_coord.into();
         for chunk in &self.chunks {
@@ -64,36 +74,47 @@ impl Buffer {
         Default::default()
     }
 
-    pub fn set_cell(&mut self, cell_coord: CellCoord, cell: UPC) {
-        let chunk_coord: ChunkCoord = cell_coord.into();
+    /// Sets the cell at the given location, allocating a chunk to house it if needed. Note that
+    /// setting and clearing a socket will have no effect, you must use the dedicated socket
+    /// methods for that.
+    pub fn set_cell(&mut self, cell_coord: CellCoord, mut cell: UPC) {
+        Bit::set(&mut cell, Bit::SOCKET, false);
+        Bit::set(&mut cell, Bit::BOND_PAD, false);
+        self.set_cell_unchecked(cell_coord, cell, true);
+    }
 
-        // Existing chunks
-        for chunk in &mut self.chunks {
-            if chunk.chunk_coord == chunk_coord {
-                chunk.set_cell(cell_coord, cell);
-                return;
+    /// Sets the `cell_coord` to have a socket with the given unique name. If the name is
+    /// non-unique, a number will be appended to the end of the name. Setting the socket to None is
+    /// the same as clearing it.
+    pub fn set_socket(&mut self, cell_coord: CellCoord, name: Option<String>) {
+        match name {
+            Some(name) => {
+                let name =
+                    make_name_unique(name, self.sockets.iter().map(|s| s.name.clone()).collect());
+
+                // If the socket is already set (aka this is a just a rename)
+                if let Some(socket) = self.sockets.iter_mut().find(|s| s.cell_coord == cell_coord) {
+                    socket.name = name.to_string();
+                    return;
+                } else {
+                    // Set a new socket
+                    let mut cell = self.get_cell(cell_coord);
+                    Bit::set(&mut cell, Bit::SOCKET, true);
+                    self.set_cell_unchecked(cell_coord, cell, false);
+                    self.sockets.push(Socket {
+                        cell_coord,
+                        name: name.to_string(),
+                    });
+                }
+            }
+            None => {
+                // Clear the socket
+                self.sockets.retain(|s| s.cell_coord != cell_coord);
+                let mut cell = self.get_cell(cell_coord);
+                Bit::set(&mut cell, Bit::SOCKET, false);
+                self.set_cell_unchecked(cell_coord, cell, false);
             }
         }
-
-        // If a default UPC is being set, there is nothing else to do (no point in making an empty
-        // chunk).
-        if cell == Default::default() {
-            return;
-        }
-
-        // See if we have an empty chunk we can repurpose
-        for chunk in &mut self.chunks {
-            if chunk.cell_count == 0 {
-                chunk.chunk_coord = chunk_coord;
-                chunk.set_cell(cell_coord, cell);
-                return;
-            }
-        }
-
-        // Otherwise allocate a new chunk and push it to the back.
-        let mut chunk = BufferChunk::new(chunk_coord);
-        chunk.set_cell(cell_coord, cell);
-        self.chunks.push(chunk);
     }
 
     pub fn clone_selection(&self, selection: &Selection, anchor: CellCoord) -> Buffer {
@@ -212,6 +233,39 @@ impl Buffer {
 
     pub fn cell_count(&self) -> usize {
         self.chunks.iter().map(|c| c.cell_count).sum()
+    }
+
+    /// Sets the cell without first clearing socket or bond pad bits
+    fn set_cell_unchecked(&mut self, cell_coord: CellCoord, mut cell: UPC, preserve_socket: bool) {
+        let chunk_coord: ChunkCoord = cell_coord.into();
+
+        // Existing chunks
+        for chunk in &mut self.chunks {
+            if chunk.chunk_coord == chunk_coord {
+                chunk.set_cell(cell_coord, cell, preserve_socket);
+                return;
+            }
+        }
+
+        // If a default UPC is being set, there is nothing else to do (no point in making an empty
+        // chunk).
+        if cell == Default::default() {
+            return;
+        }
+
+        // See if we have an empty chunk we can repurpose
+        for chunk in &mut self.chunks {
+            if chunk.cell_count == 0 {
+                chunk.chunk_coord = chunk_coord;
+                chunk.set_cell(cell_coord, cell, preserve_socket);
+                return;
+            }
+        }
+
+        // Otherwise allocate a new chunk and push it to the back.
+        let mut chunk = BufferChunk::new(chunk_coord);
+        chunk.set_cell(cell_coord, cell, preserve_socket);
+        self.chunks.push(chunk);
     }
 
     fn fix_cell(&mut self, cell_coord: CellCoord) {
@@ -365,7 +419,7 @@ impl BufferChunk {
     }
 
     #[inline(always)]
-    pub fn set_cell<T>(&mut self, c: T, cell: UPC)
+    pub fn set_cell<T>(&mut self, c: T, mut cell: UPC, preserve_socket: bool)
     where
         T: Into<LocalCoord>,
     {
@@ -373,13 +427,16 @@ impl BufferChunk {
         let idx = (((coord.0.y << LOG_CHUNK_SIZE) + coord.0.x) as usize) << LOG_UPC_BYTE_LEN;
         let existing = UPC::from_slice(&self.cells.borrow()[idx..idx + UPC_BYTE_LEN]);
 
-        // Nothing else to do if the existing and set cell are the same (no need to check for
-        // ownership even; nothing was updated).
+        if preserve_socket {
+            Bit::set(&mut cell, Bit::SOCKET, Bit::get(existing, Bit::SOCKET));
+            Bit::set(&mut cell, Bit::BOND_PAD, Bit::get(existing, Bit::BOND_PAD));
+        }
+
+        // If the existing cell is the same, then there is nothing we need to do.
         if existing == cell {
             return;
         }
 
-        // Track cell counts
         if existing == Default::default() && cell != Default::default() {
             self.cell_count += 1;
         } else if existing != Default::default() && cell == Default::default() {

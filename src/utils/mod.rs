@@ -4,4 +4,5 @@ pub mod convert;
 
 mod iter;
 mod log;
+pub mod names;
 mod selection;

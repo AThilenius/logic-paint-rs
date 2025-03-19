@@ -80,9 +80,8 @@ impl CompilerResults {
         let mut edge_set: VecDeque<Atom> = buffer
             .sockets
             .iter()
-            .flat_map(|s| s.pins.iter().map(|p| p.cell_coord))
-            .map(|coord| Atom {
-                coord,
+            .map(|socket| Atom {
+                coord: socket.cell_coord,
                 part: CellPart::Metal,
             })
             .collect();
@@ -247,7 +246,10 @@ impl CompilerResults {
                 (
                     CellPart::Metal,
                     NormalizedCell {
-                        metal: Metal::Trace { has_via, placement },
+                        metal:
+                            Metal::Trace {
+                                has_via, placement, ..
+                            },
                         ..
                     },
                 ) => {

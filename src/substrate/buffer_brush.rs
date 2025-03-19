@@ -1,4 +1,7 @@
+use std::{cell::RefCell, sync::Arc};
+
 use arrayvec::ArrayVec;
+use futures::lock::Mutex;
 use glam::IVec2;
 use wasm_bindgen::prelude::*;
 
@@ -6,8 +9,16 @@ use crate::{
     coords::CellCoord,
     substrate::buffer::Buffer,
     upc::{Metal, NormalizedCell, Placement, Silicon},
-    utils::{range_iter, Selection},
+    utils::{convert::import_legacy_blueprint, range_iter, Selection},
 };
+
+thread_local! {
+    pub static FONT_FACE_BUFFER: RefCell<Buffer> = {
+        let legacy_string = include_str!("../../templates/font_file.lpbp").to_string();
+        let buffer = import_legacy_blueprint(legacy_string).unwrap();
+        RefCell::new(buffer)
+    };
+}
 
 #[wasm_bindgen]
 impl Buffer {
@@ -156,6 +167,75 @@ impl Buffer {
         for y in (ll.y + 1)..(ur.y - 1) {
             for x in (ll.x + 1)..(ur.x - 1) {
                 self.set_cell(CellCoord(IVec2::new(x, y)), Default::default());
+            }
+        }
+    }
+
+    pub fn draw_label(&mut self, cell_coord: CellCoord, text: &str, cursor: Option<usize>) {
+        let mut cursor_x = 0;
+        let mut cursor_y = 0;
+
+        for c in text.chars() {
+            if c == '\n' {
+                cursor_y -= 4;
+                cursor_x = 0;
+                continue;
+            }
+
+            if !c.is_ascii() {
+                continue;
+            }
+
+            let ascii = c as u8;
+
+            // Space starts at 32. Everything before that are control signals.
+            let index = (ascii as i32) - 32;
+            let ll = IVec2::new(index * 3, 0);
+
+            FONT_FACE_BUFFER.with_borrow(|font_face_buffer| {
+                let character_buffer = font_face_buffer.clone_selection(
+                    &Selection {
+                        lower_left: CellCoord(ll),
+                        upper_right: CellCoord(ll + IVec2::new(3, 3)),
+                    },
+                    CellCoord(ll),
+                );
+
+                self.paste_at(
+                    CellCoord(IVec2::new(cursor_x, cursor_y) + cell_coord.0),
+                    &character_buffer,
+                );
+            });
+
+            cursor_x += 3;
+        }
+
+        // Draw cursor
+        if let Some(cursor) = cursor {
+            let mut c_x = 0;
+            let mut c_y = 0;
+
+            for (i, c) in text.chars().enumerate() {
+                if i >= cursor {
+                    break;
+                }
+
+                if c == '\n' {
+                    c_y -= 4;
+                    c_x = 0;
+                } else {
+                    c_x += 3;
+                }
+            }
+
+            c_y -= 1;
+            self.draw_metal_link(None, (c_x + cell_coord.0.x, c_y + cell_coord.0.y).into());
+            for _ in 1..5 {
+                self.draw_metal_link(
+                    Some((c_x + cell_coord.0.x, c_y + cell_coord.0.y).into()),
+                    (c_x + cell_coord.0.x, c_y + cell_coord.0.y + 1).into(),
+                );
+                c_y += 1;
             }
         }
     }
@@ -421,6 +501,8 @@ impl Buffer {
         if let Metal::None = to_cell.metal {
             to_cell.metal = Metal::Trace {
                 has_via: false,
+                has_socket: false,
+                has_bond_pad: false,
                 placement: Placement::CENTER,
             };
         }
