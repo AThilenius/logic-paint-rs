@@ -2,8 +2,8 @@ use wasm_bindgen::prelude::*;
 // use wasm_thread as thread;
 
 mod coords;
-mod editor;
-mod socket;
+mod module;
+mod project;
 mod substrate;
 mod tools;
 mod upc;

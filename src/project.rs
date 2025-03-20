@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
 use crate::{
     coords::CellCoord,
-    substrate::{buffer::Buffer, io::IoState, mask::Mask},
+    module::Module,
+    substrate::{buffer::Buffer, execution_context::ExecutionContext, io::IoState, mask::Mask},
     tools::{
         camera_controller::ToolCameraController, draw_metal::ToolPaintMetal, draw_si::ToolPaintSi,
         place_socket::ToolPlaceSocket, visual::ToolVisual, Tool, ToolInput, ToolOutput,
@@ -12,12 +11,10 @@ use crate::{
 };
 use wasm_bindgen::prelude::*;
 
-/// An Editor represents the underlying 'state' of an edit session, including the buffer data,
-/// transient buffers, masks, tools, and active tool states. It can be thought of as an active
-/// 'file'. It does not include anything having to do with the presentation of the editor, like
-/// cameras, viewports, and so on.
+/// Contains all the underlying state of a project, including the active buffer, mask, modules,
+/// history and tools.
 #[wasm_bindgen(getter_with_clone)]
-pub struct Editor {
+pub struct Project {
     /// The active buffer that dispatched input will be rendered to (like drawing).
     /// This is used as the base for rendering (with mouse-follow stacked on top of it).
     pub buffer: Buffer,
@@ -34,11 +31,17 @@ pub struct Editor {
     /// The CSS style that should be applied to the cursor.
     pub cursor_style: String,
 
+    /// Modules
+    modules: Vec<Box<dyn Module>>,
+
     /// All loaded tools
     tools: Vec<Box<dyn Tool>>,
 
     /// The active tool
     active_tool: usize,
+
+    /// When set, buffer must be static.
+    execution_context: Option<ExecutionContext>,
 }
 
 #[wasm_bindgen(getter_with_clone)]
@@ -56,7 +59,7 @@ pub struct ToolPersist {
 }
 
 #[wasm_bindgen]
-impl Editor {
+impl Project {
     #[wasm_bindgen(constructor)]
     pub fn new(buffer: Buffer) -> Self {
         let mut tools = vec![];
@@ -80,8 +83,10 @@ impl Editor {
             cursor_style: tool_output
                 .cursor_style
                 .unwrap_or_else(|| "default".to_string()),
+            modules: vec![],
             tools,
             active_tool: 0,
+            execution_context: None,
         }
     }
 
@@ -173,7 +178,7 @@ impl Editor {
 
         if let Some(bytes) = output.persist_tool_state {
             dispatch_result.tools_persist.push(ToolPersist {
-                tool_name: self.tools[idx].tool_name().to_string(),
+                tool_name: self.tools[idx].get_name().to_string(),
                 serialized_state: bytes,
             });
         }

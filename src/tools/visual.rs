@@ -23,7 +23,7 @@ pub struct ToolVisual {
 }
 
 impl Tool for ToolVisual {
-    fn tool_name(&self) -> &str {
+    fn get_name(&self) -> &str {
         "visual"
     }
 

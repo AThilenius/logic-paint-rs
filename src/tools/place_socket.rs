@@ -18,7 +18,7 @@ pub struct ToolPlaceSocket {
 }
 
 impl Tool for ToolPlaceSocket {
-    fn tool_name(&self) -> &str {
+    fn get_name(&self) -> &str {
         "place-socket"
     }
 

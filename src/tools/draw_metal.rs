@@ -16,7 +16,7 @@ pub struct ToolPaintMetal {
 }
 
 impl Tool for ToolPaintMetal {
-    fn tool_name(&self) -> &str {
+    fn get_name(&self) -> &str {
         "paint-metal"
     }
 

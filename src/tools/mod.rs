@@ -16,7 +16,7 @@ pub mod place_socket;
 pub mod visual;
 
 pub trait Tool {
-    fn tool_name(&self) -> &str;
+    fn get_name(&self) -> &str;
 
     fn activate(&mut self, buffer: Buffer) -> ToolOutput {
         let _ = buffer;

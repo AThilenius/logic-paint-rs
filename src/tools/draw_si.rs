@@ -19,7 +19,7 @@ pub struct ToolPaintSi {
 }
 
 impl Tool for ToolPaintSi {
-    fn tool_name(&self) -> &str {
+    fn get_name(&self) -> &str {
         "paint-si"
     }
 

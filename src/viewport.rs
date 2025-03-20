@@ -6,7 +6,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
     coords::ChunkCoord,
-    editor::Editor,
+    project::Project,
     wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
 };
 
@@ -48,7 +48,7 @@ impl Viewport {
         }
     }
 
-    pub fn draw(&mut self, camera: &mut Camera, editor: &Editor) -> Result<(), JsValue> {
+    pub fn draw(&mut self, camera: &mut Camera, editor: &Project) -> Result<(), JsValue> {
         let time: f64 = web_sys::window()
             .expect("should have a window in this context")
             .performance()

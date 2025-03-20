@@ -4,7 +4,7 @@ pub mod buffer_delta;
 pub mod buffer_serde;
 pub mod compiler;
 pub mod compress;
-// pub mod execution_context;
+pub mod execution_context;
 pub mod io;
 pub mod label_builder;
 pub mod mask;

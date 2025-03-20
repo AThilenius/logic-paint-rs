@@ -8,7 +8,7 @@ pub struct ToolCameraController {
 }
 
 impl Tool for ToolCameraController {
-    fn tool_name(&self) -> &str {
+    fn get_name(&self) -> &str {
         "camera-controller"
     }
 
