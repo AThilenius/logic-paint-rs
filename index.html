@@ -3,7 +3,15 @@
     <title>Test page with a minimal editor in it</title>
     <meta name="theme-color" content="#000000" />
     <link data-trunk rel="copy-file" href="misc/cpu.lpbp" />
+    <link
+      data-trunk
+      rel="rust"
+      href="Cargo.toml"
+      data-wasm-opt="z"
+      data-bindgen-target="web"
+    />
   </head>
+
   <body>
     <style>
       body {
@@ -28,6 +36,9 @@
 
         const wasm = window.wasmBindings;
 
+        // Multi-thread test
+        wasm.run_thread_test();
+
         // Load legacy cpu.lpbp
         let res = await fetch("cpu.lpbp");
         let text = await res.text();
@@ -36,22 +47,22 @@
         let camera = new wasm.Camera(new wasm.Vec2(0, 0), 1);
         const ioState = new wasm.IoState();
         const viewport = new wasm.Viewport(canvas);
-        const editor = new wasm.Editor(buffer);
+        const project = new wasm.Project(buffer);
 
         // Render loop
         const render = () => {
-          viewport.draw(camera, editor);
+          viewport.draw(camera, project);
           requestAnimationFrame(render);
         };
         render();
 
         // Event dispatch
         const dispatch = () => {
-          const result = editor.dispatch_event(ioState, camera);
+          const result = project.dispatch_event(ioState, camera);
           if (result.camera != null) {
             camera = result.camera;
           }
-          canvas.style.cursor = editor.cursor_style;
+          canvas.style.cursor = project.cursor_style;
         };
 
         // Event hooks

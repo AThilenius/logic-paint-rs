@@ -26,7 +26,6 @@
               openssl
               pkg-config
               trunk
-              wasm-bindgen-cli
               wasm-pack
               (rust-bin.nightly.latest.default.override {
                 targets = ["wasm32-unknown-unknown"];
