@@ -1,4 +1,8 @@
+mod parser;
+
 use std::mem::transmute;
+
+use parser::parser_test;
 
 struct LC3B {
     /// Memory for the register file
@@ -19,9 +23,7 @@ struct LC3B {
     pub p: bool,
 
     /// Buses
-    pub d_bus: u16,
-    pub a_bus: u16,
-    pub b_bus: u16,
+    pub bus: u16,
 
     /// Addressable memory
     pub memory: [u8; 65_536],
@@ -259,29 +261,29 @@ impl LC3B {
             } => {
                 if (n && self.n) || (z && self.z) || (p && self.p) {
                     // Branch followed: pc = pc + pc_word_offset
-                    self.d_bus = self.pc.wrapping_add(pc_word_offset);
-                    self.pc = self.d_bus;
+                    self.bus = self.pc.wrapping_add(pc_word_offset);
+                    self.pc = self.bus;
                 } else {
                     // Branch not followed: pc = pc + 2
-                    self.d_bus = self.pc.wrapping_add(2);
-                    self.pc = self.d_bus;
+                    self.bus = self.pc.wrapping_add(2);
+                    self.pc = self.bus;
                 }
             }
             // State 12
             OpCode::JMP { base_r } => {
-                self.d_bus = self.reg_file[base_r];
-                self.pc = self.d_bus;
+                self.bus = self.reg_file[base_r];
+                self.pc = self.bus;
             }
             // State 1
             OpCode::Add(alu_operand) => {
                 match alu_operand {
                     AluOperand::Registers { dr, sr1, sr2 } => {
-                        self.d_bus = self.reg_file[sr1].wrapping_add(self.reg_file[sr2]);
-                        self.reg_file[dr] = self.d_bus
+                        self.bus = self.reg_file[sr1].wrapping_add(self.reg_file[sr2]);
+                        self.reg_file[dr] = self.bus
                     }
                     AluOperand::Immediate { dr, sr1, immediate } => {
-                        self.d_bus = self.reg_file[sr1].wrapping_add(immediate);
-                        self.reg_file[dr] = self.d_bus
+                        self.bus = self.reg_file[sr1].wrapping_add(immediate);
+                        self.reg_file[dr] = self.bus
                     }
                 }
 
@@ -291,12 +293,12 @@ impl LC3B {
             OpCode::Sub(alu_operand) => {
                 match alu_operand {
                     AluOperand::Registers { dr, sr1, sr2 } => {
-                        self.d_bus = self.reg_file[sr1].wrapping_sub(self.reg_file[sr2]);
-                        self.reg_file[dr] = self.d_bus;
+                        self.bus = self.reg_file[sr1].wrapping_sub(self.reg_file[sr2]);
+                        self.reg_file[dr] = self.bus;
                     }
                     AluOperand::Immediate { dr, sr1, immediate } => {
-                        self.d_bus = self.reg_file[sr1].wrapping_sub(immediate);
-                        self.reg_file[dr] = self.d_bus;
+                        self.bus = self.reg_file[sr1].wrapping_sub(immediate);
+                        self.reg_file[dr] = self.bus;
                     }
                 }
 
@@ -306,12 +308,12 @@ impl LC3B {
             OpCode::And(alu_operand) => {
                 match alu_operand {
                     AluOperand::Registers { dr, sr1, sr2 } => {
-                        self.d_bus = self.reg_file[sr1] & self.reg_file[sr2];
-                        self.reg_file[dr] = self.d_bus;
+                        self.bus = self.reg_file[sr1] & self.reg_file[sr2];
+                        self.reg_file[dr] = self.bus;
                     }
                     AluOperand::Immediate { dr, sr1, immediate } => {
-                        self.d_bus = self.reg_file[sr1] & immediate;
-                        self.reg_file[dr] = self.d_bus;
+                        self.bus = self.reg_file[sr1] & immediate;
+                        self.reg_file[dr] = self.bus;
                     }
                 }
 
@@ -321,12 +323,12 @@ impl LC3B {
             OpCode::Or(alu_operand) => {
                 match alu_operand {
                     AluOperand::Registers { dr, sr1, sr2 } => {
-                        self.d_bus = self.reg_file[sr1] | self.reg_file[sr2];
-                        self.reg_file[dr] = self.d_bus;
+                        self.bus = self.reg_file[sr1] | self.reg_file[sr2];
+                        self.reg_file[dr] = self.bus;
                     }
                     AluOperand::Immediate { dr, sr1, immediate } => {
-                        self.d_bus = self.reg_file[sr1] | immediate;
-                        self.reg_file[dr] = self.d_bus;
+                        self.bus = self.reg_file[sr1] | immediate;
+                        self.reg_file[dr] = self.bus;
                     }
                 }
 
@@ -336,12 +338,12 @@ impl LC3B {
             OpCode::Xor(alu_operand) => {
                 match alu_operand {
                     AluOperand::Registers { dr, sr1, sr2 } => {
-                        self.d_bus = self.reg_file[sr1] ^ self.reg_file[sr2];
-                        self.reg_file[dr] = self.d_bus;
+                        self.bus = self.reg_file[sr1] ^ self.reg_file[sr2];
+                        self.reg_file[dr] = self.bus;
                     }
                     AluOperand::Immediate { dr, sr1, immediate } => {
-                        self.d_bus = self.reg_file[sr1] ^ immediate;
-                        self.reg_file[dr] = self.d_bus;
+                        self.bus = self.reg_file[sr1] ^ immediate;
+                        self.reg_file[dr] = self.bus;
                     }
                 }
 
@@ -356,8 +358,8 @@ impl LC3B {
                 self.mar = self.reg_file[base_r].wrapping_add(offset);
                 let mar = self.mar as usize;
                 // State 21
-                self.d_bus = self.memory[mar] as u16;
-                self.reg_file[dr] = self.d_bus;
+                self.bus = self.memory[mar] as u16;
+                self.reg_file[dr] = self.bus;
                 self.set_cc();
             }
             OpCode::LDW { dr, base_r, offset } => {
@@ -365,20 +367,20 @@ impl LC3B {
                 self.mar = self.reg_file[base_r].wrapping_add(offset);
                 let mar = self.mar as usize;
                 // State 22
-                self.d_bus = ((self.memory[mar] as u16) << 8) | (self.memory[mar + 1] as u16);
-                self.reg_file[dr] = self.d_bus;
+                self.bus = ((self.memory[mar] as u16) << 8) | (self.memory[mar + 1] as u16);
+                self.reg_file[dr] = self.bus;
                 self.set_cc();
             }
             // State 10
             OpCode::LDI { dr, value } => {
-                self.d_bus = value;
-                self.reg_file[dr] = self.d_bus;
+                self.bus = value;
+                self.reg_file[dr] = self.bus;
                 self.set_cc();
             }
             // State 14
             OpCode::LEA { dr, pc_offset } => {
-                self.d_bus = self.pc.wrapping_add(pc_offset);
-                self.reg_file[dr] = self.d_bus;
+                self.bus = self.pc.wrapping_add(pc_offset);
+                self.reg_file[dr] = self.bus;
                 self.set_cc();
             }
             // State 3
@@ -409,7 +411,7 @@ impl LC3B {
         self.z = false;
         self.p = false;
 
-        let signed: i16 = unsafe { transmute(self.d_bus) };
+        let signed: i16 = unsafe { transmute(self.bus) };
 
         if signed > 0 {
             self.p = true;
@@ -422,9 +424,7 @@ impl LC3B {
 }
 
 fn main() {
-    // Program needs to start at 0x2
-
-    println!("Hello, world!");
+    parser_test();
 }
 
 #[inline(always)]
