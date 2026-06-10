@@ -21,6 +21,7 @@ pub struct RenderContext {
 struct RenderChunk {
     cell_texture: Texture,
     vao: QuadVao,
+    last_uploaded_cells: Vec<u8>,
 }
 
 impl RenderContext {
@@ -80,8 +81,14 @@ impl RenderContext {
             } else {
                 let vao = QuadVao::new(&self.gl, &self.program, &chunk_coord)?;
                 let cell_texture = Texture::new_chunk_texture(&self.gl)?;
-                self.render_chunks
-                    .insert(chunk_coord.clone(), RenderChunk { cell_texture, vao });
+                self.render_chunks.insert(
+                    chunk_coord.clone(),
+                    RenderChunk {
+                        cell_texture,
+                        vao,
+                        last_uploaded_cells: Vec::new(),
+                    },
+                );
                 self.render_chunks.get_mut(&chunk_coord).unwrap()
             };
 
@@ -117,7 +124,10 @@ impl RenderContext {
                     }
                 }
 
-                render_chunk.cell_texture.set_pixels(&packed_cells[..])?;
+                if render_chunk.last_uploaded_cells.as_slice() != packed_cells.as_slice() {
+                    render_chunk.cell_texture.set_pixels(&packed_cells[..])?;
+                    render_chunk.last_uploaded_cells = packed_cells;
+                }
 
                 // Bind the render chunk's texture as it's non-empty.
                 render_chunk.cell_texture.bind();
