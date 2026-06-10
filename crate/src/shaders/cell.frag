@@ -7,12 +7,11 @@ in vec2 v_uv;
 
 uniform float time;
 uniform usampler2D cells_texture_sampler;
-uniform usampler2D mask_texture_sampler;
 
 // Style uniforms
 uniform ivec2 chunk_start_cell_offset;
-uniform vec4 n_color;
-uniform vec4 p_color;
+uniform vec3 n_color;
+uniform vec3 p_color;
 uniform vec3 active_color;
 uniform vec3 active_blend_strength_si_gate_metal;
 uniform vec3 metal_color;
@@ -99,7 +98,6 @@ void main() {
     vec2 tile_uv = fract(float_local_coord);
 
     uvec4 cells = texelFetch(cells_texture_sampler, ivec2(local_coord), 0);
-    uvec4 mask = texelFetch(mask_texture_sampler, ivec2(local_coord), 0);
 
     // Mirrors the format in upc.rs
     bool si_n = (cells.r & (1u << 7u)) > 0u;
@@ -111,20 +109,24 @@ void main() {
     bool si_dir_down = (cells.r & (1u << 1u)) > 0u;
     bool si_dir_left = (cells.r & (1u << 0u)) > 0u;
 
-    bool metal = (cells.g & (1u << 7u)) > 3u;
+    bool metal = (cells.g & (1u << 7u)) > 0u;
     bool metal_dir_up = (cells.g & (1u << 6u)) > 0u;
     bool metal_dir_right = (cells.g & (1u << 5u)) > 0u;
     bool metal_dir_down = (cells.g & (1u << 4u)) > 0u;
     bool metal_dir_left = (cells.g & (1u << 3u)) > 0u;
     bool via = (cells.g & (1u << 2u)) > 0u;
 
+    // Packed mask values in cells.b
+    bool metal_active = (cells.b & (1u << 0u)) > 0u;
+    bool gate_active = (cells.b & (1u << 1u)) > 0u;
+    bool si_ul_mask_active = (cells.b & (1u << 2u)) > 0u;
+    bool si_dr_mask_active = (cells.b & (1u << 3u)) > 0u;
+
     // Derrived values
     bool is_mosfet = mosfet_horizontal || mosfet_vertical;
 
-    bool metal_active = (mask.r & (1u << 0u)) > 0u;
-    bool gate_active = (mask.g & (1u << 0u)) > 0u;
-    bool si_ul_active = (mask.b & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
-    bool si_dr_active = (mask.a & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
+    bool si_ul_active = si_ul_mask_active || (!is_mosfet && gate_active);
+    bool si_dr_active = si_dr_mask_active || (!is_mosfet && gate_active);
 
     bool cell_selected =
         cell_coord.x >= cell_select_ll.x &&
@@ -171,13 +173,13 @@ void main() {
         mod(stripe_uv.x + stripe_uv.y + time, 2.0) * 0.5
     );
 
-    bool grid_1 = (((local_coord.x % 2u) + (local_coord.y % 2u)) % 2u) == 0u;
-    bool grid_8 = ((((local_coord.x >> 3) % 2u) + ((local_coord.y >> 3) % 2u)) % 2u) == 0u;
+    bool grid_1 = (((local_coord.x & 1u) + (local_coord.y & 1u)) & 1u) == 0u;
+    bool grid_8 = ((((local_coord.x >> 3u) & 1u) + ((local_coord.y >> 3u) & 1u)) & 1u) == 0u;
     float grid_blend =
           (grid_8 ? grid_blend_strength * 0.6 : 0.0)
         + (grid_1 ? grid_blend_strength : 0.0);
 
-    vec3 si_color = si_n ? n_color.rgb : p_color.rgb;
+    vec3 si_color = si_n ? n_color : p_color;
     bool si_active = mosfet_vertical
         ?  (tile_uv.x < 0.5 ? si_ul_active : si_dr_active)
         :  (tile_uv.y > 0.5 ? si_ul_active : si_dr_active);
@@ -191,7 +193,7 @@ void main() {
     );
     float si_blend = (si_n || si_p) && si_connection ? 1.0 : 0.0;
 
-    vec3 gate_color = si_n ? p_color.rgb : n_color.rgb;
+    vec3 gate_color = si_n ? p_color : n_color;
     gate_color = mix(
         gate_color,
         active_color,
@@ -206,7 +208,7 @@ void main() {
     );
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 
-    vec3 via_color = mix(si_color, vec3(1.0), 1.0);
+    vec3 via_color = vec3(1.0);
     vec2 via_dist = tile_uv - vec2(0.5);
     float via_blend = 1.0 - smoothstep(
         0.1,

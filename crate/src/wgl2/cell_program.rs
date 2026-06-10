@@ -1,4 +1,4 @@
-use glam::{IVec2, Mat4, Vec3, Vec4};
+use glam::{IVec2, Mat4, Vec3};
 use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader};
 
 use super::{uniform::Uniform, SetUniformType};
@@ -11,14 +11,13 @@ pub struct CellProgram {
     pub view_proj: Uniform<Mat4>,
     pub time: Uniform<f32>,
     pub cells_texture_sampler: Uniform<i32>,
-    pub mask_texture_sampler: Uniform<i32>,
     pub attr_position: u32,
     pub attr_uv: u32,
 
     // Style uniforms
     pub chunk_start_cell_offset: Uniform<IVec2>,
-    pub n_color: Uniform<Vec4>,
-    pub p_color: Uniform<Vec4>,
+    pub n_color: Uniform<Vec3>,
+    pub p_color: Uniform<Vec3>,
     pub metal_color: Uniform<Vec3>,
     pub active_color: Uniform<Vec3>,
     pub active_blend_strength_si_gate_metal: Uniform<Vec3>,
@@ -48,7 +47,6 @@ impl CellProgram {
         let attr_position = ctx.get_attrib_location(&program, "position") as u32;
         let attr_uv = ctx.get_attrib_location(&program, "uv") as u32;
         let cells_texture_sampler = Uniform::new(&ctx, &program, "cells_texture_sampler");
-        let mask_texture_sampler = Uniform::new(&ctx, &program, "mask_texture_sampler");
 
         let chunk_start_cell_offset = Uniform::new(&ctx, &program, "chunk_start_cell_offset");
         let n_color = Uniform::new(&ctx, &program, "n_color");
@@ -71,8 +69,8 @@ impl CellProgram {
 
         // Set default style values
         chunk_start_cell_offset.set(&ctx, IVec2::new(0, 0));
-        n_color.set(&ctx, Vec4::new(0.98, 0.0, 0.77, 1.0));
-        p_color.set(&ctx, Vec4::new(0.0, 0.87, 1.0, 1.0));
+        n_color.set(&ctx, Vec3::new(0.98, 0.0, 0.77));
+        p_color.set(&ctx, Vec3::new(0.0, 0.87, 1.0));
         metal_color.set(&ctx, Vec3::new(0.2, 0.2, 0.2));
         active_color.set(&ctx, Vec3::new(1.0, 1.0, 1.0));
         active_blend_strength_si_gate_metal.set(&ctx, Vec3::new(0.8, 0.8, 0.5));
@@ -90,14 +88,12 @@ impl CellProgram {
 
         // Set defaults for texture samplers
         cells_texture_sampler.set(&ctx, 0);
-        mask_texture_sampler.set(&ctx, 1);
 
         Ok(Self {
             program: program.clone(),
             view_proj: Uniform::new(&ctx, &program, "view_proj"),
             time: Uniform::new(&ctx, &program, "time"),
             cells_texture_sampler,
-            mask_texture_sampler,
             attr_position,
             attr_uv,
             chunk_start_cell_offset,
