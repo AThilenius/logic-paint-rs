@@ -1,3 +1,27 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_mut,
+    unused_variables,
+    mismatched_lifetime_syntaxes,
+    clippy::assign_op_pattern,
+    clippy::clone_on_copy,
+    clippy::collapsible_if,
+    clippy::collapsible_match,
+    clippy::derivable_impls,
+    clippy::explicit_auto_deref,
+    clippy::filter_next,
+    clippy::identity_op,
+    clippy::len_zero,
+    clippy::manual_is_multiple_of,
+    clippy::needless_borrow,
+    clippy::needless_return,
+    clippy::single_match,
+    clippy::upper_case_acronyms,
+    clippy::useless_conversion,
+    clippy::wrong_self_convention
+)]
+
 use std::time::Duration;
 
 use wasm_bindgen::prelude::*;
