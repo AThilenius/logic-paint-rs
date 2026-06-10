@@ -61,13 +61,13 @@ impl Texture {
     pub fn set_pixels(&self, pixels: &[u8]) -> Result<(), JsValue> {
         self.bind();
         self.gl
-            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+            .tex_sub_image_2d_with_i32_and_i32_and_u32_and_type_and_opt_u8_array(
                 WebGl2RenderingContext::TEXTURE_2D,
                 0,
-                WebGl2RenderingContext::RGBA8UI as i32,
-                CHUNK_SIZE as i32,
-                CHUNK_SIZE as i32,
                 0,
+                0,
+                CHUNK_SIZE as i32,
+                CHUNK_SIZE as i32,
                 WebGl2RenderingContext::RGBA_INTEGER,
                 WebGl2RenderingContext::UNSIGNED_BYTE,
                 Some(pixels),

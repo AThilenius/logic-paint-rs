@@ -7,7 +7,6 @@ in vec2 v_uv;
 
 uniform float time;
 uniform usampler2D cells_texture_sampler;
-uniform usampler2D mask_texture_sampler;
 
 // Coord computation
 uniform ivec2 chunk_start_cell_offset;
@@ -87,13 +86,21 @@ bool connection_gate(
 }
 
 void main() {
-    vec2 float_local_coord = v_uv;
-    uvec2 local_coord = uvec2(floor(float_local_coord));
+    float epsilon = 0.00001;
+    vec2 float_local_coord = clamp(
+        v_uv,
+        vec2(0.0),
+        vec2(128.0 - epsilon)
+    );
+    uvec2 local_coord = clamp(
+        uvec2(floor(float_local_coord)),
+        uvec2(0),
+        uvec2(127)
+    );
     ivec2 cell_coord = chunk_start_cell_offset + ivec2(local_coord);
     vec2 tile_uv = fract(float_local_coord);
 
     uvec4 cells = texelFetch(cells_texture_sampler, ivec2(local_coord), 0);
-    uvec4 mask = texelFetch(mask_texture_sampler, ivec2(local_coord), 0);
 
     // Mirrors the format in upc.rs
     bool si_n = (cells.r & (1u << 7u)) > 0u;
@@ -105,7 +112,7 @@ void main() {
     bool si_dir_down = (cells.r & (1u << 1u)) > 0u;
     bool si_dir_left = (cells.r & (1u << 0u)) > 0u;
 
-    bool metal = (cells.g & (1u << 7u)) > 3u;
+    bool metal = (cells.g & (1u << 7u)) > 0u;
     bool metal_dir_up = (cells.g & (1u << 6u)) > 0u;
     bool metal_dir_right = (cells.g & (1u << 5u)) > 0u;
     bool metal_dir_down = (cells.g & (1u << 4u)) > 0u;
@@ -116,10 +123,11 @@ void main() {
     // Derrived values
     bool is_mosfet = mosfet_horizontal || mosfet_vertical;
 
-    bool metal_active = (mask.r & (1u << 0u)) > 0u;
-    bool gate_active = (mask.g & (1u << 0u)) > 0u;
-    bool si_ul_active = (mask.b & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
-    bool si_dr_active = (mask.a & (1u << 0u)) > 0u || (!is_mosfet && gate_active);
+    // Packed mask values in cells.b
+    bool metal_active = (cells.b & (1u << 0u)) > 0u;
+    bool gate_active = (cells.b & (1u << 1u)) > 0u;
+    bool si_ul_active = (cells.b & (1u << 2u)) > 0u || (!is_mosfet && gate_active);
+    bool si_dr_active = (cells.b & (1u << 3u)) > 0u || (!is_mosfet && gate_active);
 
     bool cell_selected =
         cell_coord.x >= cell_select_ll.x &&
@@ -166,8 +174,8 @@ void main() {
         mod(stripe_uv.x + stripe_uv.y + time, 2.0) * 0.5
     );
 
-    bool grid_1 = (((local_coord.x % 2u) + (local_coord.y % 2u)) % 2u) == 0u;
-    bool grid_8 = ((((local_coord.x >> 3) % 2u) + ((local_coord.y >> 3) % 2u)) % 2u) == 0u;
+    bool grid_1 = (((local_coord.x & 1u) + (local_coord.y & 1u)) & 1u) == 0u;
+    bool grid_8 = ((((local_coord.x >> 3u) & 1u) + ((local_coord.y >> 3u) & 1u)) & 1u) == 0u;
     float grid_blend =
           (grid_8 ? grid_blend_strength * 0.6 : 0.0)
         + (grid_1 ? grid_blend_strength : 0.0);

@@ -21,8 +21,9 @@ pub struct Viewport {
 
 struct RenderChunk {
     cell_texture: Texture,
-    mask_texture: Texture,
     vao: QuadVao,
+    last_uploaded_cells: Vec<u8>,
+    scratch_cells: Vec<u8>,
 }
 
 #[wasm_bindgen]
@@ -102,12 +103,8 @@ impl Viewport {
 
         // Render the background VAO.
         let vao = QuadVao::new(&self.gl, &self.program, &ll, width.max(height) as u32 + 1)?;
-        // Bind empty cell and mask textures
+        // Bind empty cell texture
         self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
-        self.gl
-            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
-
-        self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
         self.gl
             .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
 
@@ -133,44 +130,72 @@ impl Viewport {
             } else {
                 let vao = QuadVao::new(&self.gl, &self.program, &coord, 1)?;
                 let cell_texture = Texture::new_chunk_texture(&self.gl)?;
-                let mask_texture = Texture::new_chunk_texture(&self.gl)?;
                 self.render_chunks.insert(
                     coord.clone(),
                     RenderChunk {
                         cell_texture,
-                        mask_texture,
                         vao,
+                        last_uploaded_cells: Vec::new(),
+                        scratch_cells: Vec::new(),
                     },
                 );
                 self.render_chunks.get_mut(&coord).unwrap()
             };
 
-            // Update and bind the cell texture.
+            // Update and bind the packed cell texture.
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
 
-            // Blit cells
+            let chunk_cells = chunk.get_cells();
+            if render_chunk.scratch_cells.len() != chunk_cells.len() {
+                render_chunk.scratch_cells.resize(chunk_cells.len(), 0);
+            }
             render_chunk
-                .cell_texture
-                .set_pixels(&chunk.get_cells()[..])?;
+                .scratch_cells
+                .copy_from_slice(chunk_cells.as_ref());
+
+            if let Some(mask_chunk) = editor.mask.get_chunk(coord) {
+                let cell_count = render_chunk.scratch_cells.len() / 4;
+                for cell_idx in 0..cell_count {
+                    let base = cell_idx * 4;
+                    let mut packed_mask = 0_u8;
+                    if mask_chunk.cells[base + 0] > 0 {
+                        packed_mask |= 1 << 0;
+                    }
+                    if mask_chunk.cells[base + 1] > 0 {
+                        packed_mask |= 1 << 1;
+                    }
+                    if mask_chunk.cells[base + 2] > 0 {
+                        packed_mask |= 1 << 2;
+                    }
+                    if mask_chunk.cells[base + 3] > 0 {
+                        packed_mask |= 1 << 3;
+                    }
+                    render_chunk.scratch_cells[base + 2] = packed_mask;
+                }
+            } else {
+                // Clear packed mask channel.
+                let cell_count = render_chunk.scratch_cells.len() / 4;
+                for cell_idx in 0..cell_count {
+                    render_chunk.scratch_cells[(cell_idx * 4) + 2] = 0;
+                }
+            }
+
+            if render_chunk.last_uploaded_cells.as_slice() != render_chunk.scratch_cells.as_slice() {
+                render_chunk
+                    .cell_texture
+                    .set_pixels(render_chunk.scratch_cells.as_slice())?;
+                if render_chunk.last_uploaded_cells.len() != render_chunk.scratch_cells.len() {
+                    render_chunk
+                        .last_uploaded_cells
+                        .resize(render_chunk.scratch_cells.len(), 0);
+                }
+                render_chunk
+                    .last_uploaded_cells
+                    .copy_from_slice(render_chunk.scratch_cells.as_slice());
+            }
 
             // Bind the render chunk's texture as it's non-empty.
             render_chunk.cell_texture.bind();
-
-            // Update and bind the mask texture.
-            self.gl.active_texture(WebGl2RenderingContext::TEXTURE1);
-
-            if let Some(mask_chunk) = editor.mask.get_chunk(coord) {
-                render_chunk
-                    .mask_texture
-                    .set_pixels(&mask_chunk.cells[..])?;
-
-                // Bind the mask chunk's texture as it's non-empty.
-                render_chunk.mask_texture.bind();
-            } else {
-                // Bind the empty texture.
-                self.gl
-                    .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
-            }
 
             // Update the per-chunk program uniforms
             self.program

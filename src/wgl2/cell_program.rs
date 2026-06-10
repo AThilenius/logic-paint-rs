@@ -11,7 +11,6 @@ pub struct CellProgram {
     pub view_proj: Uniform<Mat4>,
     pub time: Uniform<f32>,
     pub cells_texture_sampler: Uniform<i32>,
-    pub mask_texture_sampler: Uniform<i32>,
     pub attr_position: u32,
     pub attr_uv: u32,
 
@@ -33,7 +32,6 @@ impl CellProgram {
         let attr_uv = ctx.get_attrib_location(&program, "uv") as u32;
 
         let cells_texture_sampler = Uniform::new(&ctx, &program, "cells_texture_sampler");
-        let mask_texture_sampler = Uniform::new(&ctx, &program, "mask_texture_sampler");
         let chunk_start_cell_offset = Uniform::new(&ctx, &program, "chunk_start_cell_offset");
         let cell_select_ll = Uniform::new(&ctx, &program, "cell_select_ll");
         let cell_select_ur = Uniform::new(&ctx, &program, "cell_select_ur");
@@ -46,14 +44,12 @@ impl CellProgram {
 
         // Set defaults for texture samplers
         cells_texture_sampler.set(&ctx, 0);
-        mask_texture_sampler.set(&ctx, 1);
 
         Ok(Self {
             program: program.clone(),
             view_proj: Uniform::new(&ctx, &program, "view_proj"),
             time: Uniform::new(&ctx, &program, "time"),
             cells_texture_sampler,
-            mask_texture_sampler,
             attr_position,
             attr_uv,
             chunk_start_cell_offset,
