@@ -42,11 +42,7 @@ pub fn standard_pin(props: &Props) -> Html {
                         )}
                         onclick={
                             let on_click = on_click.clone();
-                            if let Some(on_click) = on_click {
-                                Some(Callback::from(move |_| { on_click.emit(i); }))
-                            } else {
-                                None
-                            }
+                            on_click.map(|on_click| Callback::from(move |_| { on_click.emit(i); }))
                         }
                     >
                         <div class="lp-pin-div" />

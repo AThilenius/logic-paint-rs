@@ -1,7 +1,7 @@
 use glam::{IVec2, Mat4, Vec3};
 use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader};
 
-use super::{uniform::Uniform, SetUniformType};
+use super::{SetUniformType, uniform::Uniform};
 
 const CELL_VERT_SRC: &str = include_str!("../shaders/cell.vert");
 const CELL_FRAG_SRC: &str = include_str!("../shaders/cell.frag");

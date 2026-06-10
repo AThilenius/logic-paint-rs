@@ -1,3 +1,31 @@
+#![allow(
+    dead_code,
+    deprecated,
+    unused_assignments,
+    unused_imports,
+    unused_unsafe,
+    clippy::assign_op_pattern,
+    clippy::clone_on_copy,
+    clippy::collapsible_if,
+    clippy::field_reassign_with_default,
+    clippy::filter_next,
+    clippy::identity_op,
+    clippy::len_zero,
+    clippy::manual_clamp,
+    clippy::needless_borrow,
+    clippy::needless_range_loop,
+    clippy::needless_return,
+    clippy::ptr_arg,
+    clippy::redundant_field_names,
+    clippy::type_complexity,
+    clippy::unnecessary_operation,
+    clippy::unwrap_or_default,
+    clippy::upper_case_acronyms,
+    clippy::useless_conversion,
+    clippy::useless_vec,
+    clippy::wrong_self_convention
+)]
+
 use wasm_bindgen::prelude::*;
 
 mod coords;

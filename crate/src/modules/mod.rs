@@ -26,7 +26,7 @@ pub trait Module {
     fn get_root(&self) -> CellCoord;
     fn set_root(&mut self, root: CellCoord);
     fn get_pins(&self) -> Vec<Pin>;
-    fn set_pins(&mut self, _pins: &Vec<Pin>) {}
+    fn set_pins(&mut self, _pins: &[Pin]) {}
     fn clock(&mut self, _time: f64) {}
 }
 
@@ -38,7 +38,7 @@ impl ConcreteModule {
             .collect()
     }
 
-    pub fn set_pin_states(&mut self, states: &Vec<bool>) {
+    pub fn set_pin_states(&mut self, states: &[bool]) {
         let mut pins = self.get_pins().clone();
         for i in 0..states.len() {
             pins[i].input_high = states[i];

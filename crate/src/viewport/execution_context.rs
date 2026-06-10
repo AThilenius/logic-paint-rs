@@ -172,8 +172,8 @@ impl ExecutionContext {
 
         // Update module inputs. First immutably collect their values.
         let module_pin_states = modules
-            .iter()
-            .map(|(_, module)| {
+            .values()
+            .map(|module| {
                 module
                     .get_pins()
                     .iter()

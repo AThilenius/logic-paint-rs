@@ -13,9 +13,9 @@ pub fn draw_via(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord) {
     let mut to_cell: NormalizedCell = buffer.get_cell(to).into();
 
     if from.is_none() {
-        match (to_cell.si, &mut to_cell.metal) {
-            (Silicon::NP { .. }, Metal::Trace { has_via, .. }) => *has_via = true,
-            _ => {}
+        if let (Silicon::NP { .. }, Metal::Trace { has_via, .. }) = (to_cell.si, &mut to_cell.metal)
+        {
+            *has_via = true
         }
     }
 
@@ -270,19 +270,17 @@ pub fn draw_metal(buffer: &mut Buffer, from: Option<CellCoord>, to: CellCoord) {
 
     if let Some(from) = from {
         let mut from_cell: NormalizedCell = buffer.get_cell(from).into();
-        match (&mut from_cell.metal, &mut to_cell.metal) {
-            (
-                Metal::Trace {
-                    placement: fc_pl, ..
-                },
-                Metal::Trace {
-                    placement: tc_pl, ..
-                },
-            ) => {
-                fc_pl.set_cardinal(to.0 - from.0);
-                tc_pl.set_cardinal(from.0 - to.0);
-            }
-            _ => {}
+        if let (
+            Metal::Trace {
+                placement: fc_pl, ..
+            },
+            Metal::Trace {
+                placement: tc_pl, ..
+            },
+        ) = (&mut from_cell.metal, &mut to_cell.metal)
+        {
+            fc_pl.set_cardinal(to.0 - from.0);
+            tc_pl.set_cardinal(from.0 - to.0);
         }
         buffer.set_cell(from, from_cell.into());
     }
@@ -316,9 +314,8 @@ where
         normalized.si = Silicon::None;
 
         // Clear via as well
-        match &mut normalized.metal {
-            Metal::Trace { has_via, .. } => *has_via = false,
-            _ => {}
+        if let Metal::Trace { has_via, .. } = &mut normalized.metal {
+            *has_via = false
         }
 
         buffer.set_cell(cell_coord, normalized.into());
@@ -373,9 +370,8 @@ where
             let neighbor_coord = CellCoord(cell_coord.0 + vector);
             let mut neighbor: NormalizedCell = buffer.get_cell(neighbor_coord).into();
 
-            match &mut neighbor.metal {
-                Metal::Trace { placement, .. } => placement.clear_cardinal(-vector),
-                _ => {}
+            if let Metal::Trace { placement, .. } = &mut neighbor.metal {
+                placement.clear_cardinal(-vector)
             }
 
             buffer.set_cell(neighbor_coord, neighbor.into());

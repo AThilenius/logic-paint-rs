@@ -3,7 +3,7 @@ use web_sys::Element;
 use yew::prelude::*;
 
 use crate::viewport::{
-    blueprint::Blueprint, editor_state::SerdeEditorState, Msg as YewViewportMsg, Viewport,
+    Msg as YewViewportMsg, Viewport, blueprint::Blueprint, editor_state::SerdeEditorState,
 };
 
 #[wasm_bindgen]

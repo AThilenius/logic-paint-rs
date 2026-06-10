@@ -1,10 +1,10 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 
 use crate::{
-    coords::{ChunkCoord, LocalCoord, CHUNK_SIZE},
+    coords::{CHUNK_SIZE, ChunkCoord, LocalCoord},
     viewport::{
-        compiler::{Atom, CellPart, CompilerResults},
         Buffer,
+        compiler::{Atom, CellPart, CompilerResults},
     },
 };
 

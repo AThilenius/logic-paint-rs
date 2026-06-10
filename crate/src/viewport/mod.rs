@@ -11,8 +11,8 @@ mod label_builder;
 use glam::{IVec2, Vec2};
 use gloo::{events::EventListener, utils::document};
 use itertools::Itertools;
-use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{window, HtmlCanvasElement};
+use wasm_bindgen::{JsCast, prelude::*};
+use web_sys::{HtmlCanvasElement, window};
 use yew::prelude::*;
 
 use crate::{

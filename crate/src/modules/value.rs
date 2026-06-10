@@ -55,7 +55,7 @@ impl Module for Value {
             false,
         );
 
-        let unsigned = unsafe { std::mem::transmute::<i64, u64>(self.value) };
+        let unsigned = unsafe { i64::cast_unsigned(self.value) };
         for i in 0..self.bus_width {
             pins[i].output_high = (unsigned >> i) & 1 > 0;
         }
@@ -63,7 +63,7 @@ impl Module for Value {
         pins
     }
 
-    fn set_pins(&mut self, pins: &Vec<Pin>) {
+    fn set_pins(&mut self, pins: &[Pin]) {
         let mut unsigned = 0_u64;
 
         for i in 0..self.bus_width {
@@ -72,7 +72,7 @@ impl Module for Value {
             }
         }
 
-        self.value_in = unsafe { std::mem::transmute::<u64, i64>(unsigned) };
+        self.value_in = unsafe { u64::cast_signed(unsigned) };
     }
 }
 

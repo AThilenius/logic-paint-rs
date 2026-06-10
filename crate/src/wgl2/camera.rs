@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use glam::{IVec2, Mat4, Quat, Vec2, Vec3, Vec3Swizzles};
 
 use crate::{
-    coords::{CellCoord, ChunkCoord, CHUNK_SIZE},
+    coords::{CHUNK_SIZE, CellCoord, ChunkCoord},
     viewport::input::InputState,
 };
 

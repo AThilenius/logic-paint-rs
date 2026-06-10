@@ -4,9 +4,9 @@ use glam::{IVec2, UVec2};
 use itertools::Itertools;
 
 use crate::{
-    coords::{CellCoord, ChunkCoord, LocalCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
+    coords::{CHUNK_SIZE, CellCoord, ChunkCoord, LOG_CHUNK_SIZE, LocalCoord},
     modules::{ConcreteModule, Module},
-    upc::{Metal, NormalizedCell, Placement, Silicon, LOG_UPC_BYTE_LEN, UPC, UPC_BYTE_LEN},
+    upc::{LOG_UPC_BYTE_LEN, Metal, NormalizedCell, Placement, Silicon, UPC, UPC_BYTE_LEN},
     utils::Selection,
 };
 
@@ -48,7 +48,7 @@ impl Buffer {
 
         self.chunks
             .entry(chunk_coord)
-            .or_insert_with(|| Default::default())
+            .or_default()
             .set_cell(coord, cell);
     }
 
@@ -295,10 +295,8 @@ impl Buffer {
                             ec_placement: n_pl,
                             ..
                         },
-                    ) => {
-                        if n_pl.has_cardinal(-dir) {
-                            fixed_pl.set_cardinal(dir);
-                        }
+                    ) if n_pl.has_cardinal(-dir) => {
+                        fixed_pl.set_cardinal(dir);
                     }
                     _ => {}
                 }

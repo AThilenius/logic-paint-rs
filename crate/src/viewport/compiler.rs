@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    coords::{CellCoord, ChunkCoord, CHUNK_SIZE, LOG_CHUNK_SIZE},
+    coords::{CHUNK_SIZE, CellCoord, ChunkCoord, LOG_CHUNK_SIZE},
     log,
     upc::{Bit, Metal, NormalizedCell, Silicon},
     viewport::buffer::Buffer,
@@ -274,7 +274,7 @@ impl CompilerResults {
                             {
                                 Atom {
                                     coord,
-                                    part: if (*v).x < 0 || (*v).y > 0 {
+                                    part: if v.x < 0 || v.y > 0 {
                                         CellPart::EcDownRight
                                     } else {
                                         CellPart::EcUpLeft
@@ -322,7 +322,7 @@ impl CompilerResults {
                             {
                                 Atom {
                                     coord,
-                                    part: if (*v).x < 0 || (*v).y > 0 {
+                                    part: if v.x < 0 || v.y > 0 {
                                         CellPart::EcDownRight
                                     } else {
                                         CellPart::EcUpLeft

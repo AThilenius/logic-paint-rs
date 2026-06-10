@@ -142,7 +142,7 @@ impl Module for Memory {
         pins
     }
 
-    fn set_pins(&mut self, pins: &Vec<Pin>) {
+    fn set_pins(&mut self, pins: &[Pin]) {
         self.byte_addressed = pins[0].input_high;
         self.out_en = pins[1].input_high;
         let write = pins[2].input_high;

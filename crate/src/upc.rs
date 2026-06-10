@@ -191,20 +191,19 @@ pub struct NormalizedCell {
     pub si: Silicon,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
 pub enum Metal {
+    #[default]
     None,
-    Trace { has_via: bool, placement: Placement },
+    Trace {
+        has_via: bool,
+        placement: Placement,
+    },
 }
 
-impl Default for Metal {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
 pub enum Silicon {
+    #[default]
     None,
     NP {
         is_n: bool,
@@ -216,12 +215,6 @@ pub enum Silicon {
         gate_placement: Placement,
         ec_placement: Placement,
     },
-}
-
-impl Default for Silicon {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl From<UPC> for NormalizedCell {

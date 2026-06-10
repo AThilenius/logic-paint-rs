@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::{JsCast, prelude::*};
 use web_sys::window;
 
 /// Hooks both the animation loop and a 'work pulling' loop for doing simulation in. Work in the
