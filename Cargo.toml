@@ -5,7 +5,7 @@ authors = ["Alec Thilenius <alec@thilenius.com>"]
 description = "A logic simulation library written in Rust, inspired by KOHCTPYKTOP."
 license = "MIT/Apache-2.0"
 repository = "https://gitlab.com/athilenius/logic-paint-rs"
-edition = "2018"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
