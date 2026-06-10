@@ -22,6 +22,7 @@ struct RenderChunk {
     cell_texture: Texture,
     vao: QuadVao,
     last_uploaded_cells: Vec<u8>,
+    scratch_cells: Vec<u8>,
 }
 
 impl RenderContext {
@@ -87,6 +88,7 @@ impl RenderContext {
                         cell_texture,
                         vao,
                         last_uploaded_cells: Vec::new(),
+                        scratch_cells: Vec::new(),
                     },
                 );
                 self.render_chunks.get_mut(&chunk_coord).unwrap()
@@ -96,9 +98,15 @@ impl RenderContext {
             self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
 
             if let Some(buffer_chunk) = buffer.chunks.get(&chunk_coord) {
-                let mut packed_cells = buffer_chunk.cells.clone();
+                if render_chunk.scratch_cells.len() != buffer_chunk.cells.len() {
+                    render_chunk.scratch_cells.resize(buffer_chunk.cells.len(), 0);
+                }
+                render_chunk
+                    .scratch_cells
+                    .copy_from_slice(buffer_chunk.cells.as_slice());
+
                 if let Some(mask_chunk) = mask.and_then(|m| m.get_chunk(chunk_coord)) {
-                    let cell_count = packed_cells.len() / 4;
+                    let cell_count = render_chunk.scratch_cells.len() / 4;
                     for cell_idx in 0..cell_count {
                         let base = cell_idx * 4;
                         let mut packed_mask = 0_u8;
@@ -114,19 +122,28 @@ impl RenderContext {
                         if mask_chunk.cells[base + 3] > 0 {
                             packed_mask |= 1 << 3;
                         }
-                        packed_cells[base + 2] = packed_mask;
+                        render_chunk.scratch_cells[base + 2] = packed_mask;
                     }
                 } else {
                     // Clear packed mask channel.
-                    let cell_count = packed_cells.len() / 4;
+                    let cell_count = render_chunk.scratch_cells.len() / 4;
                     for cell_idx in 0..cell_count {
-                        packed_cells[(cell_idx * 4) + 2] = 0;
+                        render_chunk.scratch_cells[(cell_idx * 4) + 2] = 0;
                     }
                 }
 
-                if render_chunk.last_uploaded_cells.as_slice() != packed_cells.as_slice() {
-                    render_chunk.cell_texture.set_pixels(&packed_cells[..])?;
-                    render_chunk.last_uploaded_cells = packed_cells;
+                if render_chunk.last_uploaded_cells.as_slice() != render_chunk.scratch_cells.as_slice() {
+                    render_chunk
+                        .cell_texture
+                        .set_pixels(render_chunk.scratch_cells.as_slice())?;
+                    if render_chunk.last_uploaded_cells.len() != render_chunk.scratch_cells.len() {
+                        render_chunk
+                            .last_uploaded_cells
+                            .resize(render_chunk.scratch_cells.len(), 0);
+                    }
+                    render_chunk
+                        .last_uploaded_cells
+                        .copy_from_slice(render_chunk.scratch_cells.as_slice());
                 }
 
                 // Bind the render chunk's texture as it's non-empty.
