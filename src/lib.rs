@@ -30,6 +30,7 @@ use wasm_thread as thread;
 mod coords;
 mod module;
 mod project;
+mod render;
 mod substrate;
 mod tools;
 mod upc;

@@ -1,20 +1,24 @@
 use std::collections::HashMap;
 
-use glam::Vec2;
+use glam::{IVec2, Vec2};
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
 
 use crate::{
     coords::ChunkCoord,
     project::Project,
-    wgl2::{Camera, CellProgram, QuadVao, SetUniformType, Texture},
+    render::prep::{collect_nonempty_chunks, prepare_chunk_pixels, ChunkUploadState},
+    wgl2::{Camera, CellBgProgram, CellProgram, OverlayUniformState, QuadVao, SetUniformType, Texture},
 };
 
 /// Represents only the presentation state of an on or off screen viewport for rendering.
 #[wasm_bindgen]
 pub struct Viewport {
     program: CellProgram,
+    bg_program: CellBgProgram,
     render_chunks: HashMap<ChunkCoord, RenderChunk>,
+    background_vao: Option<QuadVao>,
+    background_key: Option<(ChunkCoord, u32, u32)>,
     canvas: HtmlCanvasElement,
     gl: WebGl2RenderingContext,
 }
@@ -22,8 +26,7 @@ pub struct Viewport {
 struct RenderChunk {
     cell_texture: Texture,
     vao: QuadVao,
-    last_uploaded_cells: Vec<u8>,
-    scratch_cells: Vec<u8>,
+    upload: ChunkUploadState,
 }
 
 #[wasm_bindgen]
@@ -40,10 +43,14 @@ impl Viewport {
             .expect("cast get_context_with_context_options into WebGL2RenderingContext");
 
         let program = CellProgram::compile(&gl).expect("glsl programs to compile");
+        let bg_program = CellBgProgram::compile(&gl).expect("background glsl program to compile");
 
         Self {
             render_chunks: Default::default(),
+            background_vao: None,
+            background_key: None,
             program,
+            bg_program,
             canvas,
             gl,
         }
@@ -57,7 +64,6 @@ impl Viewport {
             .now()
             / 1000.0;
 
-        // Maintain HTML Canvas size and context viewport.
         let w = self.canvas.client_width() as u32;
         let h = self.canvas.client_height() as u32;
 
@@ -71,140 +77,100 @@ impl Viewport {
         self.gl
             .viewport(0, 0, camera.size.x as i32, camera.size.y as i32);
 
-        // Update per-draw uniforms
-        self.program.use_program(&self.gl);
-        self.program
-            .view_proj
-            .set(&self.gl, camera.get_view_proj_matrix());
-        self.program.time.set(&self.gl, time as f32);
-        self.program
-            .cell_select_ll
-            .set(&self.gl, editor.selection.lower_left.0);
-        self.program
-            .cell_select_ur
-            .set(&self.gl, editor.selection.upper_right.0);
-        self.program.cursor_coord.set(
-            &self.gl,
-            editor
-                .cursor_coord
-                .map(|c| c.0)
-                .unwrap_or((i32::MIN, i32::MIN).into()),
-        );
-
-        // Compute the lower-left and upper-right chunk coords visible to the camera.
         let ll: ChunkCoord = camera
             .project_screen_point_to_cell(Vec2::new(-1.0, camera.size.y + 1.0))
             .into();
         let ur: ChunkCoord = camera
             .project_screen_point_to_cell(Vec2::new(camera.size.x + 1.0, -1.0))
             .into();
-        let width = ur.0.x - ll.0.x;
-        let height = ur.0.y - ll.0.y;
+        let width = (ur.0.x - ll.0.x) as u32;
+        let height = (ur.0.y - ll.0.y) as u32;
+        let width_chunks = width + 1;
+        let height_chunks = height + 1;
+        let bg_key = (ll, width_chunks, height_chunks);
 
-        // Render the background VAO.
-        let vao = QuadVao::new(&self.gl, &self.program, &ll, width.max(height) as u32 + 1)?;
-        // Bind empty cell texture
+        if self.background_key != Some(bg_key) {
+            self.background_vao = Some(QuadVao::new_rect(
+                &self.gl,
+                &self.program,
+                &ll,
+                width_chunks,
+                height_chunks,
+            )?);
+            self.background_key = Some(bg_key);
+        }
+
+        let overlay = OverlayUniformState {
+            view_proj: camera.get_view_proj_matrix(),
+            cell_select_ll: editor.selection.lower_left.0,
+            cell_select_ur: editor.selection.upper_right.0,
+            cursor_coord: editor
+                .cursor_coord
+                .map(|c| c.0)
+                .unwrap_or(IVec2::new(i32::MIN, i32::MIN)),
+        };
+
         self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
-        self.gl
-            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
 
-        self.program
+        self.bg_program.use_program(&self.gl);
+        self.bg_program.set_overlay_uniforms(&self.gl, &overlay);
+        self.bg_program
             .chunk_start_cell_offset
             .set(&self.gl, ll.first_cell_coord().0);
 
-        // Bind the VAO and draw
-        vao.bind();
+        self.gl
+            .bind_texture(WebGl2RenderingContext::TEXTURE_2D, None);
+        self.background_vao.as_ref().expect("background vao").bind();
         self.gl.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
 
-        // Then render all non-empty chunks
-        for chunk in &editor.buffer.chunks {
-            // Frustum cull chunks that aren't visible
-            let coord = chunk.chunk_coord;
-            if coord.0.x < ll.0.x || coord.0.x > ur.0.x || coord.0.y < ll.0.y || coord.0.y > ur.0.y
-            {
-                continue;
-            }
+        let chunk_index = collect_nonempty_chunks(&editor.buffer);
+        self.render_chunks
+            .retain(|coord, _| chunk_index.contains_key(coord));
 
-            let render_chunk = if let Some(crc) = self.render_chunks.get_mut(&coord) {
-                crc
-            } else {
-                let vao = QuadVao::new(&self.gl, &self.program, &coord, 1)?;
-                let cell_texture = Texture::new_chunk_texture(&self.gl)?;
-                self.render_chunks.insert(
-                    coord.clone(),
-                    RenderChunk {
-                        cell_texture,
-                        vao,
-                        last_uploaded_cells: Vec::new(),
-                        scratch_cells: Vec::new(),
-                    },
-                );
-                self.render_chunks.get_mut(&coord).unwrap()
-            };
+        self.program.use_program(&self.gl);
+        self.program.set_overlay_uniforms(&self.gl, &overlay);
+        self.program.time.set(&self.gl, time as f32);
 
-            // Update and bind the packed cell texture.
-            self.gl.active_texture(WebGl2RenderingContext::TEXTURE0);
+        for y in ll.0.y..=ur.0.y {
+            for x in ll.0.x..=ur.0.x {
+                let coord = ChunkCoord((x, y).into());
+                let Some(&chunk_idx) = chunk_index.get(&coord) else {
+                    continue;
+                };
 
-            let chunk_cells = chunk.get_cells();
-            if render_chunk.scratch_cells.len() != chunk_cells.len() {
-                render_chunk.scratch_cells.resize(chunk_cells.len(), 0);
-            }
-            render_chunk
-                .scratch_cells
-                .copy_from_slice(chunk_cells.as_ref());
+                let chunk = &editor.buffer.chunks[chunk_idx];
 
-            if let Some(mask_chunk) = editor.mask.get_chunk(coord) {
-                let cell_count = render_chunk.scratch_cells.len() / 4;
-                for cell_idx in 0..cell_count {
-                    let base = cell_idx * 4;
-                    let mut packed_mask = 0_u8;
-                    if mask_chunk.cells[base + 0] > 0 {
-                        packed_mask |= 1 << 0;
-                    }
-                    if mask_chunk.cells[base + 1] > 0 {
-                        packed_mask |= 1 << 1;
-                    }
-                    if mask_chunk.cells[base + 2] > 0 {
-                        packed_mask |= 1 << 2;
-                    }
-                    if mask_chunk.cells[base + 3] > 0 {
-                        packed_mask |= 1 << 3;
-                    }
-                    render_chunk.scratch_cells[base + 2] = packed_mask;
-                }
-            } else {
-                // Clear packed mask channel.
-                let cell_count = render_chunk.scratch_cells.len() / 4;
-                for cell_idx in 0..cell_count {
-                    render_chunk.scratch_cells[(cell_idx * 4) + 2] = 0;
-                }
-            }
+                let render_chunk = if let Some(crc) = self.render_chunks.get_mut(&coord) {
+                    crc
+                } else {
+                    let vao = QuadVao::new(&self.gl, &self.program, &coord, 1)?;
+                    let cell_texture = Texture::new_chunk_texture(&self.gl)?;
+                    self.render_chunks.insert(
+                        coord,
+                        RenderChunk {
+                            cell_texture,
+                            vao,
+                            upload: ChunkUploadState::default(),
+                        },
+                    );
+                    self.render_chunks.get_mut(&coord).unwrap()
+                };
 
-            if render_chunk.last_uploaded_cells.as_slice() != render_chunk.scratch_cells.as_slice() {
-                render_chunk
-                    .cell_texture
-                    .set_pixels(render_chunk.scratch_cells.as_slice())?;
-                if render_chunk.last_uploaded_cells.len() != render_chunk.scratch_cells.len() {
+                let cells = chunk.get_cells();
+                let mask_chunk = editor.mask.get_chunk(coord);
+                if prepare_chunk_pixels(&mut render_chunk.upload, cells.as_ref(), mask_chunk) {
                     render_chunk
-                        .last_uploaded_cells
-                        .resize(render_chunk.scratch_cells.len(), 0);
+                        .cell_texture
+                        .set_pixels(render_chunk.upload.upload_slice())?;
                 }
-                render_chunk
-                    .last_uploaded_cells
-                    .copy_from_slice(render_chunk.scratch_cells.as_slice());
+
+                render_chunk.cell_texture.bind();
+                self.program
+                    .chunk_start_cell_offset
+                    .set(&self.gl, coord.first_cell_coord().0);
+                render_chunk.vao.bind();
+                self.gl.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
             }
-
-            // Bind the render chunk's texture as it's non-empty.
-            render_chunk.cell_texture.bind();
-
-            // Update the per-chunk program uniforms
-            self.program
-                .chunk_start_cell_offset
-                .set(&self.gl, coord.first_cell_coord().0);
-
-            // Bind the VAO and draw
-            render_chunk.vao.bind();
-            self.gl.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, 6);
         }
 
         Ok(())

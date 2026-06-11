@@ -3,7 +3,7 @@ precision highp float;
 precision highp int;
 precision highp usampler2D;
 
-in vec2 v_uv;
+in vec2 v_world;
 
 uniform float time;
 uniform usampler2D cells_texture_sampler;
@@ -22,6 +22,7 @@ const vec3 background_color = vec3(0.0, 0.0, 0.0);
 const vec3 socket_color = vec3(1.0, 0.0, 0.0);
 const float grid_blend_strength = 0.065;
 const float metal_over_si_blend = 0.75;
+const float CELLS_PER_CHUNK = 128.0;
 
 // Selection
 const vec3 cell_select_color = vec3(0.32, 0.6, 0.8);
@@ -86,21 +87,36 @@ bool connection_gate(
 }
 
 void main() {
-    float epsilon = 0.00001;
-    vec2 float_local_coord = clamp(
-        v_uv,
-        vec2(0.0),
-        vec2(128.0 - epsilon)
-    );
-    uvec2 local_coord = clamp(
-        uvec2(floor(float_local_coord)),
-        uvec2(0),
-        uvec2(127)
-    );
-    ivec2 cell_coord = chunk_start_cell_offset + ivec2(local_coord);
-    vec2 tile_uv = fract(float_local_coord);
+    vec2 cell_float = v_world * CELLS_PER_CHUNK;
+    ivec2 cell_coord = ivec2(floor(cell_float));
+    uvec2 local_coord = uvec2(cell_coord - chunk_start_cell_offset);
+    vec2 tile_uv = fract(cell_float);
 
     uvec4 cells = texelFetch(cells_texture_sampler, ivec2(local_coord), 0);
+
+    bool cell_selected =
+        cell_coord.x >= cell_select_ll.x &&
+        cell_coord.y >= cell_select_ll.y &&
+        cell_coord.x < cell_select_ur.x &&
+        cell_coord.y < cell_select_ur.y;
+
+    bool cursor =
+        cursor_coord.x == cell_coord.x ||
+        cursor_coord.y == cell_coord.y;
+
+    if (cells.r == 0u && cells.g == 0u) {
+        bool grid_1 = (((local_coord.x & 1u) + (local_coord.y & 1u)) & 1u) == 0u;
+        bool grid_8 = ((((local_coord.x >> 3u) & 1u) + ((local_coord.y >> 3u) & 1u)) & 1u) == 0u;
+        float grid_blend =
+              (grid_8 ? grid_blend_strength * 0.6 : 0.0)
+            + (grid_1 ? grid_blend_strength : 0.0);
+
+        vec3 color = mix(background_color, grid_color, grid_blend);
+        color = mix(color, cursor_follow_color, cursor ? 0.5 : 0.0);
+        color = mix(color, cell_select_color, cell_selected ? 0.5 : 0.0);
+        out_color = vec4(color, 1.0);
+        return;
+    }
 
     // Mirrors the format in upc.rs
     bool si_n = (cells.r & (1u << 7u)) > 0u;
@@ -128,16 +144,6 @@ void main() {
     bool gate_active = (cells.b & (1u << 1u)) > 0u;
     bool si_ul_active = (cells.b & (1u << 2u)) > 0u || (!is_mosfet && gate_active);
     bool si_dr_active = (cells.b & (1u << 3u)) > 0u || (!is_mosfet && gate_active);
-
-    bool cell_selected =
-        cell_coord.x >= cell_select_ll.x &&
-        cell_coord.y >= cell_select_ll.y &&
-        cell_coord.x < cell_select_ur.x &&
-        cell_coord.y < cell_select_ur.y;
-
-    bool cursor =
-        cursor_coord.x == cell_coord.x ||
-        cursor_coord.y == cell_coord.y;
 
     bool metal_connection = connection(
         0.35,
@@ -209,7 +215,6 @@ void main() {
     );
     float metal_blend = metal && metal_connection ? 1.0 : 0.0;
 
-    vec3 via_color = mix(si_color, vec3(1.0), 1.0);
     vec2 via_dist = tile_uv - vec2(0.5);
     float via_blend = 1.0 - smoothstep(
         0.1,
@@ -246,7 +251,7 @@ void main() {
     );
 
     // Vias are on or off.
-    color = mix(color, via_color, via_blend);
+    color = mix(color, vec3(1.0), via_blend);
 
     // Cell selection highlights the whole cell
     color = mix(
