@@ -1,4 +1,3 @@
-use glam::UVec2;
 use web_sys::{WebGl2RenderingContext, WebGlBuffer, WebGlVertexArrayObject};
 
 use crate::coords::{ChunkCoord, CHUNK_SIZE};
@@ -16,35 +15,47 @@ impl QuadVao {
         ctx: &WebGl2RenderingContext,
         program: &CellProgram,
         chunk_coord: &ChunkCoord,
-        // The number of CHUNKs (both width and height) this VAO should span.
         size: u32,
     ) -> Result<QuadVao, String> {
+        Self::new_rect(ctx, program, chunk_coord, size, size)
+    }
+
+    pub fn new_rect(
+        ctx: &WebGl2RenderingContext,
+        program: &CellProgram,
+        chunk_coord: &ChunkCoord,
+        width_chunks: u32,
+        height_chunks: u32,
+    ) -> Result<QuadVao, String> {
         let l = chunk_coord.0.as_vec2();
-        let s = size as f32;
+        let w = width_chunks as f32;
+        let h = height_chunks as f32;
         let vertices: [f32; 12] = [
             l.x,
             l.y,
-            l.x + s,
+            l.x + w,
             l.y,
-            l.x + s,
-            l.y + s,
+            l.x + w,
+            l.y + h,
             l.x,
             l.y,
-            l.x + s,
-            l.y + s,
+            l.x + w,
+            l.y + h,
             l.x,
-            l.y + s,
+            l.y + h,
         ];
 
-        let c = (size * CHUNK_SIZE as u32) as f32;
-        let uvs: [f32; 12] = [0.0, 0.0, c, 0.0, c, c, 0.0, 0.0, c, c, 0.0, c];
+        let uv_w = (width_chunks * CHUNK_SIZE as u32) as f32;
+        let uv_h = (height_chunks * CHUNK_SIZE as u32) as f32;
+        let uvs: [f32; 12] = [
+            0.0, 0.0, uv_w, 0.0, uv_w, uv_h, 0.0, 0.0, uv_w, uv_h, 0.0, uv_h,
+        ];
 
         let vao = ctx
             .create_vertex_array()
             .ok_or("Could not create vertex array object")?;
         ctx.bind_vertex_array(Some(&vao));
 
-        // Positions buffer.
         let position_buffer = ctx.create_buffer().ok_or("Failed to create buffer")?;
         ctx.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&position_buffer));
 
@@ -67,7 +78,6 @@ impl QuadVao {
             0,
         );
 
-        // UV buffer.
         let uv_buffer = ctx.create_buffer().ok_or("Failed to create buffer")?;
         ctx.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&uv_buffer));
 
