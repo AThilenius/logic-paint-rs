@@ -22,10 +22,7 @@
     clippy::wrong_self_convention
 )]
 
-use std::time::Duration;
-
 use wasm_bindgen::prelude::*;
-use wasm_thread as thread;
 
 mod coords;
 mod module;
@@ -44,8 +41,12 @@ pub fn main() {
     console_error_panic_hook::set_once();
 }
 
+#[cfg(feature = "thread-test")]
 #[wasm_bindgen]
 pub fn run_thread_test() {
+    use std::time::Duration;
+    use wasm_thread as thread;
+
     for _ in 0..2 {
         thread::spawn(|| {
             for i in 1..3 {

@@ -36,9 +36,6 @@
 
         const wasm = window.wasmBindings;
 
-        // Multi-thread test
-        wasm.run_thread_test();
-
         // Load legacy cpu.lpbp
         let res = await fetch("cpu.lpbp");
         let text = await res.text();
